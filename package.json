@@ -1,0 +1,16 @@
+{
+  "name": "chinchon",
+  "version": "0.1.0",
+  "description": "Chinchón card game — Spanish deck, family house rules. Engine-first, zero-dependency Node server + browser UI.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "soak": "node test/soak.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "ISC"
+}

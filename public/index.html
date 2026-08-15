@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chinchón</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- LOBBY -->
+    <section id="lobby" class="panel hidden">
+      <h1 id="title">CHINCHÓN</h1>
+      <p id="subtitle" class="sub">Play your family's house rules online.</p>
+
+      <div class="lang-row">
+        <span class="dim">Language:</span>
+        <button class="lang-btn active" data-lang="en">English</button>
+        <button class="lang-btn" data-lang="es">Español</button>
+      </div>
+
+      <div class="tabs">
+        <button id="tab-multi" class="tab active">Play with friends</button>
+        <button id="tab-solo" class="tab">Solo vs bots</button>
+      </div>
+
+      <!-- Multi: create / join -->
+      <div id="multi-pane" class="pane">
+        <div class="sub-tabs">
+          <button id="sub-create" class="sub-tab active">Create a room</button>
+          <button id="sub-join" class="sub-tab">Have a code? Join</button>
+        </div>
+
+        <div id="create-pane">
+          <label>Your name
+            <input id="host-name" type="text" placeholder="Your name" maxlength="16" />
+          </label>
+          <button id="btn-create" class="primary">Create room</button>
+          <div id="room-info" class="hidden">
+            <p>Room code: <span id="room-code" class="code"></span></p>
+            <p>Share link: <a id="share-link" href="#" target="_blank"></a>
+              <button id="btn-copy" class="small">Copy</button></p>
+            <p>Players joined:</p>
+            <ul id="lobby-players"></ul>
+            <button id="btn-start" class="primary">Start game</button>
+          </div>
+        </div>
+
+        <div id="join-pane" class="hidden">
+          <label>Room code
+            <input id="join-code" type="text" placeholder="ABCD" maxlength="4" />
+          </label>
+          <label>Your name
+            <input id="join-name" type="text" placeholder="Your name" maxlength="16" />
+          </label>
+          <button id="btn-join" class="primary">Join room</button>
+          <p id="join-msg" class="msg"></p>
+          <button id="back-to-create" class="sub-tab-link">← Back to create</button>
+        </div>
+      </div>
+
+      <!-- Solo: bots -->
+      <div id="solo-pane" class="pane hidden">
+        <label>Your name
+          <input id="solo-name" type="text" placeholder="Your name" maxlength="16" />
+        </label>
+        <label id="solo-bots-label">Number of bots (0–6)
+          <input id="solo-bots" type="number" min="1" max="6" value="3" />
+        </label>
+        <button id="btn-solo" class="primary">Start solo game</button>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="game" class="panel hidden">
+      <header id="board-top">
+        <div id="scoreboard"></div>
+        <div id="turn-banner"></div>
+      </header>
+
+      <div id="opponents"></div>
+
+      <div id="center">
+        <div id="stock" class="pile">Stock<br /><span id="stock-count">?</span></div>
+        <div id="discard" class="pile">Discard<br /><span id="discard-top">—</span></div>
+      </div>
+
+      <div id="your-area">
+        <h2>Your hand <span id="deadwood" class="dim"></span></h2>
+        <div id="hand"></div>
+        <div id="melds"></div>
+      </div>
+
+      <!-- Slice 2: interactive lay-off board -->
+      <div id="layoff-area" class="hidden">
+        <h2 id="layoff-title"></h2>
+        <div id="layoff-table"></div>
+        <h3 id="layoff-cards-label"></h3>
+        <div id="layoff-hand"></div>
+        <div id="layoff-controls">
+          <button id="btn-layoff-lay" class="primary"></button>
+          <button id="btn-layoff-auto" class="primary"></button>
+          <button id="btn-layoff-ready" class="primary"></button>
+          <button id="btn-layoff-suggest" class="small"></button>
+          <span id="layoff-status" class="msg"></span>
+        </div>
+      </div>
+
+      <div id="controls">
+        <button id="btn-draw-stock" class="primary hidden">Draw from stock</button>
+        <button id="btn-draw-discard" class="primary hidden">Draw from discard</button>
+        <div id="close-options"></div>
+      </div>
+
+      <p id="status" class="msg"></p>
+
+      <!-- Game over (Slice 3): winner + eliminations + play again -->
+      <div id="gameover" class="hidden">
+        <div class="go-card">
+          <h2 id="go-title"></h2>
+          <p id="go-winner" class="go-winner"></p>
+          <div id="go-eliminated" class="dim"></div>
+          <div class="go-actions">
+            <button id="btn-rematch" class="primary"></button>
+            <button id="btn-tolobby" class="small"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
