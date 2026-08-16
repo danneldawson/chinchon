@@ -117,6 +117,23 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+// Resume token: remember each room's seat on this device so a dropped player
+// can rejoin their SAME seat by reopening the (seat-embedded) link or just the
+// room code on the same phone.
+function persistSeat(code, seatId) {
+  try { localStorage.setItem('chinchon:' + code, seatId); } catch { /* ignore */ }
+}
+function loadSeat(code) {
+  try { return localStorage.getItem('chinchon:' + code) || null; } catch { return null; }
+}
+function clearSeat(code) {
+  try { localStorage.removeItem('chinchon:' + code); } catch { /* ignore */ }
+}
+// Share link embeds the seat so it doubles as a rejoin link on any device.
+function shareLinkFor(code, seatId) {
+  return location.origin + '/?code=' + code + (seatId ? '&seat=' + seatId : '');
+}
+
 // ----------------------------------------------------------- lobby wiring
 
 function show(panel) {
@@ -182,15 +199,32 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
   };
 });
 
-// If opened with ?code=ABCD, jump straight to join form.
+// If opened with ?code=ABCD[&seat=ZZZ], jump straight to the room. With a seat
+// we auto-rejoin that exact seat (spectator if eliminated/match moved on).
 (function initFromUrl() {
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
-  if (code) {
-    setTab('multi');
-    showSub('join');
-    $('join-code').value = code.toUpperCase();
+  if (!code) return;
+  const seat = params.get('seat');
+  if (seat) {
+    // Auto-resume this seat on load.
+    (async () => {
+      const res = await fetch('/api/room/join', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.toUpperCase(), seatId: seat }),
+      }).then((r) => r.json()).catch(() => null);
+      if (res && res.seatId) {
+        state.code = code.toUpperCase();
+        state.seatId = res.seatId;
+        persistSeat(state.code, res.seatId);
+        enterGame();
+      }
+    })();
+    return;
   }
+  setTab('multi');
+  showSub('join');
+  $('join-code').value = code.toUpperCase();
 })();
 
 $('btn-create').onclick = async () => {
@@ -201,8 +235,9 @@ $('btn-create').onclick = async () => {
   }).then((r) => r.json());
   state.code = res.code;
   state.seatId = res.seatId;
+  persistSeat(res.code, res.seatId);
   $('room-code').textContent = res.code;
-  const link = location.origin + res.shareUrl;
+  const link = shareLinkFor(res.code, res.seatId);
   $('share-link').textContent = link;
   $('share-link').href = link;
   $('room-info').classList.remove('hidden');
@@ -212,7 +247,7 @@ $('btn-create').onclick = async () => {
 };
 
 $('btn-copy').onclick = () => {
-  const link = location.origin + '/?code=' + state.code;
+  const link = shareLinkFor(state.code, state.seatId);
   copyText(link);
   $('btn-copy').textContent = t('copy') + '!';
   setTimeout(() => ($('btn-copy').textContent = t('copy')), 1200);
@@ -258,6 +293,7 @@ $('btn-join').onclick = async () => {
   if (res.error) { $('join-msg').textContent = res.error; return; }
   state.code = code;
   state.seatId = res.seatId;
+  persistSeat(code, res.seatId);
   enterGame();
 };
 
@@ -270,6 +306,7 @@ $('btn-solo').onclick = async () => {
   }).then((r) => r.json());
   state.code = res.code;
   state.seatId = res.seatId;
+  persistSeat(res.code, res.seatId);
   enterGame();
 };
 
@@ -359,7 +396,12 @@ function render() {
 
   // Scoreboard
   $('scoreboard').innerHTML = v.scoreboard
-    .map((p) => `<div class="row ${p.out ? 'out' : ''}">${p.name}: ${p.total}${p.out ? ' · ' + t('out') : ''}</div>`)
+    .map((p) => {
+      const dot = p.spectator ? 'red' : p.away ? 'yellow' : 'green';
+      const title = p.spectator ? 'disconnected' : p.away ? 'idle' : 'connected';
+      const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
+      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${p.name}: ${p.total}${p.out ? ' · ' + t('out') : ''}</div>`;
+    })
     .join('');
 
   // Turn banner
@@ -368,6 +410,9 @@ function render() {
   } else {
     $('turn-banner').textContent = v.isYourTurn ? t('yourTurn') : t('waiting');
   }
+
+  // Connection / waiting / spectator banner
+  renderStatusBanner(v);
 
   // Game-over panel (Slice 3)
   const go = $('gameover');
@@ -500,6 +545,43 @@ function render() {
   if (inLayoff) renderLayoff(v.layoff);
 }
 
+// Connection / waiting / spectator banner. Shows drops, the host's wait/continue
+// controls, and a spectator notice for a player who rejoined (or was continued).
+function renderStatusBanner(v) {
+  const el = $('status-banner');
+  el.innerHTML = '';
+  if (v.spectator) {
+    el.classList.remove('hidden');
+    el.className = 'banner spectator';
+    el.textContent = (lang === 'es') ? 'Estás como espectador; vuelves en la próxima partida.' : 'You are spectating — you rejoin the next match.';
+    return;
+  }
+  if (v.waiting) {
+    el.classList.remove('hidden');
+    el.className = 'banner waiting';
+    const secs = v.waiting.secondsLeft;
+    const head = (lang === 'es')
+      ? `Esperando a ${v.waiting.name}… (${secs}s)`
+      : `Waiting for ${v.waiting.name}… (${secs}s)`;
+    el.textContent = head;
+    if (v.isHost) {
+      const wait = document.createElement('button');
+      wait.className = 'small';
+      wait.textContent = (lang === 'es') ? 'Esperar más' : 'Wait / extend';
+      wait.onclick = () => apiPost('/api/room/wait');
+      el.appendChild(wait);
+      const cont = document.createElement('button');
+      cont.className = 'small primary';
+      cont.textContent = (lang === 'es') ? 'Continuar sin él' : 'Continue without them';
+      cont.disabled = !v.waiting.canContinue;
+      cont.onclick = () => apiPost('/api/room/continue');
+      el.appendChild(cont);
+    }
+    return;
+  }
+  el.classList.add('hidden');
+}
+
 // Render the lay-off board. `lo` is the serialized layoff view from the server.
 function renderLayoff(lo) {
   $('layoff-title').textContent = lo.done ? t('gameOver') : t('layoffTitle');
@@ -595,6 +677,16 @@ async function doDraw(from) {
   await poll();
 }
 
+// Generic POST for room control actions (wait/continue/rematch).
+async function apiPost(path) {
+  const res = await fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  }).then((r) => r.json());
+  if (res.error) $('status').textContent = res.error;
+  await poll();
+}
+
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {
   const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
@@ -638,6 +730,7 @@ $('btn-rematch').onclick = async () => {
 };
 $('btn-tolobby').onclick = () => {
   clearInterval(state.pollTimer);
+  clearSeat(state.code);
   state.code = null;
   state.seatId = null;
   state.view = null;

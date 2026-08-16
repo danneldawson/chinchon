@@ -158,6 +158,17 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .go-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .row.out { opacity: 0.5; text-decoration: line-through; }
 
+/* Connection status dots on the scoreboard */
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.dot-green { background: #2ecc71; box-shadow: 0 0 6px rgba(46,204,113,.6); }
+.dot-yellow { background: #f1c40f; box-shadow: 0 0 6px rgba(241,196,15,.6); }
+.dot-red { background: #e74c3c; box-shadow: 0 0 6px rgba(231,76,60,.6); }
+
+.banner { margin: 10px 0; padding: 10px 14px; border-radius: 10px; font-size: 0.95em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner.waiting { background: rgba(241,196,15,.12); border: 1px solid rgba(241,196,15,.5); color: var(--ink); }
+.banner.spectator { background: rgba(231,76,60,.12); border: 1px solid rgba(231,76,60,.5); color: var(--ink); }
+.banner button { margin: 0; }
+
 /* ---------- animations (transform/opacity only, edge-triggered) ---------- */
 .card { transition: transform .12s ease, box-shadow .12s ease; }
 .card.clickable:hover { transform: translateY(-6px); box-shadow: 0 6px 14px rgba(0,0,0,.28); }

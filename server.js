@@ -51,9 +51,9 @@ function createRoom({ mode, name, bots }) {
     // Chinchón needs at least 2 players, so a solo game must have >= 1 bot.
     // Clamp the requested count (the UI labels this 1-6).
     const nBots = Math.max(1, Math.min(6, bots | 0));
-    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true });
+    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now() });
     for (let i = 0; i < nBots; i++) {
-      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true });
+      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now() });
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, Math.random);
@@ -63,7 +63,7 @@ function createRoom({ mode, name, bots }) {
   }
 
   // multi: humans only, capacity 2-7, wait for Start.
-  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true };
+  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now() };
   players.push(host);
   const room = { code, mode, players, match: null, state: null, started: false, hostId: host.id };
   rooms.set(code, room);
@@ -114,11 +114,81 @@ function topOfDiscardOk(state) {
   return top && bot.improvesHand(state.hands[state.turn], top);
 }
 
+// ----------------------------------------------------------- reconnection
+// No WebSocket: a client stamps lastSeen on every /api/state poll (~1.2s).
+const AWAY_MS = 20000;          // no poll in 20s => considered away
+const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
+const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
+
+function stampSeen(room, seatId) {
+  const p = room.players.find((x) => x.id === seatId);
+  if (p) { p.lastSeen = Date.now(); p.connected = true; }
+}
+function isAway(p) {
+  if (!p) return true;
+  if (p.isBot) return false;
+  return Date.now() - (p.lastSeen || 0) > AWAY_MS;
+}
+function humanSeats(room) {
+  return room.players.filter((p) => !p.isBot);
+}
+// Next seat that is allowed to act (skips bots — runBotTurns handles those —
+// and skips out/spectator humans).
+function nextActiveSeat(room) {
+  const n = room.players.length;
+  let s = room.state.turn;
+  for (let i = 0; i < n; i++) {
+    s = (s + 1) % n;
+    const p = room.players[s];
+    if (p.isBot) return s; // bots resolved by runBotTurns
+    if (p.out || p.spectator) continue;
+    return s;
+  }
+  return room.state.turn;
+}
+function canContinue(room) {
+  if (!room.waiting) return false;
+  if (humanSeats(room).length <= 2) return false; // 2-player: always hold
+  return Date.now() - room.waiting.since >= CONTINUE_WAIT_MS;
+}
+// Promote the next-oldest joined human to host after the grace window.
+function promoteHost(room) {
+  const cands = humanSeats(room).filter((p) => p.id !== room.hostId && !p.spectator);
+  if (!cands.length) return;
+  cands.sort((a, b) => a.seat - b.seat);
+  room.hostId = cands[0].id;
+  room.hostGraceSince = null;
+  room.waiting = null;
+}
+// Called on every poll/action: update waiting state, host grace, rejoins.
+function evaluateWaiting(room) {
+  if (!room.started || !room.state) return;
+  const phase = room.state.phase;
+  if (phase !== 'draw' && phase !== 'discard') { room.waiting = null; }
+  if (room.waiting) {
+    const wp = room.players[room.waiting.seat];
+    if (wp && !isAway(wp) && !wp.spectator) room.waiting = null; // they're back
+  }
+  const host = room.players.find((p) => p.id === room.hostId);
+  if (host && !host.isBot && isAway(host) && !host.spectator) {
+    if (!room.hostGraceSince) room.hostGraceSince = Date.now();
+    else if (Date.now() - room.hostGraceSince > HOST_GRACE_MS) promoteHost(room);
+  } else {
+    room.hostGraceSince = null;
+  }
+  if (!room.waiting && (phase === 'draw' || phase === 'discard')) {
+    const cur = room.players[room.state.turn];
+    if (cur && !cur.isBot && isAway(cur) && !cur.spectator) {
+      room.waiting = { seat: room.state.turn, since: Date.now() };
+    }
+  }
+}
+
 // Start an interactive lay-off from a closed round. Honors the closer's chosen
 // meld decomposition (room.pendingCloseChoice) when a human picked one.
 function beginLayoffForRoom(room) {
   const { state, players } = room;
-  const active = players.map((_, i) => i).filter((i) => !players[i].out);
+  const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
   const chosen = room.pendingCloseChoice || null;
   room.pendingCloseChoice = null;
   const lo = layoffInteractive.beginLayoff(state.hands, state.closerIndex, active, chosen);
@@ -185,7 +255,7 @@ function finishLayoff(room) {
 function maybeRedeal(room) {
   const { match, players, state } = room;
   if (match.gameOver) { room.state.phase = 'over'; return; }
-  const active = players.map((_, i) => i).filter((i) => !players[i].out);
+  const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
   room.state = turn.startRound(players.length, Math.random, state.dealer, active);
   runBotTurns(room);
 }
@@ -234,6 +304,8 @@ function serialize(room, seatId) {
     name: p.name,
     isBot: p.isBot,
     out: match.players[i].out,
+    spectator: !!p.spectator,
+    away: isAway(p),
     total: match.players[i].total,
     handCount: state.hands[i] ? state.hands[i].length : 0,
     isYou: p.id === seatId,
@@ -276,6 +348,17 @@ function serialize(room, seatId) {
     started: room.started,
     gameOver: match.gameOver,
     winner: match.winner !== null ? players[match.winner].name : null,
+    hostId: room.hostId,
+    isHost: !!viewer && viewer.id === room.hostId,
+    spectator: !!viewer && !!viewer.spectator,
+    waiting: room.waiting
+      ? {
+          seat: room.waiting.seat,
+          name: players[room.waiting.seat].name,
+          canContinue: canContinue(room),
+          secondsLeft: Math.max(0, Math.ceil((CONTINUE_WAIT_MS - (Date.now() - room.waiting.since)) / 1000)),
+        }
+      : null,
     phase: state.phase,
     turnSeat: state.turn,
     isYourTurn: state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard') || layoffYourTurn,
@@ -287,7 +370,7 @@ function serialize(room, seatId) {
     yourDeadwood: split.deadwood,
     closeOptions: opts,
     opponents,
-    scoreboard: match.players.map((p, i) => ({ name: p.name, total: p.total, out: p.out })),
+    scoreboard: match.players.map((p, i) => ({ name: p.name, total: p.total, out: p.out, away: isAway(players[i]), spectator: !!players[i].spectator })),
   };
 }
 
@@ -339,6 +422,8 @@ function handleApi(req, res, url) {
     const seat = url.searchParams.get('seat');
     const room = rooms.get(code);
     if (!room) return sendJson(res, 404, { error: 'no such room' });
+    if (seat) stampSeen(room, seat);
+    evaluateWaiting(room);
     return sendJson(res, 200, serialize(room, seat));
   }
 
@@ -366,12 +451,25 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const room = rooms.get(body.code);
       if (!room) return sendJson(res, 404, { error: 'no such room' });
+
+      // Rejoin: a returning player supplies their existing seatId to resume the
+      // SAME seat (spectator if eliminated/match moved on, active if just back).
+      if (body.seatId) {
+        const existing = room.players.find((pl) => pl.id === body.seatId);
+        if (existing && !existing.isBot) {
+          stampSeen(room, body.seatId);
+          evaluateWaiting(room);
+          return sendJson(res, 200, { seatId: existing.id, rejoined: true });
+        }
+        return sendJson(res, 404, { error: 'no such seat to rejoin' });
+      }
+
       if (room.started) return sendJson(res, 400, { error: 'game already started' });
       const humans = room.players.filter((pl) => !pl.isBot).length;
       if (humans >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now() });
       return sendJson(res, 200, { seatId: id });
     });
   }
@@ -387,6 +485,41 @@ function handleApi(req, res, url) {
       room.started = true;
       room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
       room.state = turn.startRound(room.players.length, Math.random);
+      runBotTurns(room);
+      return sendJson(res, 200, { ok: true });
+    });
+  }
+
+  // Host controls when a player is away: wait/extend, or continue without them
+  // (the away player becomes a spectator for the rest of the match).
+  if (method === 'POST' && p === '/api/room/wait') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || viewer.id !== room.hostId) return sendJson(res, 403, { error: 'only the host can wait' });
+      if (room.waiting) room.waiting.since = Date.now(); // extend the window
+      room.hostGraceSince = null;
+      return sendJson(res, 200, { ok: true });
+    });
+  }
+
+  if (method === 'POST' && p === '/api/room/continue') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || viewer.id !== room.hostId) return sendJson(res, 403, { error: 'only the host can continue' });
+      if (!room.waiting) return sendJson(res, 400, { error: 'nobody is waiting' });
+      if (humanSeats(room).length <= 2) return sendJson(res, 400, { error: 'cannot continue a 2-player game' });
+      if (!canContinue(room)) {
+        const left = Math.ceil((CONTINUE_WAIT_MS - (Date.now() - room.waiting.since)) / 1000);
+        return sendJson(res, 400, { error: `wait ${left}s before continuing`, secondsLeft: left });
+      }
+      const wp = room.players[room.waiting.seat];
+      wp.spectator = true;
+      room.waiting = null;
+      room.state.turn = nextActiveSeat(room);
       runBotTurns(room);
       return sendJson(res, 200, { ok: true });
     });
