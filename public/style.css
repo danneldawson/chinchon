@@ -175,6 +175,12 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .banner.spectator { background: rgba(231,76,60,.12); border: 1px solid rgba(231,76,60,.5); color: var(--ink); }
 .banner button { margin: 0; }
 
+/* Suit-coloured inline labels (compact fallback: colour of each kind, no icon) */
+.lbl.oros, .card-mini.oros { color: var(--oros); }
+.lbl.copas, .card-mini.copas { color: var(--copas); }
+.lbl.espadas, .card-mini.espadas { color: var(--espadas); }
+.lbl.bastos, .card-mini.bastos { color: var(--bastos); }
+
 /* ---------- animations (transform/opacity only, edge-triggered) ---------- */
 .card { transition: transform .12s ease, box-shadow .12s ease; }
 .card.clickable:hover { transform: translateY(-6px); box-shadow: 0 6px 14px rgba(0,0,0,.28); }

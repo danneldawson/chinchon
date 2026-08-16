@@ -378,9 +378,16 @@ function renderCardEl(c, { clickable, onClick } = {}) {
 }
 
 // Describe a meld set for the close-choice UI, in the player's language.
+// Compact, suit-COLOURED label (no icon) for tight inline spots — satisfies the
+// "highlight each by the colour of its kind" fallback. The meld parentheses
+// under your hand use the full SVG emblem instead (meldChip).
+function coloredLabel(c) {
+  return `<span class="lbl ${c.suit.toLowerCase()}">${c.rank}${SUIT_ICON[c.suit] || '?'}</span>`;
+}
+
 function meldsText(split) {
   const parts = split.map((m) =>
-    '[ ' + m.map((c) => cardLabel(c)).join(' ') + ' ]'
+    '[ ' + m.map((c) => coloredLabel(c)).join(' ') + ' ]'
   );
   return parts.join('  ');
 }
@@ -510,12 +517,12 @@ function render() {
     v.closeOptions.forEach((o, idx) => {
       const b = document.createElement('button');
       b.className = 'close-btn';
-      const disc = cardLabel(findCard(o.cardId));
+      const disc = coloredLabel(findCard(o.cardId));
       if (o.chinchon) {
-        b.textContent = `${t('chinchon')} (${t('discard')} ${disc})`;
+        b.innerHTML = `${t('chinchon')} (${t('discard')} ${disc})`;
       } else {
         const sign = o.score < 0 ? '' : '+';
-        b.textContent = `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
+        b.innerHTML = `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
       }
       b.onclick = () => doDiscard(findCard(o.cardId), true, idx);
       co.appendChild(b);
@@ -721,9 +728,9 @@ $('btn-layoff-ready').onclick = () => doLayoffAction('ready', {});
 $('btn-layoff-suggest').onclick = async () => {
   const res = await fetch(`/api/layoff/suggest?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
   if (res.melds) {
-    const parts = (res.melds || []).map((m) => m.map(cardLabel).join(' '));
-    const att = (res.attachable || []).map((a) => cardLabel(a.card) + '→' + (a.meldIndex + 1));
-    $('layoff-status').textContent = `Lay: [${parts.join('] [')}]` + (att.length ? `  Shed: ${att.join(', ')}` : '');
+    const parts = (res.melds || []).map((m) => m.map(coloredLabel).join(' '));
+    const att = (res.attachable || []).map((a) => coloredLabel(a.card) + '→' + (a.meldIndex + 1));
+    $('layoff-status').innerHTML = `Lay: [${parts.join('] [')}]` + (att.length ? `  Shed: ${att.join(', ')}` : '');
   }
 };
 
