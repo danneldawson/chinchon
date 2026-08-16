@@ -3,7 +3,7 @@
 // Chinchon browser client. Talks to the server via fetch and renders state.
 // State lives server-side; we only ever send our seat's actions.
 
-const SUIT_ICON = { Oros: '◆', Copas: '♥', Espadas: '♠', Bastos: '♣' };
+const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 
 // ----------------------------------------------------------- i18n
 const I18N = {
