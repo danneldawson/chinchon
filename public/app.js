@@ -807,6 +807,13 @@ async function sendChat() {
 }
 $('btn-chat-send').onclick = sendChat;
 $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
+// Tap the chat header to collapse/expand (mostly for the mobile bottom dock).
+$('chat').querySelector('.chat-head').addEventListener('click', (e) => {
+  if (e.target.id === 'btn-chat-send') return; // don't toggle when tapping Send
+  $('chat').classList.toggle('collapsed');
+});
+// Start collapsed on small screens so the board is clear on load.
+if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('collapsed');
 
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {

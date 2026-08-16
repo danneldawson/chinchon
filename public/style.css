@@ -256,3 +256,53 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
   .card, button, .hand.deal-anim .card, .card-mini.slide-in,
   .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; }
 }
+
+/* ---------- mobile-friendly base: kill tap delay, zoom, blue flash ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+button, .card, .pile, input { touch-action: manipulation; }
+.card { user-select: none; -webkit-user-select: none; }
+
+/* ---------- responsive: phones (<= 640px) ---------- */
+@media (max-width: 640px) {
+  #app { padding: 10px; }
+  .panel { padding: 14px; border-radius: 12px; }
+
+  /* Tighten the two piles so they sit side by side comfortably. */
+  #center { gap: 26px; margin: 12px 0; }
+  .pile { width: 84px; min-height: 118px; }
+  .stock-count { font-size: 1.6em; }
+
+  /* Hand: one swipeable row so all 8 cards stay big and tappable (no ugly wrap). */
+  #hand { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  #hand .card { flex: 0 0 auto; }
+  .card { width: 60px; height: 88px; }
+  .card .rank { font-size: 1.8em; }
+  .card .emblem { width: 28px; height: 28px; }
+  .hand-sep { font-size: 1.3em; }
+
+  /* Opponents + scoreboard stack and shrink. */
+  #opponents { gap: 8px; }
+  .opp { min-width: 76px; padding: 6px 8px; }
+  #scoreboard { font-size: 0.82em; }
+
+  /* Close-choice buttons go full width and stack. */
+  #close-options { display: flex; flex-direction: column; gap: 8px; }
+  #close-options .close-btn, .keep-btn { width: 100%; margin: 0; }
+
+  /* Chat docks to the BOTTOM and starts collapsed so it never covers the
+     board; tap the header to expand. (Desktop keeps the top-right float.) */
+  #game { position: static; }
+  #chat {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+    z-index: 40; border-radius: 14px 14px 0 0; max-height: 45vh;
+  }
+  #chat.collapsed { max-height: 42px; overflow: hidden; }
+  #chat.collapsed #chat-log, #chat.collapsed #chat-input { display: none; }
+  .chat-head { cursor: pointer; }
+  .chat-head::after { content: ' ▲'; opacity: .7; }
+  #chat.collapsed .chat-head::after { content: ' ▼'; }
+  #chat-log { max-height: 28vh; }
+
+  /* Room code tiny so it doesn't crowd the top. */
+  #room-code-tag { font-size: 0.78em; }
+}
