@@ -291,15 +291,21 @@ function serialize(room, seatId) {
   };
 }
 
-// Public base URL for share links. If a tunnel is active it drops a URL into
-// .tunnel-url; otherwise we fall back to localhost. Read at request time so the
-// server picks up the tunnel URL without a restart.
+// Public base URL for share links. Priority:
+//   1. An explicit tunnel URL dropped into .tunnel-url (local dev via cloudflared).
+//   2. The actual Host the request arrived on (correct for any deployed host
+//      like Railway, which listens on a non-3000 port behind its own domain).
+//   3. localhost fallback.
 const TUNNEL_URL_FILE = path.join(__dirname, '.tunnel-url');
-function publicBase() {
+function publicBase(req) {
   try {
     const u = fs.readFileSync(TUNNEL_URL_FILE, 'utf8').trim();
     if (u) return u;
   } catch { /* no tunnel */ }
+  if (req && req.headers && req.headers.host) {
+    const proto = (req.socket && req.socket.encrypted) || (req.headers['x-forwarded-proto'] === 'https') ? 'https' : 'http';
+    return `${proto}://${req.headers.host}`;
+  }
   return `http://localhost:${process.env.PORT || 3000}`;
 }
 
@@ -348,11 +354,11 @@ function handleApi(req, res, url) {
       const mode = body.mode === 'solo' ? 'solo' : 'multi';
       if (mode === 'multi') {
         const room = createRoom({ mode, name: body.name });
-        return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase()}/?code=${room.code}` });
+        return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
       }
       const room = createRoom({ mode, name: body.name, bots: body.bots || 0 });
       runBotTurns(room);
-      return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase()}/?code=${room.code}` });
+      return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
     });
   }
 
