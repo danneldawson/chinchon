@@ -113,6 +113,8 @@ const state = {
   pollTimer: null,
   chosenSplit: null, // index into view.closeOptions when the player picks a meld set
   selected: new Set(), // card ids selected in the lay-off hand
+  handOrder: [],  // card ids in the player's preferred display order (reorderable)
+  swapPick: null, // card id currently "picked up" for swapping during reorder
 };
 
 const $ = (id) => document.getElementById(id);
@@ -482,7 +484,7 @@ function render() {
   dt.innerHTML = v.discardTop ? meldChip(v.discardTop) : '—';
   dt.className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
 
-  // Your hand
+  // Your hand (reorderable by tapping while you wait / on your draw turn)
   const handWrap = $('hand');
   handWrap.innerHTML = '';
   const canAct = v.isYourTurn;
@@ -490,12 +492,35 @@ function render() {
   const handLen = v.yourHand.length;
   if (handLen === 7 && _animState.handLen !== 7) onceAnimate(handWrap, 'deal-anim');
   _animState.handLen = handLen;
-  for (const c of v.yourHand) {
-    const clickable = canAct && phase === 'discard'; // discard phase: click a card to throw
-    handWrap.appendChild(renderCardEl(c, {
+
+  // Reconcile the saved display order with the actual hand: keep known ids in
+  // place, append newly drawn cards, drop discarded ones.
+  const liveIds = new Set(v.yourHand.map((c) => c.id));
+  state.handOrder = state.handOrder.filter((id) => liveIds.has(id));
+  for (const c of v.yourHand) if (!state.handOrder.includes(c.id)) state.handOrder.push(c.id);
+  const byId = new Map(v.yourHand.map((c) => [c.id, c]));
+  const ordered = state.handOrder.map((id) => byId.get(id)).filter(Boolean);
+
+  const reorderable = !canAct || phase === 'draw'; // not while discarding
+  for (const c of ordered) {
+    const clickable = canAct && phase === 'discard'; // discard phase: tap = throw
+    const el = renderCardEl(c, {
       clickable,
-      onClick: () => doDiscard(c, false),
-    }));
+      onClick: () => {
+        if (canAct && phase === 'discard') { doDiscard(c, false); return; }
+        // Reorder mode: tap to pick up, tap another to swap.
+        if (state.swapPick === c.id) { state.swapPick = null; return; }
+        if (!state.swapPick) { state.swapPick = c.id; return; }
+        const i = state.handOrder.indexOf(state.swapPick);
+        const j = state.handOrder.indexOf(c.id);
+        [state.handOrder[i], state.handOrder[j]] = [state.handOrder[j], state.handOrder[i]];
+        state.swapPick = null;
+        render();
+      },
+    });
+    if (reorderable && state.swapPick === c.id) el.classList.add('picked');
+    if (reorderable) el.classList.add('reorderable');
+    handWrap.appendChild(el);
   }
 
   // Melds + deadwood

@@ -166,6 +166,10 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 }
 #layoff-hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 60px; margin: 8px 0; }
 .card.selected { outline: 3px solid var(--accent); transform: translateY(-4px); }
+/* Reorderable hand: tap a card to pick it up, tap another to swap. */
+.card.reorderable { cursor: grab; }
+.card.reorderable:hover { border-color: var(--accent); }
+.card.picked { outline: 3px solid var(--accent); transform: translateY(-10px); box-shadow: 0 10px 22px rgba(0,0,0,.4); }
 #layoff-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
 
 /* Game over (Slice 3) */
