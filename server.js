@@ -116,7 +116,7 @@ function topOfDiscardOk(state) {
 
 // ----------------------------------------------------------- reconnection
 // No WebSocket: a client stamps lastSeen on every /api/state poll (~1.2s).
-const AWAY_MS = 20000;          // no poll in 20s => considered away
+const AWAY_MS = 240000;        // no poll in 4 min => considered away (lenient: wifi blips / backgrounded tabs don't flip to amber)
 const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
 const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
 
