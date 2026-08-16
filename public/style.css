@@ -173,6 +173,7 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .banner { margin: 10px 0; padding: 10px 14px; border-radius: 10px; font-size: 0.95em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .banner.waiting { background: rgba(241,196,15,.12); border: 1px solid rgba(241,196,15,.5); color: var(--ink); }
 .banner.spectator { background: rgba(231,76,60,.12); border: 1px solid rgba(231,76,60,.5); color: var(--ink); }
+.banner.info { background: rgba(52,152,219,.12); border: 1px solid rgba(52,152,219,.5); color: var(--ink); justify-content: center; }
 .banner button { margin: 0; }
 
 /* Suit-coloured inline labels (compact fallback: colour of each kind, no icon) */

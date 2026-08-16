@@ -88,6 +88,7 @@ function runBotTurns(room) {
       if (src === 'discard' && topOfDiscardOk(state)) turn.drawFromDiscard(state);
       else {
         const r = turn.drawFromStock(state);
+        if (r.reshuffled) room.lastReshuffle = Date.now();
         if (!r.ok) return; // stock exhausted; round over
       }
     }
@@ -364,6 +365,7 @@ function serialize(room, seatId) {
     isYourTurn: state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard') || layoffYourTurn,
     layoff: layoffView,
     stockCount: state.stock.length,
+    lastReshuffle: room.lastReshuffle || 0,
     discardTop: turn.topOfDiscard(state),
     yourHand: hand,
     yourMelds: split.melds,
@@ -548,6 +550,7 @@ function handleApi(req, res, url) {
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'draw') return sendJson(res, 400, { error: 'not the draw phase' });
       const r = body.from === 'discard' ? turn.drawFromDiscard(room.state) : turn.drawFromStock(room.state);
+      if (r.reshuffled) room.lastReshuffle = Date.now();
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
       runBotTurns(room);
       return sendJson(res, 200, serialize(room, body.seat));

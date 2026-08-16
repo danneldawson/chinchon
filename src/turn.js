@@ -99,7 +99,7 @@ function replenishStock(state, rng = Math.random) {
 function drawFromStock(state, rng = Math.random) {
   if (state.phase !== 'draw') return { ok: false, reason: 'not the draw phase' };
 
-  replenishStock(state, rng);
+  const reshuffled = replenishStock(state, rng);
   if (state.stock.length === 0) {
     // Truly out of cards: the round ends with nobody closing.
     state.phase = 'over';
@@ -110,7 +110,7 @@ function drawFromStock(state, rng = Math.random) {
   state.hands[state.turn].push(card);
   state.lastDrawn = card;
   state.phase = 'discard';
-  return { ok: true, card };
+  return { ok: true, card, reshuffled };
 }
 
 function drawFromDiscard(state) {

@@ -393,7 +393,7 @@ function meldsText(split) {
 
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
-const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false };
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null };
 function onceAnimate(el, cls) {
   if (!el) return;
   el.classList.remove(cls);
@@ -458,6 +458,14 @@ function render() {
 
   // Center piles
   $('stock-count').textContent = v.stockCount;
+  // Surface a stock reshuffle as a brief note (no cap on recycles per your rules).
+  const rn = $('reshuffle-note');
+  if (v.lastReshuffle && v.lastReshuffle !== _animState.reshuffleSeen && Date.now() - v.lastReshuffle < 6000) {
+    _animState.reshuffleSeen = v.lastReshuffle;
+    rn.classList.remove('hidden');
+    clearTimeout(_animState.reshuffleTimer);
+    _animState.reshuffleTimer = setTimeout(() => rn.classList.add('hidden'), 3000);
+  }
   const dt = $('discard-top');
   const dtKey = v.discardTop ? `${v.discardTop.suit}-${v.discardTop.rank}` : null;
   if (dtKey !== _animState.discardId) {

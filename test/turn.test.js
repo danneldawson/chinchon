@@ -282,6 +282,19 @@ test('an empty stock is refilled from the discard pile', () => {
   assert.strictEqual(topOfDiscard(s).id, top.id, 'visible card stays visible');
 });
 
+test('drawFromStock reports reshuffled and keeps one card face up', () => {
+  const s = startRound(2, fixedRng);
+  s.discard = [...s.stock, ...s.discard];
+  s.stock = [];
+  const topId = topOfDiscard(s).id;
+  const r = drawFromStock(s, fixedRng);
+  assert.ok(r.ok);
+  assert.strictEqual(r.reshuffled, true, 'flag set so the UI can show the note');
+  assert.strictEqual(s.discard.length, 1, 'exactly one card stays face up');
+  assert.strictEqual(topOfDiscard(s).id, topId, 'same visible card remains');
+  assert.strictEqual(s.stock.length, 80 - 7 * 2 - 1 - 1, 'rest minus the card just drawn became the new stock');
+});
+
 test('no cards are lost when the stock is refilled', () => {
   const s = startRound(3, fixedRng);
   const before = s.stock.length + s.discard.length + s.hands.flat().length;
