@@ -74,7 +74,10 @@
     <!-- GAME -->
     <section id="game" class="panel hidden">
       <header id="board-top">
-        <div id="scoreboard"></div>
+        <div class="board-top-row">
+          <div id="room-code-tag" class="dim"></div>
+          <div id="scoreboard"></div>
+        </div>
         <div id="turn-banner"></div>
       </header>
 
@@ -129,6 +132,16 @@
       </div>
 
       <p id="status" class="msg"></p>
+
+      <!-- Per-room chat: short gameplay notes, last 10 messages, cleared on rematch -->
+      <div id="chat" class="hidden">
+        <div class="chat-head">
+          <span>Room chat</span>
+          <button id="btn-chat-send" class="small primary">Send</button>
+        </div>
+        <div id="chat-log"></div>
+        <input id="chat-input" type="text" maxlength="160" placeholder="Quick note to the table…" />
+      </div>
 
       <!-- Game over (Slice 3): winner + eliminations + play again -->
       <div id="gameover" class="hidden">

@@ -115,6 +115,7 @@ const state = {
   selected: new Set(), // card ids selected in the lay-off hand
   handOrder: [],  // card ids in the player's preferred display order (reorderable)
   swapPick: null, // card id currently "picked up" for swapping during reorder
+  chatSeen: 0,    // how many chat messages already rendered (append-only)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -408,6 +409,9 @@ function render() {
   const v = state.view;
   if (!v || !v.started) return;
 
+  // Room code shown on top of the scoreboard.
+  $('room-code-tag').textContent = v.code ? `Room ${v.code}` : '';
+
   // Scoreboard: order = join order (host first). Dot = live connection status.
   // Playing/eliminated show their score; a dropped (spectator) player shows "–".
   $('scoreboard').innerHTML = v.scoreboard
@@ -429,6 +433,9 @@ function render() {
 
   // Connection / waiting / spectator banner
   renderStatusBanner(v);
+
+  // Per-room chat (shown while the room/game is up; cleared on rematch)
+  renderChat(v);
 
   // Game-over panel (Slice 3)
   const go = $('gameover');
@@ -656,6 +663,31 @@ function renderStatusBanner(v) {
   el.classList.add('hidden');
 }
 
+// Per-room chat: only while the room/game is up; last 10 messages; cleared on
+// rematch by the server (v.chat resets to []). Append only unseen messages so
+// the log doesn't flicker or steal focus from the input.
+function renderChat(v) {
+  const box = $('chat');
+  const log = $('chat-log');
+  if (!v.started) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const msgs = v.chat || [];
+  // Reset view if the server cleared (rematch) or we rejoined a shorter log.
+  if (_animState.chatSeen > msgs.length) _animState.chatSeen = 0;
+  for (let i = _animState.chatSeen; i < msgs.length; i++) {
+    const m = msgs[i];
+    const row = document.createElement('div');
+    row.className = 'chat-msg';
+    row.innerHTML = `<span class="chat-name"></span><span class="chat-text"></span>`;
+    row.querySelector('.chat-name').textContent = m.name + ': ';
+    row.querySelector('.chat-text').textContent = m.text;
+    log.appendChild(row);
+  }
+  _animState.chatSeen = msgs.length;
+  // Keep at most 10 rows visible (server caps at 10 too).
+  while (log.children.length > 10) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
 // Render the lay-off board. `lo` is the serialized layoff view from the server.
 function renderLayoff(lo) {
   $('layoff-title').textContent = lo.done ? t('gameOver') : t('layoffTitle');
@@ -760,6 +792,21 @@ async function apiPost(path) {
   if (res.error) $('status').textContent = res.error;
   await poll();
 }
+
+// Per-room chat send (short gameplay notes; server caps at 10 + 160 chars).
+async function sendChat() {
+  const input = $('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await fetch('/api/room/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId, text }),
+  }).then((r) => r.json()).catch(() => null);
+  await poll();
+}
+$('btn-chat-send').onclick = sendChat;
+$('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
 
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {

@@ -222,3 +222,31 @@ test('concurrent lay-off calls do not crash the server', async () => {
   const { status: alive } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
   assert.equal(alive, 200, 'server still alive after concurrent calls');
 });
+
+// ---------------------------------------------------------------- chat
+test('per-room chat: post, receive, cap at 10, clear on rematch', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host' });
+  const code = created.code;
+  const seat = created.seatId;
+  await api('POST', '/api/room/join', { code, name: 'P2' });
+
+  // Post 12 messages; server caps at the last 10.
+  for (let i = 1; i <= 12; i++) {
+    const { status } = await api('POST', '/api/room/chat', { code, seat, text: `msg ${i}` });
+    assert.equal(status, 200, 'chat post accepted');
+  }
+  const { json: st } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
+  assert.equal(st.chat.length, 10, 'history capped at 10');
+  assert.equal(st.chat[0].text, 'msg 3', 'oldest dropped messages are gone');
+  assert.equal(st.chat[9].text, 'msg 12', 'newest retained');
+
+  // Empty message rejected.
+  const { status: bad } = await api('POST', '/api/room/chat', { code, seat, text: '   ' });
+  assert.equal(bad, 400, 'empty chat rejected');
+
+  // Rematch clears the chat.
+  await api('POST', '/api/room/start', { code, seat });
+  await api('POST', '/api/room/rematch', { code, seat });
+  const { json: after } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
+  assert.equal(after.chat.length, 0, 'chat cleared on rematch');
+});

@@ -57,7 +57,7 @@ function createRoom({ mode, name, bots }) {
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, Math.random);
-    const room = { code, mode, players, match, state, started: true, hostId: players[0].id };
+    const room = { code, mode, players, match, state, started: true, hostId: players[0].id, chat: [] };
     rooms.set(code, room);
     return room;
   }
@@ -65,7 +65,7 @@ function createRoom({ mode, name, bots }) {
   // multi: humans only, capacity 2-7, wait for Start.
   const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now() };
   players.push(host);
-  const room = { code, mode, players, match: null, state: null, started: false, hostId: host.id };
+  const room = { code, mode, players, match: null, state: null, started: false, hostId: host.id, chat: [] };
   rooms.set(code, room);
   return room;
 }
@@ -294,7 +294,7 @@ function closeOptionsFor(hand) {
 function serialize(room, seatId) {
   const { state, match, players } = room;
   if (!state) {
-    return { mode: room.mode, started: room.started, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })) };
+    return { code: room.code, mode: room.mode, started: room.started, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })), chat: room.chat || [] };
   }
   const viewer = players.find((p) => p.id === seatId);
   const viewerSeat = viewer ? viewer.seat : 0;
@@ -345,6 +345,7 @@ function serialize(room, seatId) {
   }
 
   return {
+    code: room.code,
     mode: room.mode,
     started: room.started,
     gameOver: match.gameOver,
@@ -374,6 +375,7 @@ function serialize(room, seatId) {
     closeOptions: opts,
     opponents,
     scoreboard: match.players.map((p, i) => ({ name: p.name, total: p.total, out: p.out, away: isAway(players[i]), spectator: !!players[i].spectator })),
+    chat: room.chat || [],
   };
 }
 
@@ -535,10 +537,28 @@ function handleApi(req, res, url) {
       if (!room) return sendJson(res, 404, { error: 'no such room' });
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only a player can rematch' });
+      if (room.players.length < 2) return sendJson(res, 400, { error: 'need 2+ players to rematch' });
       room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
       room.state = turn.startRound(room.players.length, Math.random);
       room.layoff = null;
+      room.chat = []; // fresh match = fresh chat
       runBotTurns(room);
+      return sendJson(res, 200, { ok: true });
+    });
+  }
+
+  // Per-room chat: short gameplay notes only, capped at the last 10 messages.
+  // Available while the room is up; cleared on rematch (fresh match).
+  if (method === 'POST' && p === '/api/room/chat') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only players can chat' });
+      const text = String(body.text || '').trim().slice(0, 160);
+      if (!text) return sendJson(res, 400, { error: 'empty message' });
+      room.chat.push({ name: viewer.name, text, at: Date.now() });
+      if (room.chat.length > 10) room.chat = room.chat.slice(-10);
       return sendJson(res, 200, { ok: true });
     });
   }
