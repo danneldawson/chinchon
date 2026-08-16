@@ -339,6 +339,12 @@ function cardLabel(c) {
   return `${c.rank}${SUIT_ICON[c.suit] || '?'}`;
 }
 
+// Compact meld chip: rank + the SAME SVG emblem used on the cards, so meld
+// lists match the actual suit icons (cup/sword/coin/plant), not just a glyph.
+function meldChip(c) {
+  return `<span class="meld-chip ${c.suit.toLowerCase()}">${c.rank}${suitEmblem(c.suit)}</span>`;
+}
+
 // Original Spanish-deck suit emblems (Fournier-STYLE, not the copyrighted art):
 //   Oros    = a gold coin
 //   Copas   = a goblet / cup
@@ -479,7 +485,7 @@ function render() {
     for (const m of v.yourMelds) {
       const d = document.createElement('div');
       d.className = 'meld';
-      d.textContent = '[ ' + m.map(cardLabel).join(' ') + ' ]';
+      d.innerHTML = '[ ' + m.map(meldChip).join(' ') + ' ]';
       melds.appendChild(d);
     }
   }
@@ -599,7 +605,7 @@ function renderLayoff(lo) {
   (lo.table || []).forEach((meld, i) => {
     const d = document.createElement('div');
     d.className = 'meld on-table';
-    d.textContent = `[${i + 1}] ` + meld.map(cardLabel).join(' ');
+    d.innerHTML = `[${i + 1}] ` + meld.map(meldChip).join(' ');
     d.dataset.meldIndex = i;
     tableWrap.appendChild(d);
   });

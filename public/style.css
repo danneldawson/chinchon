@@ -113,6 +113,12 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 
 #meld-list { margin-top: 10px; }
 .meld { color: var(--dim); font-size: 0.9em; margin: 2px 0; }
+.meld-chip { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+.meld-chip .emblem { width: 18px; height: 18px; }
+.meld-chip.oros { color: var(--oros); }
+.meld-chip.copas { color: var(--copas); }
+.meld-chip.espadas { color: var(--espadas); }
+.meld-chip.bastos { color: var(--bastos); }
 
 #controls { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 #close-options .close-btn { background: #2e7d32; color: #fff; }
