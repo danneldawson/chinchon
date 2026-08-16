@@ -65,11 +65,32 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .opp .name { font-weight: 600; }
 .opp .count { color: var(--dim); font-size: 0.85em; }
 
-#center { display: flex; gap: 18px; justify-content: center; margin: 16px 0; }
+#center { display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
 .pile {
-  width: 80px; height: 110px; border: 1px dashed var(--border); border-radius: 10px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: var(--dim); font-size: 0.8em; text-align: center;
+  width: 96px; min-height: 140px; border: 1px dashed var(--border); border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  color: var(--dim); font-size: 0.8em; text-align: center; padding: 8px 6px;
+  gap: 8px; position: relative;
+}
+.pile-label { font-weight: 600; letter-spacing: .04em; color: var(--ink); }
+.pile.tappable { cursor: pointer; border-color: var(--accent); border-style: solid; }
+.pile.tappable:hover { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0,0,0,.28); }
+.pile.disabled-pile { opacity: .5; cursor: default; }
+.pile-stock .stock-stack { position: relative; width: 56px; height: 78px; }
+.pile-stock .card-back {
+  position: absolute; left: 0; width: 56px; height: 78px; border-radius: 7px;
+  background: #f7f3e9;
+  background-image: repeating-linear-gradient(45deg, #e7e0cd, #e7e0cd 5px, #f7f3e9 5px, #f7f3e9 10px);
+  border: 1px solid #d8cfb8; box-shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+.pile-stock .card-back:nth-child(1) { top: 8px; left: 0; }
+.pile-stock .card-back:nth-child(2) { top: 5px; left: 3px; }
+.pile-stock .card-back:nth-child(3) { top: 2px; left: 6px; }
+.pile-stock .card-back.top { top: 0; left: 9px; border-color: var(--accent); }
+.stock-count {
+  font-size: 1.9em; font-weight: 800; color: var(--card); line-height: 1;
+  background: #11161d; border: 1px solid var(--border); border-radius: 8px;
+  padding: 2px 10px; min-width: 44px;
 }
 
 #your-area h2 { margin: 18px 0 8px; }

@@ -81,8 +81,20 @@
       <div id="opponents"></div>
 
       <div id="center">
-        <div id="stock" class="pile">Stock<br /><span id="stock-count">?</span></div>
-        <div id="discard" class="pile">Discard<br /><span id="discard-top">—</span></div>
+        <div id="stock" class="pile pile-stock" title="Tap to draw from stock">
+          <div class="stock-stack">
+            <div class="card-back"></div>
+            <div class="card-back"></div>
+            <div class="card-back"></div>
+            <div class="card-back top"></div>
+          </div>
+          <div class="pile-label">Stock</div>
+          <div id="stock-count" class="stock-count">?</div>
+        </div>
+        <div id="discard" class="pile pile-discard" title="Tap to take the top discard">
+          <div class="pile-label">Discard</div>
+          <div id="discard-top">—</div>
+        </div>
       </div>
 
       <div id="reshuffle-note" class="banner info hidden">Stock reshuffled</div>

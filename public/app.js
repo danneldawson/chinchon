@@ -458,6 +458,13 @@ function render() {
 
   // Center piles
   $('stock-count').textContent = v.stockCount;
+  const stockPile = $('stock');
+  const discardPile = $('discard');
+  const canDraw = canAct && phase === 'draw';
+  stockPile.classList.toggle('tappable', canDraw);
+  discardPile.classList.toggle('tappable', canDraw);
+  stockPile.classList.toggle('disabled-pile', !canDraw);
+  discardPile.classList.toggle('disabled-pile', !canDraw);
   // Surface a stock reshuffle as a brief note (no cap on recycles per your rules).
   const rn = $('reshuffle-note');
   if (v.lastReshuffle && v.lastReshuffle !== _animState.reshuffleSeen && Date.now() - v.lastReshuffle < 6000) {
@@ -723,6 +730,10 @@ async function doDiscard(card, close = false, splitIdx = null) {
 
 $('btn-draw-stock').onclick = () => doDraw('stock');
 $('btn-draw-discard').onclick = () => doDraw('discard');
+// Piles are directly tappable (the "physical game" feel). Gated to the draw
+// turn inside render() via the .tappable class, but guard here too.
+$('stock').onclick = () => { if (state.view && state.view.isYourTurn && state.view.phase === 'draw') doDraw('stock'); };
+$('discard').onclick = () => { if (state.view && state.view.isYourTurn && state.view.phase === 'draw') doDraw('discard'); };
 
 // ---- Lay-off controls (Slice 2) ----
 // Lay selected (l): send the currently-selected cards as one meld.
