@@ -368,6 +368,7 @@ function serialize(room, seatId) {
     lastReshuffle: room.lastReshuffle || 0,
     discardTop: turn.topOfDiscard(state),
     yourHand: hand,
+    lastDrawnId: state.lastDrawn ? state.lastDrawn.id : null,
     yourMelds: split.melds,
     yourDeadwood: split.deadwood,
     closeOptions: opts,

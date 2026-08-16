@@ -484,7 +484,9 @@ function render() {
   dt.innerHTML = v.discardTop ? meldChip(v.discardTop) : '—';
   dt.className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
 
-  // Your hand (reorderable by tapping while you wait / on your draw turn)
+  // Your hand. The freshly-drawn card is pinned to a LOCKED 8th slot; the
+  // player chooses which of the original 7 to throw (tap-to-discard). The 7
+  // are reorderable while waiting / on the draw turn.
   const handWrap = $('hand');
   handWrap.innerHTML = '';
   const canAct = v.isYourTurn;
@@ -493,21 +495,24 @@ function render() {
   if (handLen === 7 && _animState.handLen !== 7) onceAnimate(handWrap, 'deal-anim');
   _animState.handLen = handLen;
 
-  // Reconcile the saved display order with the actual hand: keep known ids in
-  // place, append newly drawn cards, drop discarded ones.
-  const liveIds = new Set(v.yourHand.map((c) => c.id));
+  const drawn = v.lastDrawnId ? v.yourHand.find((c) => c.id === v.lastDrawnId) : null;
+  const seven = drawn ? v.yourHand.filter((c) => c.id !== drawn.id) : v.yourHand.slice();
+
+  // Reconcile the saved display order against the 7 (the drawn card is never
+  // reorderable, so it stays out of handOrder).
+  const liveIds = new Set(seven.map((c) => c.id));
   state.handOrder = state.handOrder.filter((id) => liveIds.has(id));
-  for (const c of v.yourHand) if (!state.handOrder.includes(c.id)) state.handOrder.push(c.id);
-  const byId = new Map(v.yourHand.map((c) => [c.id, c]));
+  for (const c of seven) if (!state.handOrder.includes(c.id)) state.handOrder.push(c.id);
+  const byId = new Map(seven.map((c) => [c.id, c]));
   const ordered = state.handOrder.map((id) => byId.get(id)).filter(Boolean);
 
   const reorderable = !canAct || phase === 'draw'; // not while discarding
+  const discarding = canAct && phase === 'discard';
   for (const c of ordered) {
-    const clickable = canAct && phase === 'discard'; // discard phase: tap = throw
     const el = renderCardEl(c, {
-      clickable,
+      clickable: discarding,
       onClick: () => {
-        if (canAct && phase === 'discard') { doDiscard(c, false); return; }
+        if (discarding) { doDiscard(c, false); return; }
         // Reorder mode: tap to pick up, tap another to swap.
         if (state.swapPick === c.id) { state.swapPick = null; return; }
         if (!state.swapPick) { state.swapPick = c.id; return; }
@@ -520,6 +525,21 @@ function render() {
     });
     if (reorderable && state.swapPick === c.id) el.classList.add('picked');
     if (reorderable) el.classList.add('reorderable');
+    handWrap.appendChild(el);
+  }
+
+  // Locked 8th slot: the card just drawn. It IS discardable (you only learn its
+  // identity after drawing, so it must be a valid throw) — but not reorderable.
+  if (drawn) {
+    const sep = document.createElement('div');
+    sep.className = 'hand-sep';
+    sep.textContent = '⟶';
+    handWrap.appendChild(sep);
+    const el = renderCardEl(drawn, {
+      clickable: discarding,
+      onClick: () => { if (discarding) doDiscard(drawn, false); },
+    });
+    el.classList.add('drawn-locked');
     handWrap.appendChild(el);
   }
 

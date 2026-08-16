@@ -170,6 +170,10 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .card.reorderable { cursor: grab; }
 .card.reorderable:hover { border-color: var(--accent); }
 .card.picked { outline: 3px solid var(--accent); transform: translateY(-10px); box-shadow: 0 10px 22px rgba(0,0,0,.4); }
+/* Locked 8th slot: the just-drawn card, awaiting the player's discard choice. */
+.hand-sep { align-self: center; font-size: 1.6em; color: var(--accent); padding: 0 2px; }
+.card.drawn-locked { outline: 2px dashed var(--accent); cursor: default; }
+.card.drawn-locked:not(.clickable):hover { transform: none; border-color: #d8cfb8; }
 #layoff-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
 
 /* Game over (Slice 3) */
