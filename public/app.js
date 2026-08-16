@@ -378,11 +378,10 @@ function renderCardEl(c, { clickable, onClick } = {}) {
 }
 
 // Describe a meld set for the close-choice UI, in the player's language.
-// Compact, suit-COLOURED label (no icon) for tight inline spots — satisfies the
-// "highlight each by the colour of its kind" fallback. The meld parentheses
-// under your hand use the full SVG emblem instead (meldChip).
+// Compact, suit-COLOURED label that ALSO carries the real SVG emblem, so every
+// inline spot (discard, close-choice, layoff suggestions) matches the cards.
 function coloredLabel(c) {
-  return `<span class="lbl ${c.suit.toLowerCase()}">${c.rank}${SUIT_ICON[c.suit] || '?'}</span>`;
+  return meldChip(c);
 }
 
 function meldsText(split) {
@@ -465,7 +464,7 @@ function render() {
     _animState.discardId = dtKey;
     if (v.discardTop) onceAnimate(dt, 'slide-in');
   }
-  dt.textContent = v.discardTop ? cardLabel(v.discardTop) : '—';
+  dt.innerHTML = v.discardTop ? meldChip(v.discardTop) : '—';
   dt.className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
 
   // Your hand
