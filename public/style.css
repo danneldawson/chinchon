@@ -209,8 +209,10 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .board-top-row { display: flex; flex-direction: column; gap: 4px; }
 #room-code-tag { font-size: 0.85em; letter-spacing: .06em; }
 
-/* Per-room chat — soft, low-opacity panel so it doesn't fight the board */
-#chat { margin: 14px 0; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+/* Per-room chat — floats top-right, under the turn banner */
+#game { position: relative; }
+#chat { position: absolute; top: 56px; right: 14px; width: 230px; z-index: 5;
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
   background: rgba(26, 29, 36, 0.55); backdrop-filter: blur(2px); }
 .chat-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
 #chat-log { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 0.9em; }
