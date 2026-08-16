@@ -692,6 +692,22 @@ function createServer() {
     if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('forbidden'); }
     fs.readFile(filePath, (err, data) => {
       if (err) { res.writeHead(404); return res.end('not found'); }
+      // Cache-bust: derive a version from asset mtimes so every edit to
+      // app.js/style.css forces browsers to refetch (no manual hard-refresh).
+      const ver = (() => {
+        try {
+          const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
+          const s = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
+          return Math.round(a + s).toString(36);
+        } catch { return '1'; }
+      })();
+      if (path.extname(filePath) === '.html') {
+        let html = data.toString();
+        html = html.replace('/app.js"', `/app.js?v=${ver}"`);
+        html = html.replace('/style.css"', `/style.css?v=${ver}"`);
+        res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
+        return res.end(html);
+      }
       res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'text/plain' });
       res.end(data);
     });
