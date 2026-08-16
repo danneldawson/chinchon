@@ -394,13 +394,15 @@ function render() {
   const v = state.view;
   if (!v || !v.started) return;
 
-  // Scoreboard
+  // Scoreboard: order = join order (host first). Dot = live connection status.
+  // Playing/eliminated show their score; a dropped (spectator) player shows "–".
   $('scoreboard').innerHTML = v.scoreboard
     .map((p) => {
       const dot = p.spectator ? 'red' : p.away ? 'yellow' : 'green';
       const title = p.spectator ? 'disconnected' : p.away ? 'idle' : 'connected';
       const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
-      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${p.name}: ${p.total}${p.out ? ' · ' + t('out') : ''}</div>`;
+      const score = p.spectator ? '–' : p.total;
+      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${p.name}: ${score}${p.out ? ' · ' + t('out') : ''}</div>`;
     })
     .join('');
 
