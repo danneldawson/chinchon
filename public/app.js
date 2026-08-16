@@ -342,6 +342,17 @@ function meldsText(split) {
   return parts.join('  ');
 }
 
+// Edge-triggered animations: only fire once per meaningful state change, so the
+// 1.2s poll re-render never replays them.
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false };
+function onceAnimate(el, cls) {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth; // force reflow so the animation restarts
+  el.classList.add(cls);
+  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+}
+
 function render() {
   const v = state.view;
   if (!v || !v.started) return;
@@ -361,6 +372,8 @@ function render() {
   // Game-over panel (Slice 3)
   const go = $('gameover');
   if (v.gameOver) {
+    if (!_animState.gameover) onceAnimate(go, 'appear');
+    _animState.gameover = true;
     go.classList.remove('hidden');
     $('go-title').textContent = t('goTitle');
     $('go-winner').textContent = `${t('goWinner')}: ${v.winner}`;
@@ -370,6 +383,7 @@ function render() {
       : '';
   } else {
     go.classList.add('hidden');
+    _animState.gameover = false;
   }
 
   // Opponents (face-down counts only)
@@ -385,14 +399,23 @@ function render() {
 
   // Center piles
   $('stock-count').textContent = v.stockCount;
-  $('discard-top').textContent = v.discardTop ? cardLabel(v.discardTop) : '—';
-  $('discard-top').className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
+  const dt = $('discard-top');
+  const dtKey = v.discardTop ? `${v.discardTop.suit}-${v.discardTop.rank}` : null;
+  if (dtKey !== _animState.discardId) {
+    _animState.discardId = dtKey;
+    if (v.discardTop) onceAnimate(dt, 'slide-in');
+  }
+  dt.textContent = v.discardTop ? cardLabel(v.discardTop) : '—';
+  dt.className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
 
   // Your hand
   const handWrap = $('hand');
   handWrap.innerHTML = '';
   const canAct = v.isYourTurn;
   const phase = v.phase;
+  const handLen = v.yourHand.length;
+  if (handLen === 7 && _animState.handLen !== 7) onceAnimate(handWrap, 'deal-anim');
+  _animState.handLen = handLen;
   for (const c of v.yourHand) {
     const clickable = canAct && phase === 'discard'; // discard phase: click a card to throw
     handWrap.appendChild(renderCardEl(c, {
@@ -423,6 +446,8 @@ function render() {
   const co = $('close-options');
   co.innerHTML = '';
   if (canAct && phase === 'discard' && v.closeOptions && v.closeOptions.length) {
+    if (!_animState.close) { onceAnimate(co, 'appear'); }
+    _animState.close = true;
     // Prompt: choose how to close (each option is a distinct meld decomposition).
     const prompt = document.createElement('div');
     prompt.className = 'close-prompt';
@@ -460,11 +485,15 @@ function render() {
       doDiscard(worst, false);
     };
     co.appendChild(keep);
+  } else {
+    _animState.close = false;
   }
 
   // ---- Slice 2: interactive lay-off board ----
   const inLayoff = !!(v.layoff && (v.layoff.phase === 'layoff' || v.layoff.done));
   $('layoff-area').classList.toggle('hidden', !inLayoff);
+  if (inLayoff && !_animState.layoff) onceAnimate($('layoff-area'), 'appear');
+  _animState.layoff = inLayoff;
   // During lay-off, hide the normal hand/discard controls.
   $('your-area').classList.toggle('hidden', inLayoff);
   $('controls').classList.toggle('hidden', inLayoff);
