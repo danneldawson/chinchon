@@ -1042,6 +1042,23 @@ async function lobbyPoll() {
   if (!state.lobbyToken) return;
   const res = await fetch('/api/lobby/state').then((r) => r.json()).catch(() => null);
   if (!res) return;
+  // Self-heal: if we have a token but the server no longer lists us (e.g. the
+  // free instance restarted and wiped the in-memory lobby), re-enter so we stay
+  // visible instead of showing "Players here (0)". Guard against a loop.
+  if (!lobbyPoll._healing && state.lobbyName && !res.members.some((m) => m.name === state.lobbyName)) {
+    lobbyPoll._healing = true;
+    const r2 = await fetch('/api/lobby/enter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.lobbyName }),
+    }).then((r) => r.json()).catch(() => null);
+    if (r2 && r2.token) {
+      state.lobbyToken = r2.token;
+      state.lobbyName = r2.name;
+      persistLobby(r2.token, r2.name);
+    }
+    lobbyPoll._healing = false;
+    return lobbyPoll();
+  }
   // Members + total.
   $('lobby-total').textContent = res.total;
   const ul = $('lobby-members');

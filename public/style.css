@@ -316,6 +316,8 @@ button, .card, .pile, input { touch-action: manipulation; }
 
   /* Global lobby */
   .lobby-enter { display: flex; gap: 10px; align-items: flex-end; justify-content: center; margin: 14px 0; }
+  .arrow-btn { font-size: 1.05em; letter-spacing: 0.5px; }
+  .arrow-btn:hover { transform: translateX(3px); }
   /* Three separate stacked panels instead of one cramped square. */
   .lobby-panel {
     background: rgba(255,255,255,0.03); border: 1px solid var(--border);
