@@ -1183,22 +1183,14 @@ $('btn-leave-lobby').onclick = async () => {
 };
 
 // ----------------------------------------------------------- boot
-// Land on the global lobby first. Resume a lobby session from localStorage if present.
+// ALWAYS start on the landing page (name + language) first, never auto-resume
+// into the lobby — that confused people who expected the entry screen.
 (function boot() {
-  const saved = loadLobby();
-  if (saved && saved.token) {
-    state.lobbyToken = saved.token;
-    state.lobbyName = saved.name;
-    $('lobby-enter').classList.add('hidden');
-    $('lobby-main').classList.remove('hidden');
-    $('lobby-name').value = saved.name;
-    show($('globby'));
-    lobbyChatSeen = 0;
-    lobbyPoll();
-    lobbyTimer = setInterval(lobbyPoll, 2000);
-  } else {
-    show($('globby'));
-  }
+  show($('globby'));
+  $('lobby-enter').classList.remove('hidden');
+  $('lobby-main').classList.add('hidden');
+  $('lobby-name').value = '';
+  $('lobby-name').focus();
 })();
 setTab('multi');
 
