@@ -368,7 +368,7 @@ function suitEmblem(suit) {
 }
 
 // Full card as a styled element with a BIG number and the suit emblem.
-function renderCardEl(c, { clickable, onClick } = {}) {
+function renderCardEl(c, { clickable, onClick, reorderable } = {}) {
   const el = document.createElement('div');
   el.className = `card ${c.suit.toLowerCase()}`;
   if (window.__isWild(c)) el.classList.add('has-wild');
@@ -376,7 +376,10 @@ function renderCardEl(c, { clickable, onClick } = {}) {
     `<span class="rank">${c.rank}</span>` +
     `<span class="emblem-wrap">${suitEmblem(c.suit)}</span>` +
     (window.__isWild(c) ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
-  if (clickable) el.onclick = onClick; else el.classList.add('disabled');
+  if (onClick) el.onclick = onClick;            // wire the handler whenever one is given
+  if (clickable) el.classList.add('clickable');
+  else if (!onClick) el.classList.add('disabled'); // grey only if truly inert
+  if (reorderable) el.classList.add('reorderable');
   return el;
 }
 
@@ -518,6 +521,7 @@ function render() {
   for (const c of ordered) {
     const el = renderCardEl(c, {
       clickable: discarding,
+      reorderable,
       onClick: () => {
         if (discarding) { doDiscard(c, false); return; }
         // Reorder mode: tap to pick up, tap another to swap.
