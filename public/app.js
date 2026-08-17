@@ -9,7 +9,6 @@ const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 const I18N = {
   en: {
     title: 'CHINCHÓN',
-    sub: "Play your family's house rules online.",
     tabMulti: 'Play with friends',
     tabSolo: 'Solo vs bots',
     subCreate: 'Create a room',
@@ -68,7 +67,6 @@ const I18N = {
   },
   es: {
     title: 'CHINCHÓN',
-    sub: 'Juega las reglas de tu familia en línea.',
     tabMulti: 'Jugar con amigos',
     tabSolo: 'Solo vs bots',
     subCreate: 'Crear una sala',
@@ -193,7 +191,6 @@ function applyLang() {
   document.documentElement.lang = lang;
   $('title').textContent = t('title');
   document.title = t('title');
-  $('subtitle').textContent = t('sub');
   $('tab-multi').textContent = t('tabMulti');
   $('tab-solo').textContent = t('tabSolo');
   $('sub-create').textContent = t('subCreate');
@@ -250,7 +247,7 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
     (async () => {
       const res = await fetch('/api/room/join', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.toUpperCase(), seatId: seat }),
+        body: JSON.stringify({ code: code.toUpperCase(), seatId: seat, lobbyToken: state.lobbyToken }),
       }).then((r) => r.json()).catch(() => null);
       if (res && res.seatId) {
         state.code = code.toUpperCase();
@@ -270,7 +267,7 @@ $('btn-create').onclick = async () => {
   const name = $('host-name').value.trim() || t('host');
   const res = await fetch('/api/room/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'multi', name }),
+    body: JSON.stringify({ mode: 'multi', name, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json());
   state.code = res.code;
   state.seatId = res.seatId;
@@ -327,7 +324,7 @@ $('btn-join').onclick = async () => {
   const name = $('join-name').value.trim() || t('player');
   const res = await fetch('/api/room/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, name }),
+    body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json());
   if (res.error) { $('join-msg').textContent = res.error; return; }
   state.code = code;
@@ -370,6 +367,11 @@ async function enterGame() {
 
 async function poll() {
   const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
+  // If this seat is no longer in the room (kicked, or left), drop back to lobby.
+  if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.seat === state.seatId))) {
+    goToLobby();
+    return;
+  }
   state.view = res;
   render();
 }
@@ -455,13 +457,17 @@ function render() {
 
   // Scoreboard: order = join order (host first). Dot = live connection status.
   // Playing/eliminated show their score; a dropped (spectator) player shows "–".
+  // The host sees a Kick button on every other player (sends them back to lobby).
   $('scoreboard').innerHTML = v.scoreboard
     .map((p) => {
       const dot = p.spectator ? 'red' : p.away ? 'yellow' : 'green';
       const title = p.spectator ? 'disconnected' : p.away ? 'idle' : 'connected';
       const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
       const score = p.spectator ? '–' : p.total;
-      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${p.name}: ${score}${p.out ? ' · ' + t('out') : ''}</div>`;
+      const kick = (v.isHost && p.seat && p.seat !== state.seatId)
+        ? ` <button class="kick" data-kick="${p.seat}" title="Kick to lobby">✕</button>`
+        : '';
+      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
     })
     .join('');
 
@@ -959,6 +965,17 @@ $('btn-hold').onclick = async () => {
   });
   await poll();
 };
+// Host kick: send a player back to the lobby.
+$('scoreboard').addEventListener('click', (e) => {
+  const btn = e.target.closest('.kick');
+  if (!btn) return;
+  const target = btn.getAttribute('data-kick');
+  fetch('/api/room/kick', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId, target }),
+  }).then(() => poll()).catch(() => null);
+});
+
 $('btn-tolobby').onclick = async () => {
   // Leave the room server-side (room + code + chat stay for the others).
   await fetch('/api/room/leave', {
@@ -1132,14 +1149,36 @@ $('btn-go-join').onclick = () => {
   setTab('multi');
   showSub('join');
 };
-$('btn-back-lobby').onclick = () => {
+function goToLobby() {
   clearInterval(state.pollTimer);
+  state.code = null;
+  state.seatId = null;
   show($('globby'));
   $('lobby-main').classList.remove('hidden');
   $('lobby-enter').classList.add('hidden');
   lobbyPoll();
   clearInterval(lobbyTimer);
   lobbyTimer = setInterval(lobbyPoll, 2000);
+}
+$('btn-back-lobby').onclick = goToLobby;
+
+// Leave the global lobby entirely: drop the name + token on the server, clear
+// localStorage, stop polling, and return to the landing (name-entry) screen.
+$('btn-leave-lobby').onclick = async () => {
+  await fetch('/api/lobby/leave', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: state.lobbyToken }),
+  }).catch(() => null);
+  clearInterval(lobbyTimer);
+  clearLobby();
+  state.lobbyToken = null;
+  state.lobbyName = null;
+  show($('globby'));
+  $('lobby-main').classList.add('hidden');
+  $('lobby-enter').classList.remove('hidden');
+  $('lobby-name').value = '';
+  $('lobby-msg').textContent = '';
+  $('lobby-name').focus();
 };
 
 // ----------------------------------------------------------- boot

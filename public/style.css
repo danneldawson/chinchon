@@ -42,6 +42,8 @@ button {
 }
 button.primary { background: var(--accent); color: #1a1d24; font-weight: 700; }
 button.small { padding: 4px 10px; font-size: 0.8em; }
+button.danger { background: #c0392b; color: #fff; font-weight: 700; margin-top: 28px; width: 100%; }
+#lobby button.danger { border-top: 1px solid #2a2f3a; padding-top: 14px; margin-top: 28px; border-radius: 0 0 12px 12px; }
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
 .tab { background: #2a2f3a; }
 .tab.active { background: var(--accent); color: #1a1d24; font-weight: 700; }

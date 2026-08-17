@@ -208,18 +208,41 @@ test('rematch keeps the room code and chat (no new room, chat not cleared)', asy
 });
 
 test('a player can leave the room without ending it for others', async () => {
-  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', bots: 0 });
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', lobbyToken: 'host-token' });
   const code = created.code;
-  const { json: j2 } = await api('POST', '/api/room/join', { code, name: 'P2' });
-  // Post a chat, then P2 leaves.
+  const { json: j2 } = await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-token' });
+  const { json: j3 } = await api('POST', '/api/room/join', { code, name: 'P3', lobbyToken: 'p3-token' });
+  // Post a chat, then P2 leaves (allowed: 3 players, not a 2-player game).
   await api('POST', '/api/room/chat', { code, seat: j2.seatId, text: 'bye' });
   const { status, json: left } = await api('POST', '/api/room/leave', { code, seat: j2.seatId });
   assert.equal(status, 200);
-  assert.equal(left.remaining, 1, 'one player remains after P2 leaves');
+  assert.equal(left.remaining, 2, 'two players remain after P2 leaves');
   const { json: v } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
   assert.equal(v.code, code, 'room still exists with same code');
-  assert.equal(v.lobby.length, 1, 'only the host remains in the (unstarted) room');
+  assert.equal(v.lobby.length, 2, 'host + P3 remain in the (unstarted) room');
   assert.ok(v.chat.length >= 1, 'chat history kept after a player leaves');
+});
+
+test('host can kick a player back to the lobby, and they cannot rejoin by code', async () => {
+  const { json: host } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', lobbyToken: 'host-token' });
+  const code = host.code;
+  const { json: p2 } = await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-token' });
+  const { json: p3 } = await api('POST', '/api/room/join', { code, name: 'P3', lobbyToken: 'p3-token' });
+  // Host kicks P2 (allowed: 3 players).
+  const kicked = await api('POST', '/api/room/kick', { code, seat: host.seatId, target: p2.seatId });
+  assert.equal(kicked.status, 200, 'kick succeeds');
+  // P2 tries to rejoin with the same lobby token -> blocked.
+  const rejoin = await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-token' });
+  assert.equal(rejoin.status, 403, 'kicked player cannot rejoin by code');
+  // A different person (fresh token) can still join.
+  const { status: ok } = await api('POST', '/api/room/join', { code, name: 'P4', lobbyToken: 'p4-token' });
+  assert.equal(ok, 200, 'a new player can still join');
+  // A bot host is never allowed to kick.
+  const { json: solo } = await api('POST', '/api/room/new', { mode: 'solo', name: 'Solo', lobbyToken: 'solo-token' });
+  const botSeat = solo.seatId; // the human; bots are seats 1..n
+  const botId = (await api('GET', `/api/state?code=${solo.code}&seat=${botSeat}`)).json.scoreboard[1].seat;
+  const botKick = await api('POST', '/api/room/kick', { code: solo.code, seat: botId, target: botSeat });
+  assert.equal(botKick.status, 403, 'bot host cannot kick');
 });
 
 test('concurrent lay-off calls do not crash the server', async () => {

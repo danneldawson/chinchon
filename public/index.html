@@ -11,7 +11,6 @@
     <!-- GLOBAL LOBBY (new landing screen) -->
     <section id="globby" class="panel hidden">
       <h1 id="title">CHINCHÓN</h1>
-      <p id="subtitle" class="sub">Play your family's house rules online.</p>
 
       <div class="lang-row">
         <span class="dim">Language:</span>
@@ -20,9 +19,7 @@
       </div>
 
       <div id="lobby-enter" class="lobby-enter">
-        <label>Your name
-          <input id="lobby-name" type="text" placeholder="Your name" maxlength="24" />
-        </label>
+        <input id="lobby-name" type="text" placeholder="Your name" maxlength="24" />
         <button id="btn-lobby-enter" class="primary">Enter lobby</button>
         <p id="lobby-msg" class="msg"></p>
       </div>
@@ -111,6 +108,8 @@
         </label>
         <button id="btn-solo" class="primary">Start solo game</button>
       </div>
+
+      <button id="btn-leave-lobby" class="danger">Leave lobby</button>
     </section>
 
     <!-- GAME -->

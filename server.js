@@ -137,7 +137,7 @@ function newSeatId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function createRoom({ mode, name, bots }) {
+function createRoom({ mode, name, bots, lobbyToken }) {
   const code = makeCode();
   const players = [];
 
@@ -145,21 +145,21 @@ function createRoom({ mode, name, bots }) {
     // Chinchón needs at least 2 players, so a solo game must have >= 1 bot.
     // Clamp the requested count (the UI labels this 1-6).
     const nBots = Math.max(1, Math.min(6, bots | 0));
-    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now() });
+    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null });
     for (let i = 0; i < nBots; i++) {
-      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now() });
+      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, Math.random);
-    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [] };
     rooms.set(code, room);
     return room;
   }
 
   // multi: humans only, capacity 2-7, wait for Start.
-  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now() };
+  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null };
   players.push(host);
-  const room = { code, mode, players, match: null, state: null, started: false, startedAt: null, hostId: host.id, chat: [], pending: null };
+  const room = { code, mode, players, match: null, state: null, started: false, startedAt: null, hostId: host.id, chat: [], pending: null, banned: [] };
   rooms.set(code, room);
   return room;
 }
@@ -478,6 +478,7 @@ function serialize(room, seatId) {
       name: p.name,
       total: p.total,
       out: p.out,
+      seat: players[i].id, // host kick targets by this id
       eliminatedRank: match.eliminatedOrder.indexOf(i) + 1, // 1=first out, 0=still in/winner
       away: isAway(players[i]),
       spectator: !!players[i].spectator,
@@ -545,6 +546,13 @@ function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true });
     });
   }
+  // Leave the global lobby entirely (drops the name + token, returns to landing).
+  if (method === 'POST' && p === '/api/lobby/leave') {
+    return readBody(req).then((body) => {
+      lobby.members.delete(body.token);
+      return sendJson(res, 200, { ok: true });
+    });
+  }
   if (method === 'GET' && p === '/api/lobby/state') {
     return sendJson(res, 200, lobbyState());
   }
@@ -570,10 +578,10 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const mode = body.mode === 'solo' ? 'solo' : 'multi';
       if (mode === 'multi') {
-        const room = createRoom({ mode, name: body.name });
+        const room = createRoom({ mode, name: body.name, lobbyToken: body.lobbyToken });
         return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
       }
-      const room = createRoom({ mode, name: body.name, bots: body.bots || 0 });
+      const room = createRoom({ mode, name: body.name, bots: body.bots || 0, lobbyToken: body.lobbyToken });
       runBotTurns(room);
       return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
     });
@@ -589,6 +597,8 @@ function handleApi(req, res, url) {
       if (body.seatId) {
         const existing = room.players.find((pl) => pl.id === body.seatId);
         if (existing && !existing.isBot) {
+          // A banned player cannot rejoin, even with a saved seat.
+          if (room.banned.includes(body.lobbyToken)) return sendJson(res, 403, { error: 'you have been removed from this room' });
           stampSeen(room, body.seatId);
           evaluateWaiting(room);
           return sendJson(res, 200, { seatId: existing.id, rejoined: true });
@@ -596,12 +606,14 @@ function handleApi(req, res, url) {
         return sendJson(res, 404, { error: 'no such seat to rejoin' });
       }
 
+      // A kicked player (by lobby token) cannot rejoin this room by code.
+      if (room.banned.includes(body.lobbyToken)) return sendJson(res, 403, { error: 'you have been removed from this room' });
       if (room.started) return sendJson(res, 400, { error: 'game already started' });
       const humans = room.players.filter((pl) => !pl.isBot).length;
       if (humans >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now() });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null });
       return sendJson(res, 200, { seatId: id });
     });
   }
@@ -705,35 +717,68 @@ function handleApi(req, res, url) {
         lobbySystem(`Rematch in room ${room.code} resumes — starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s.`);
       } else {
         room.pending.hold = true;
-        lobbySystem(`Rematch in room ${room.code} held by host — waiting to start.`);
+        // General chat shows HELDBYHOST while the rematch is held (until the host unholds).
+        lobbySystem(`HELDBYHOSTN ${room.code} — waiting for host to start.`);
       }
       return sendJson(res, 200, { ok: true, pending: room.pending });
     });
   }
 
-  // A player leaves the room (used from the game-over screen). The room, its
-  // code, and the chat history stay alive for everyone else. No new room is
-  // created. If the host leaves, the next player is promoted to host.
+  // Remove a seat from a room (used by both self-leave and host-kick). The
+  // room, its code, and chat history stay alive for the others. If the removed
+  // seat was the host, the next player is promoted. Returns the new count.
+  function removePlayer(room, seatId) {
+    const idx = room.players.findIndex((pl) => pl.id === seatId);
+    if (idx < 0) return { error: 'not in this room' };
+    const leaving = room.players[idx];
+    room.players.splice(idx, 1);
+    if (room.match) {
+      const totalsByName = Object.fromEntries(room.match.players.map((m) => [m.name, m]));
+      room.match.players = room.players.map((p) => totalsByName[p.name] || { name: p.name, total: 0, out: false });
+      room.match.eliminatedOrder = [];
+      room.match.winner = null;
+      room.match.chinchonWinner = false;
+      room.match.gameOver = room.players.length < 2; // can't continue a 1-player room
+    }
+    if (room.hostId === leaving.id) room.hostId = room.players[0] ? room.players[0].id : null;
+    return { ok: true, remaining: room.players.length };
+  }
+
+  // A player leaves the room. Allowed any time — it does NOT affect the match
+  // in progress — EXCEPT in a 2-player game, where leaving would end it, so it
+  // is blocked (they must finish or use rematch instead).
   if (method === 'POST' && p === '/api/room/leave') {
     return readBody(req).then((body) => {
       const room = rooms.get(body.code);
       if (!room) return sendJson(res, 404, { error: 'no such room' });
-      const idx = room.players.findIndex((pl) => pl.id === body.seat);
-      if (idx < 0) return sendJson(res, 404, { error: 'not in this room' });
-      const leaving = room.players[idx];
-      room.players.splice(idx, 1);
-      // Rebuild match players preserving final totals where possible. If the
-      // room was never started, there is no match yet — just drop the player.
-      if (room.match) {
-        const totalsByName = Object.fromEntries(room.match.players.map((m) => [m.name, m]));
-        room.match.players = room.players.map((p) => totalsByName[p.name] || { name: p.name, total: 0, out: false });
-        room.match.eliminatedOrder = [];
-        room.match.winner = null;
-        room.match.chinchonWinner = false;
-        room.match.gameOver = room.players.length < 2; // can't continue a 1-player room
-      }
-      if (room.hostId === leaving.id) room.hostId = room.players[0] ? room.players[0].id : null;
-      return sendJson(res, 200, { ok: true, remaining: room.players.length });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer) return sendJson(res, 404, { error: 'not in this room' });
+      if (room.players.length <= 2) return sendJson(res, 400, { error: 'cannot leave a 2-player game' });
+      const r = removePlayer(room, body.seat);
+      if (r.error) return sendJson(res, 404, { error: r.error });
+      return sendJson(res, 200, r);
+    });
+  }
+
+  // Host kicks another player (human or bot). The kicked player is sent back to
+  // the lobby. A bot host is NEVER allowed to kick — only a human host.
+  if (method === 'POST' && p === '/api/room/kick') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      const host = room.players.find((pl) => pl.id === room.hostId);
+      if (!host || host.isBot) return sendJson(res, 403, { error: 'only a human host can kick' });
+      if (body.seat !== room.hostId) return sendJson(res, 403, { error: 'only the host can kick' });
+      const target = room.players.find((pl) => pl.id === body.target);
+      if (!target) return sendJson(res, 404, { error: 'no such player' });
+      if (target.id === room.hostId) return sendJson(res, 400, { error: 'cannot kick the host' });
+      if (room.players.length <= 2) return sendJson(res, 400, { error: 'cannot kick in a 2-player game' });
+      // Ban the kicked player's lobby token so they can't rejoin by code.
+      if (target.lobbyToken) room.banned.push(target.lobbyToken);
+      const r = removePlayer(room, body.target);
+      if (r.error) return sendJson(res, 404, { error: r.error });
+      lobbySystem(`${target.name} was kicked from room ${room.code}.`);
+      return sendJson(res, 200, r);
     });
   }
 
