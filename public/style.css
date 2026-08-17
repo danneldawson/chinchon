@@ -191,6 +191,13 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .go-winner { font-size: 1.4em; font-weight: 700; margin: 6px 0 14px; }
 #go-eliminated { margin-bottom: 18px; }
 .go-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.go-board { margin: 10px 0 14px; text-align: left; }
+.go-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; border-radius: 8px; }
+.go-row.winner { background: rgba(255,207,77,0.14); font-weight: 700; }
+.go-row.out { opacity: 0.5; }
+.go-name { color: var(--ink); }
+.go-score { color: var(--dim); font-variant-numeric: tabular-nums; }
+.go-row.winner .go-score { color: var(--accent); }
 .row.out { opacity: 0.5; text-decoration: line-through; }
 
 /* Connection status dots on the scoreboard */

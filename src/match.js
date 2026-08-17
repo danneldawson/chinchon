@@ -20,6 +20,8 @@ function createMatch(playerNames) {
     players: playerNames.map((name) => ({ name, total: 0, out: false })),
     round: 0,
     winner: null,
+    chinchonWinner: false,
+    eliminatedOrder: [], // seat indices in the order they were knocked out (first = earliest)
     gameOver: false,
   };
 }
@@ -35,6 +37,7 @@ function applyRound(match, roundResult) {
   // Chinchon ends the match outright, whatever the scores are.
   if (roundResult.chinchon) {
     match.winner = roundResult.winner;
+    match.chinchonWinner = true;
     match.gameOver = true;
     return match;
   }
@@ -45,6 +48,7 @@ function applyRound(match, roundResult) {
     // (Scores can go negative via -10 clean closes; floor at MIN_SCORE = -50.)
     if (isEliminated(match.players[i].total)) {
       match.players[i].out = true;
+      match.eliminatedOrder.push(i); // earliest elimination first
     }
   });
 

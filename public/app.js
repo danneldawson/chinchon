@@ -57,6 +57,7 @@ const I18N = {
     goTitle: 'Match over',
     goWinner: 'Winner',
     eliminated: 'Eliminated',
+    chinchon: 'Chinchón',
     rematch: 'Play again (same players)',
     toLobby: 'Back to lobby',
   },
@@ -110,6 +111,7 @@ const I18N = {
     goTitle: 'Partida terminada',
     goWinner: 'Ganador',
     eliminated: 'Eliminados',
+    chinchon: 'Chinchón',
     rematch: 'Jugar otra (mismos jugadores)',
     toLobby: 'Volver al lobby',
   },
@@ -470,7 +472,38 @@ function render() {
     _animState.gameover = true;
     go.classList.remove('hidden');
     $('go-title').textContent = t('goTitle');
-    $('go-winner').textContent = `${t('goWinner')}: ${v.winner}`;
+
+    // Winner line: chinchón wins show the word only (no points); point wins show total.
+    if (v.chinchonWin) {
+      $('go-winner').textContent = `🏆 ${v.winner} — ${t('chinchon')}`;
+    } else {
+      const w = (v.scoreboard || []).find((p) => p.name === v.winner);
+      $('go-winner').textContent = `🏆 ${v.winner} — ${w ? w.total : ''}`;
+    }
+
+    // Leaderboard: winner first, then everyone else by ELIMINATION ORDER
+    // (last eliminated just under the winner, first eliminated at the bottom).
+    // Players still in the game (eliminatedRank 0) rank just below the winner.
+    const board = $('go-board');
+    board.innerHTML = '';
+    const players = (v.scoreboard || []).slice();
+    const rank = (p) => (p.name === v.winner ? Infinity : (p.eliminatedRank || 0) === 0 ? Infinity - 1 : p.eliminatedRank);
+    const ranked = players.slice().sort((a, b) => rank(b) - rank(a));
+    for (const p of ranked) {
+      const row = document.createElement('div');
+      row.className = 'go-row' + (p.name === v.winner ? ' winner' : '') + (p.out ? ' out' : '');
+      const name = document.createElement('span');
+      name.className = 'go-name';
+      name.textContent = (p.name === v.winner ? '🏆 ' : '') + p.name;
+      const score = document.createElement('span');
+      score.className = 'go-score';
+      // Chinchón winner: no points shown (already in the header). Others: their total.
+      score.textContent = (p.name === v.winner && v.chinchonWin) ? '' : p.total;
+      row.appendChild(name);
+      row.appendChild(score);
+      board.appendChild(row);
+    }
+
     const outNames = (v.scoreboard || []).filter((p) => p.out).map((p) => p.name);
     $('go-eliminated').textContent = outNames.length
       ? `${t('eliminated')}: ${outNames.join(', ')}`

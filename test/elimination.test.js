@@ -104,3 +104,22 @@ test('a match ends correctly once only one player remains', () => {
   assert.strictEqual(match.winner, 0);
   assert.strictEqual(activePlayers(match).length, 1);
 });
+
+test('eliminations are recorded in order (first out first)', () => {
+  const match = createMatch(['Ana', 'Beto', 'Cami', 'Dani']);
+  // Beto crosses 101 first (+30 -> out), then Cami (+40 -> out).
+  match.players[1].total = 95;
+  applyRound(match, { valid: true, chinchon: false, scores: [0, 30, 0, 0] });
+  assert.deepStrictEqual(match.eliminatedOrder, [1]);
+  match.players[2].total = 90;
+  applyRound(match, { valid: true, chinchon: false, scores: [0, 0, 40, 0] });
+  assert.deepStrictEqual(match.eliminatedOrder, [1, 2]); // earliest first
+});
+
+test('chinchon win flags chinchonWinner and ends the match', () => {
+  const match = createMatch(['Ana', 'Beto']);
+  applyRound(match, { valid: true, chinchon: true, winner: 0, scores: [0, 0] });
+  assert.strictEqual(match.chinchonWinner, true);
+  assert.strictEqual(match.winner, 0);
+  assert.ok(match.gameOver);
+});

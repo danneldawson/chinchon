@@ -349,6 +349,7 @@ function serialize(room, seatId) {
     mode: room.mode,
     started: room.started,
     gameOver: match.gameOver,
+    chinchonWin: !!match.chinchonWinner,
     winner: match.winner !== null ? players[match.winner].name : null,
     hostId: room.hostId,
     isHost: !!viewer && viewer.id === room.hostId,
@@ -374,7 +375,14 @@ function serialize(room, seatId) {
     yourDeadwood: split.deadwood,
     closeOptions: opts,
     opponents,
-    scoreboard: match.players.map((p, i) => ({ name: p.name, total: p.total, out: p.out, away: isAway(players[i]), spectator: !!players[i].spectator })),
+    scoreboard: match.players.map((p, i) => ({
+      name: p.name,
+      total: p.total,
+      out: p.out,
+      eliminatedRank: match.eliminatedOrder.indexOf(i) + 1, // 1=first out, 0=still in/winner
+      away: isAway(players[i]),
+      spectator: !!players[i].spectator,
+    })),
     chat: room.chat || [],
   };
 }
