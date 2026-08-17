@@ -59,7 +59,12 @@ const I18N = {
     eliminated: 'Eliminated',
     chinchon: 'Chinchón',
     rematch: 'Play again (same players)',
-    toLobby: 'Back to lobby',
+    toLobby: 'Leave',
+    leave: 'Leave room',
+    matchEnded: 'Match ended',
+    hold: 'Hold',
+    resume: 'Resume',
+    startNow: 'Start now',
   },
   es: {
     title: 'CHINCHÓN',
@@ -113,7 +118,12 @@ const I18N = {
     eliminated: 'Eliminados',
     chinchon: 'Chinchón',
     rematch: 'Jugar otra (mismos jugadores)',
-    toLobby: 'Volver al lobby',
+    toLobby: 'Salir',
+    leave: 'Salir de la sala',
+    matchEnded: 'Partida terminada',
+    hold: 'Pausar',
+    resume: 'Reanudar',
+    startNow: 'Empezar ya',
   },
 };
 
@@ -130,6 +140,8 @@ const state = {
   handOrder: [],  // card ids in the player's preferred display order (reorderable)
   swapPick: null, // card id currently "picked up" for swapping during reorder
   chatSeen: 0,    // how many chat messages already rendered (append-only)
+  lobbyToken: null,
+  lobbyName: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -154,6 +166,7 @@ function shareLinkFor(code, seatId) {
 // ----------------------------------------------------------- lobby wiring
 
 function show(panel) {
+  $('globby').classList.add('hidden');
   $('lobby').classList.add('hidden');
   $('game').classList.add('hidden');
   panel.classList.remove('hidden');
@@ -474,7 +487,10 @@ function render() {
     $('go-title').textContent = t('goTitle');
 
     // Winner line: chinchón wins show the word only (no points); point wins show total.
-    if (v.chinchonWin) {
+    // If everyone left (no winner), show a neutral end message.
+    if (!v.winner) {
+      $('go-winner').textContent = t('matchEnded');
+    } else if (v.chinchonWin) {
       $('go-winner').textContent = `🏆 ${v.winner} — ${t('chinchon')}`;
     } else {
       const w = (v.scoreboard || []).find((p) => p.name === v.winner);
@@ -508,6 +524,24 @@ function render() {
     $('go-eliminated').textContent = outNames.length
       ? `${t('eliminated')}: ${outNames.join(', ')}`
       : '';
+
+    // Rematch pending window (90s countdown, or held by host). Lobby watchers
+    // can join the rematch; the starter (host) may HOLD the countdown (tap
+    // again to resume) — there is no "start now" button; it auto-starts at 0.
+    const pendingEl = $('go-pending');
+    const holdBtn = $('btn-hold');
+    if (v.pending) {
+      pendingEl.classList.remove('hidden');
+      pendingEl.textContent = v.pending.hold
+        ? `HELD BY HOST ${v.pending.hostName} — waiting to start`
+        : `New game starts in ${v.pending.secondsLeft}s (room ${v.pending.code})`;
+      const isStarter = v.pending.startedBy === state.seatId;
+      holdBtn.classList.toggle('hidden', !isStarter);
+      holdBtn.textContent = v.pending.hold ? t('resume') : t('hold');
+    } else {
+      pendingEl.classList.add('hidden');
+      holdBtn.classList.add('hidden');
+    }
   } else {
     go.classList.add('hidden');
     _animState.gameover = false;
@@ -918,7 +952,19 @@ $('btn-rematch').onclick = async () => {
   state.selected.clear();
   await poll();
 };
-$('btn-tolobby').onclick = () => {
+$('btn-hold').onclick = async () => {
+  await fetch('/api/room/rematch/hold', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  });
+  await poll();
+};
+$('btn-tolobby').onclick = async () => {
+  // Leave the room server-side (room + code + chat stay for the others).
+  await fetch('/api/room/leave', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  }).catch(() => null);
   clearInterval(state.pollTimer);
   clearSeat(state.code);
   state.code = null;
@@ -934,6 +980,188 @@ $('btn-tolobby').onclick = () => {
 window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
 window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);
 
-show($('lobby'));
+// ----------------------------------------------------------- global lobby
+// The new landing screen. Anyone enters with a name, sees who's present, the
+// active matches, and a general chat. From here they create or join a room.
+
+function persistLobby(token, name) {
+  try { localStorage.setItem('chinchonLobby', JSON.stringify({ token, name })); } catch { /* ignore */ }
+}
+function loadLobby() {
+  try { return JSON.parse(localStorage.getItem('chinchonLobby') || 'null'); } catch { return null; }
+}
+function clearLobby() { try { localStorage.removeItem('chinchonLobby'); } catch { /* ignore */ } }
+
+let lobbyTimer = null;
+let lobbyChatSeen = 0;
+let matchIdx = 0;
+
+async function enterLobby() {
+  const name = $('lobby-name').value.trim();
+  if (!name) { $('lobby-name').focus(); return; }
+  const res = await fetch('/api/lobby/enter', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  }).then((r) => r.json()).catch(() => null);
+  if (!res || res.error) {
+    $('lobby-msg').textContent = res && res.error === 'name reserved'
+      ? 'That name is reserved — pick another.'
+      : 'Could not enter the lobby. Try again.';
+    return;
+  }
+  state.lobbyToken = res.token;
+  state.lobbyName = res.name;
+  persistLobby(res.token, res.name);
+  $('lobby-enter').classList.add('hidden');
+  $('lobby-main').classList.remove('hidden');
+  $('lobby-name').value = res.name;
+  lobbyChatSeen = 0;
+  await lobbyPoll();
+  clearInterval(lobbyTimer);
+  lobbyTimer = setInterval(lobbyPoll, 2000);
+}
+
+async function lobbyPoll() {
+  if (!state.lobbyToken) return;
+  const res = await fetch('/api/lobby/state').then((r) => r.json()).catch(() => null);
+  if (!res) return;
+  // Members + total.
+  $('lobby-total').textContent = res.total;
+  const ul = $('lobby-members');
+  ul.innerHTML = '';
+  for (const m of res.members) {
+    const li = document.createElement('li');
+    li.textContent = (m.name === state.lobbyName ? '★ ' : '') + m.name;
+    ul.appendChild(li);
+  }
+  // Active matches.
+  renderLobbyMatches(res.matches);
+  // General chat (append only unseen).
+  const log = $('lobby-chat-log');
+  const msgs = res.chat || [];
+  if (msgs.length < lobbyChatSeen) lobbyChatSeen = 0;
+  for (let i = lobbyChatSeen; i < msgs.length; i++) {
+    const m = msgs[i];
+    const div = document.createElement('div');
+    div.className = 'chat-msg' + (m.system ? ' system' : '');
+    div.innerHTML = `<b>${escapeHtml(m.name)}:</b> ${escapeHtml(m.text)}`;
+    log.appendChild(div);
+  }
+  lobbyChatSeen = msgs.length;
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderLobbyMatches(matches) {
+  const board = $('matches-board');
+  const none = $('no-matches');
+  if (!matches || matches.length === 0) {
+    board.classList.add('hidden');
+    none.classList.remove('hidden');
+    return;
+  }
+  none.classList.add('hidden');
+  board.classList.remove('hidden');
+  $('matches-count').textContent = `(${matches.length})`;
+  if (matchIdx >= matches.length) matchIdx = 0;
+  const m = matches[matchIdx];
+  const elapsed = Math.floor((m.elapsedMs || 0) / 1000);
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const ss = String(elapsed % 60).padStart(2, '0');
+  let html = `<div class="mc-code">Room ${m.code} · ${m.mode === 'solo' ? 'vs bots' : 'friends'}</div>`;
+  if (m.pending) {
+    html += `<div class="mc-pending">${m.pending.hold ? `HELD BY HOST ${m.pending.hostName}` : `New game in ${m.pending.secondsLeft}s`}</div>`;
+  } else {
+    html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
+  }
+  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' (out)' : ''}</span><span>${p.total}</span></div>`).join('');
+  if (m.pending) html += `<button class="small" data-joinrem="${m.code}">Join rematch</button>`;
+  $('match-card').innerHTML = html;
+  // Wire the join-rematch button for this card.
+  const jb = $('match-card').querySelector('[data-joinrem]');
+  if (jb) jb.onclick = () => joinRematch(m.code);
+  $('btn-match-next').classList.toggle('hidden', matches.length <= 1);
+}
+
+async function joinRematch(code) {
+  const res = await fetch('/api/room/join-rematch', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, name: state.lobbyName || $('lobby-name').value.trim() || 'Player' }),
+  }).then((r) => r.json());
+  if (res.error) { alert(res.error); return; }
+  state.code = res.code;
+  state.seatId = res.seatId;
+  persistSeat(res.code, res.seatId);
+  clearInterval(lobbyTimer);
+  enterGame();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+$('btn-lobby-enter').onclick = enterLobby;
+$('lobby-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') enterLobby(); });
+$('btn-lobby-chat-send').onclick = async () => {
+  const input = $('lobby-chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await fetch('/api/lobby/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: state.lobbyToken, text }),
+  }).catch(() => null);
+  await lobbyPoll();
+};
+$('lobby-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-lobby-chat-send').click(); });
+$('btn-match-next').onclick = () => { matchIdx++; lobbyPoll(); };
+
+// Create / Join from the lobby route into the room-setup screen.
+$('btn-go-create').onclick = () => {
+  const name = state.lobbyName || $('lobby-name').value.trim();
+  $('host-name').value = name;
+  clearInterval(lobbyTimer);
+  show($('lobby'));
+  setTab('multi');
+  showSub('create');
+};
+$('btn-go-join').onclick = () => {
+  const name = state.lobbyName || $('lobby-name').value.trim();
+  $('join-name').value = name;
+  clearInterval(lobbyTimer);
+  show($('lobby'));
+  setTab('multi');
+  showSub('join');
+};
+$('btn-back-lobby').onclick = () => {
+  clearInterval(state.pollTimer);
+  show($('globby'));
+  $('lobby-main').classList.remove('hidden');
+  $('lobby-enter').classList.add('hidden');
+  lobbyPoll();
+  clearInterval(lobbyTimer);
+  lobbyTimer = setInterval(lobbyPoll, 2000);
+};
+
+// ----------------------------------------------------------- boot
+// Land on the global lobby first. Resume a lobby session from localStorage if present.
+(function boot() {
+  const saved = loadLobby();
+  if (saved && saved.token) {
+    state.lobbyToken = saved.token;
+    state.lobbyName = saved.name;
+    $('lobby-enter').classList.add('hidden');
+    $('lobby-main').classList.remove('hidden');
+    $('lobby-name').value = saved.name;
+    show($('globby'));
+    lobbyChatSeen = 0;
+    lobbyPoll();
+    lobbyTimer = setInterval(lobbyPoll, 2000);
+  } else {
+    show($('globby'));
+  }
+})();
 setTab('multi');
+
+window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
+window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);
 applyLang();

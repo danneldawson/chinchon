@@ -23,7 +23,101 @@ const layoffCore = require('./src/layoff');
 const layoffInteractive = require('./src/layoff-interactive');
 const cards = require('./src/cards');
 
-// ----------------------------------------------------------------- rooms
+// ----------------------------------------------------------------- global lobby
+// A single shared lobby for the whole app. Anyone can enter with a username,
+// see who's present, and use the general chat. No 7-cap here (it's a waiting
+// area; rooms created from it still cap at 7). Rooms list their live state
+// so lobby watchers can see active matches and join a rematch in progress.
+
+const LOBBY_CHAT_CAP = 25;
+const REMATCH_COUNTDOWN_MS = 90000;
+const lobby = {
+  members: new Map(), // token -> { token, name, at }
+  chat: [],
+};
+
+function lobbyEnter(name) {
+  const clean = String(name || '').trim().slice(0, 24) || 'Player';
+  // The name "CHINCHON" is reserved for the system's auto-messages.
+  if (clean.toLowerCase() === 'chinchon') return { error: 'name reserved' };
+  // Unique-ish name within the lobby (append a number if taken).
+  const taken = new Set([...lobby.members.values()].map((m) => m.name.toLowerCase()));
+  let finalName = clean;
+  let n = 2;
+  while (taken.has(finalName.toLowerCase())) finalName = `${clean}${n++}`;
+  const token = newSeatId();
+  lobby.members.set(token, { token, name: finalName, at: Date.now() });
+  return { token, name: finalName };
+}
+
+function lobbyChatPush(name, text) {
+  const t = String(text || '').trim().slice(0, 160);
+  if (!t) return;
+  lobby.chat.push({ name, text: t, at: Date.now(), system: false });
+  if (lobby.chat.length > LOBBY_CHAT_CAP) lobby.chat = lobby.chat.slice(-LOBBY_CHAT_CAP);
+}
+
+function lobbySystem(text) {
+  lobby.chat.push({ name: 'CHINCHÓN', text, at: Date.now(), system: true });
+  if (lobby.chat.length > LOBBY_CHAT_CAP) lobby.chat = lobby.chat.slice(-LOBBY_CHAT_CAP);
+}
+
+// Active matches feed for the lobby: each room's code, elapsed time, live
+// scoreboard (totals), and whether it's at a rematch-countdown or game-over.
+function lobbyMatches() {
+  const out = [];
+  for (const room of rooms.values()) {
+    const m = room.match;
+    out.push({
+      code: room.code,
+      mode: room.mode,
+      started: !!room.started,
+      gameOver: m ? !!m.gameOver : false,
+      round: m ? m.round : 0,
+      elapsedMs: room.started && room.startedAt ? Date.now() - room.startedAt : 0,
+      pending: room.pending
+        ? { code: room.code, secondsLeft: room.pending.hold ? null : Math.max(0, Math.ceil((room.pending.until - Date.now()) / 1000)), hold: !!room.pending.hold, hostName: room.pending.hostName }
+        : null,
+      scoreboard: m ? m.players.map((p) => ({ name: p.name, total: p.total, out: p.out })) : [],
+    });
+  }
+  return out;
+}
+
+function lobbyState() {
+  return {
+    members: [...lobby.members.values()].map((m) => ({ name: m.name })),
+    total: lobby.members.size,
+    chat: lobby.chat,
+    matches: lobbyMatches(),
+  };
+}
+
+// View of a room's pending rematch for clients (counts down live).
+function pendingView(room) {
+  const pending = room.pending;
+  return {
+    code: room.code,
+    secondsLeft: pending.hold ? null : Math.max(0, Math.ceil((pending.until - Date.now()) / 1000)),
+    hold: !!pending.hold,
+    hostName: pending.hostName,
+    startedBy: pending.startedBy,
+  };
+}
+
+
+
+function startPendingMatch(room) {
+  room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
+  room.state = turn.startRound(room.players.length, Math.random);
+  room.layoff = null;
+  room.pending = null;
+  room.startedAt = Date.now();
+  // Chat is kept across rematches (same room, same players) — no clearing.
+  lobbySystem(`Room ${room.code} started a new match.`);
+  runBotTurns(room);
+}
+
 
 const rooms = new Map();
 let roomSeq = 0;
@@ -57,7 +151,7 @@ function createRoom({ mode, name, bots }) {
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, Math.random);
-    const room = { code, mode, players, match, state, started: true, hostId: players[0].id, chat: [] };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null };
     rooms.set(code, room);
     return room;
   }
@@ -65,7 +159,7 @@ function createRoom({ mode, name, bots }) {
   // multi: humans only, capacity 2-7, wait for Start.
   const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now() };
   players.push(host);
-  const room = { code, mode, players, match: null, state: null, started: false, hostId: host.id, chat: [] };
+  const room = { code, mode, players, match: null, state: null, started: false, startedAt: null, hostId: host.id, chat: [], pending: null };
   rooms.set(code, room);
   return room;
 }
@@ -293,8 +387,12 @@ function closeOptionsFor(hand) {
 
 function serialize(room, seatId) {
   const { state, match, players } = room;
+  // Auto-start a pending rematch once its 90s window elapses (no hold).
+  if (room.pending && !room.pending.hold && Date.now() >= room.pending.until) {
+    startPendingMatch(room);
+  }
   if (!state) {
-    return { code: room.code, mode: room.mode, started: room.started, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })), chat: room.chat || [] };
+    return { code: room.code, mode: room.mode, started: room.started, pending: room.pending ? pendingView(room) : null, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })), chat: room.chat || [] };
   }
   const viewer = players.find((p) => p.id === seatId);
   const viewerSeat = viewer ? viewer.seat : 0;
@@ -349,6 +447,7 @@ function serialize(room, seatId) {
     mode: room.mode,
     started: room.started,
     gameOver: match.gameOver,
+    pending: room.pending ? pendingView(room) : null,
     chinchonWin: !!match.chinchonWinner,
     winner: match.winner !== null ? players[match.winner].name : null,
     hostId: room.hostId,
@@ -430,6 +529,26 @@ function handleApi(req, res, url) {
   const p = url.pathname;
   const method = req.method;
 
+  // ---- global lobby ----------------------------------------------------
+  if (method === 'POST' && p === '/api/lobby/enter') {
+    return readBody(req).then((body) => {
+      const entered = lobbyEnter(body.name);
+      if (entered.error) return sendJson(res, 400, { error: entered.error });
+      return sendJson(res, 200, { token: entered.token, name: entered.name });
+    });
+  }
+  if (method === 'POST' && p === '/api/lobby/chat') {
+    return readBody(req).then((body) => {
+      const member = lobby.members.get(body.token);
+      if (!member) return sendJson(res, 403, { error: 'not in lobby' });
+      lobbyChatPush(member.name, body.text);
+      return sendJson(res, 200, { ok: true });
+    });
+  }
+  if (method === 'GET' && p === '/api/lobby/state') {
+    return sendJson(res, 200, lobbyState());
+  }
+
   if (method === 'GET' && p === '/api/state') {
     const code = url.searchParams.get('code');
     const seat = url.searchParams.get('seat');
@@ -496,6 +615,7 @@ function handleApi(req, res, url) {
       const humans = room.players.filter((pl) => !pl.isBot);
       if (humans.length < 2) return sendJson(res, 400, { error: 'need at least 2 players' });
       room.started = true;
+      room.startedAt = Date.now();
       room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
       room.state = turn.startRound(room.players.length, Math.random);
       runBotTurns(room);
@@ -546,12 +666,74 @@ function handleApi(req, res, url) {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only a player can rematch' });
       if (room.players.length < 2) return sendJson(res, 400, { error: 'need 2+ players to rematch' });
-      room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
-      room.state = turn.startRound(room.players.length, Math.random);
-      room.layoff = null;
-      room.chat = []; // fresh match = fresh chat
-      runBotTurns(room);
-      return sendJson(res, 200, { ok: true });
+      if (!room.match || !room.match.gameOver) return sendJson(res, 400, { error: 'match is not over' });
+      // Enter a 90s pending window (others in the lobby may join the rematch).
+      room.pending = { until: Date.now() + REMATCH_COUNTDOWN_MS, hold: false, hostName: viewer.name, startedBy: viewer.id };
+      lobbySystem(`A new game in room ${room.code} starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s — join the rematch!`);
+      return sendJson(res, 200, { ok: true, pending: room.pending });
+    });
+  }
+
+  // Lobby watchers (or anyone not yet in the room) join a rematch during its
+  // pending window. Same rules as a normal join: humans only, cap 7.
+  if (method === 'POST' && p === '/api/room/join-rematch') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      if (!room.pending) return sendJson(res, 403, { error: 'no rematch pending' });
+      if (room.players.filter((pl) => !pl.isBot).length >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
+      const seat = room.players.length;
+      const id = newSeatId();
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now() });
+      lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`);
+      return sendJson(res, 200, { seatId: id, code: room.code });
+    });
+  }
+
+  // Host toggles the rematch hold. Hold pauses the 90s countdown indefinitely;
+  // tapping again resumes it (resets the 90s window from now). There is NO
+  // immediate-start button — the match auto-starts when the countdown hits 0.
+  if (method === 'POST' && p === '/api/room/rematch/hold') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room || !room.pending) return sendJson(res, 404, { error: 'no rematch pending' });
+      if (body.seat !== room.pending.startedBy) return sendJson(res, 403, { error: 'only the rematch starter can hold' });
+      if (room.pending.hold) {
+        // Resume: restart the 90s window.
+        room.pending.hold = false;
+        room.pending.until = Date.now() + REMATCH_COUNTDOWN_MS;
+        lobbySystem(`Rematch in room ${room.code} resumes — starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s.`);
+      } else {
+        room.pending.hold = true;
+        lobbySystem(`Rematch in room ${room.code} held by host — waiting to start.`);
+      }
+      return sendJson(res, 200, { ok: true, pending: room.pending });
+    });
+  }
+
+  // A player leaves the room (used from the game-over screen). The room, its
+  // code, and the chat history stay alive for everyone else. No new room is
+  // created. If the host leaves, the next player is promoted to host.
+  if (method === 'POST' && p === '/api/room/leave') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      const idx = room.players.findIndex((pl) => pl.id === body.seat);
+      if (idx < 0) return sendJson(res, 404, { error: 'not in this room' });
+      const leaving = room.players[idx];
+      room.players.splice(idx, 1);
+      // Rebuild match players preserving final totals where possible. If the
+      // room was never started, there is no match yet — just drop the player.
+      if (room.match) {
+        const totalsByName = Object.fromEntries(room.match.players.map((m) => [m.name, m]));
+        room.match.players = room.players.map((p) => totalsByName[p.name] || { name: p.name, total: 0, out: false });
+        room.match.eliminatedOrder = [];
+        room.match.winner = null;
+        room.match.chinchonWinner = false;
+        room.match.gameOver = room.players.length < 2; // can't continue a 1-player room
+      }
+      if (room.hostId === leaving.id) room.hostId = room.players[0] ? room.players[0].id : null;
+      return sendJson(res, 200, { ok: true, remaining: room.players.length });
     });
   }
 

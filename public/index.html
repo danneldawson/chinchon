@@ -8,8 +8,8 @@
 </head>
 <body>
   <div id="app">
-    <!-- LOBBY -->
-    <section id="lobby" class="panel hidden">
+    <!-- GLOBAL LOBBY (new landing screen) -->
+    <section id="globby" class="panel hidden">
       <h1 id="title">CHINCHÓN</h1>
       <p id="subtitle" class="sub">Play your family's house rules online.</p>
 
@@ -18,6 +18,48 @@
         <button class="lang-btn active" data-lang="en">English</button>
         <button class="lang-btn" data-lang="es">Español</button>
       </div>
+
+      <div id="lobby-enter" class="lobby-enter">
+        <label>Your name
+          <input id="lobby-name" type="text" placeholder="Your name" maxlength="24" />
+        </label>
+        <button id="btn-lobby-enter" class="primary">Enter lobby</button>
+        <p id="lobby-msg" class="msg"></p>
+      </div>
+
+      <div id="lobby-main" class="hidden">
+        <div class="lobby-cols">
+          <div class="lobby-col">
+            <h3>Players here (<span id="lobby-total">0</span>)</h3>
+            <ul id="lobby-members" class="members"></ul>
+            <div class="lobby-actions">
+              <button id="btn-go-create" class="primary">Create room</button>
+              <button id="btn-go-join" class="primary">Join room</button>
+            </div>
+          </div>
+
+          <div class="lobby-col">
+            <h3>Active matches <span class="dim" id="matches-count"></span></h3>
+            <div id="matches-board" class="matches-board hidden">
+              <div id="match-card" class="match-card"></div>
+              <button id="btn-match-next" class="small">Next ▶</button>
+            </div>
+            <p id="no-matches" class="dim">No matches running yet.</p>
+          </div>
+        </div>
+
+        <div id="lobby-chat" class="chat">
+          <div class="chat-head"><span>General chat</span></div>
+          <div id="lobby-chat-log" class="chat-log"></div>
+          <input id="lobby-chat-input" type="text" placeholder="Say something…" maxlength="160" />
+          <button id="btn-lobby-chat-send" class="small">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROOM SETUP (create / join) — reached from the lobby -->
+    <section id="lobby" class="panel hidden">
+      <button id="btn-back-lobby" class="small">← Back to lobby</button>
 
       <div class="tabs">
         <button id="tab-multi" class="tab active">Play with friends</button>
@@ -149,9 +191,11 @@
           <h2 id="go-title"></h2>
           <p id="go-winner" class="go-winner"></p>
           <div id="go-board" class="go-board"></div>
+          <div id="go-pending" class="go-pending hidden"></div>
           <div id="go-eliminated" class="dim"></div>
           <div class="go-actions">
             <button id="btn-rematch" class="primary"></button>
+            <button id="btn-hold" class="small hidden"></button>
             <button id="btn-tolobby" class="small"></button>
           </div>
         </div>

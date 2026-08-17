@@ -163,31 +163,63 @@ test('solo with bots:0 does not crash — clamps to 1 bot', async () => {
   assert.equal(lobby.players.filter((p) => p.isBot).length, 1, 'exactly one bot after clamp');
 });
 
-test('rematch resets the match to a fresh round with the same players', async () => {
+test('rematch enters a 90s pending window; host can hold (toggle), no start-now', async () => {
   const { json: created } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
   const code = created.code;
-  // Play a bit so the match accrues some totals / possibly eliminates someone.
   const { json: v0 } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
   assert.ok(v0.started, 'game started');
-  // Force a full match to completion to exercise elimination + gameOver.
-  // (playMatchToEnd drives draw/discard/close/layoff and ends at a winner.)
   const seatIds = [created.seatId];
-  for (let i = 1; i < 3; i++) {
-    const { json: j } = await api('POST', '/api/room/join', { code, name: 'P' + i });
-    // solo room: bots only, so joins are rejected — use seatIds as-is.
-    void j;
-  }
   // Drive the solo match to its end.
   const final = await playMatchToEnd(code, seatIds);
   assert.ok(final.gameOver, 'match reached game over');
-  // Now rematch as the human seat.
+  // Rematch -> pending window (match not yet reset).
   const { status: rematchStatus } = await api('POST', '/api/room/rematch', { code, seat: created.seatId });
   assert.equal(rematchStatus, 200, 'rematch accepted');
+  let { json: vPending } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
+  assert.ok(vPending.gameOver, 'still game over while pending');
+  assert.ok(vPending.pending, 'pending window is set');
+  assert.equal(vPending.pending.hold, false, 'not held initially');
+  // Host holds (pauses the countdown).
+  await api('POST', '/api/room/rematch/hold', { code, seat: created.seatId });
+  ({ json: vPending } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`));
+  assert.equal(vPending.pending.hold, true, 'host can hold');
+  // There is no immediate-start endpoint.
+  const startResp = await api('POST', '/api/room/rematch/start', { code, seat: created.seatId });
+  assert.equal(startResp.status, 404, 'no start-now endpoint exists');
+  // Match is still not reset while pending.
+  assert.ok(vPending.gameOver, 'match still over while held');
+  assert.equal(vPending.scoreboard.reduce((a, p) => a + p.total, 0) !== 0 || vPending.pending, true, 'not reset yet');
+});
+
+test('rematch keeps the room code and chat (no new room, chat not cleared)', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
+  const code = created.code;
+  // Post a chat message, then drive to game over and rematch.
+  await api('POST', '/api/room/chat', { code, seat: created.seatId, text: 'gg' });
+  const { json: v0 } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
+  assert.ok(v0.chat.length >= 1, 'chat present before rematch');
+  const final = await playMatchToEnd(code, [created.seatId]);
+  assert.ok(final.gameOver, 'match reached game over');
+  const { status } = await api('POST', '/api/room/rematch', { code, seat: created.seatId });
+  assert.equal(status, 200);
   const { json: v1 } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
-  assert.ok(!v1.gameOver, 'after rematch the match is NOT over');
-  assert.equal(v1.scoreboard.reduce((a, p) => a + p.total, 0), 0, 'all totals reset to 0');
-  assert.ok(v1.scoreboard.every((p) => !p.out), 'no players eliminated after reset');
-  assert.equal(v1.scoreboard.length, 3, 'same 3 players kept');
+  assert.equal(v1.code, code, 'same room code preserved');
+  assert.ok(v1.chat.length >= 1, 'chat kept across rematch');
+});
+
+test('a player can leave the room without ending it for others', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', bots: 0 });
+  const code = created.code;
+  const { json: j2 } = await api('POST', '/api/room/join', { code, name: 'P2' });
+  // Post a chat, then P2 leaves.
+  await api('POST', '/api/room/chat', { code, seat: j2.seatId, text: 'bye' });
+  const { status, json: left } = await api('POST', '/api/room/leave', { code, seat: j2.seatId });
+  assert.equal(status, 200);
+  assert.equal(left.remaining, 1, 'one player remains after P2 leaves');
+  const { json: v } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
+  assert.equal(v.code, code, 'room still exists with same code');
+  assert.equal(v.lobby.length, 1, 'only the host remains in the (unstarted) room');
+  assert.ok(v.chat.length >= 1, 'chat history kept after a player leaves');
 });
 
 test('concurrent lay-off calls do not crash the server', async () => {
@@ -224,7 +256,7 @@ test('concurrent lay-off calls do not crash the server', async () => {
 });
 
 // ---------------------------------------------------------------- chat
-test('per-room chat: post, receive, cap at 10, clear on rematch', async () => {
+test('per-room chat: post, receive, cap at 10', async () => {
   const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host' });
   const code = created.code;
   const seat = created.seatId;
@@ -243,10 +275,13 @@ test('per-room chat: post, receive, cap at 10, clear on rematch', async () => {
   // Empty message rejected.
   const { status: bad } = await api('POST', '/api/room/chat', { code, seat, text: '   ' });
   assert.equal(bad, 400, 'empty chat rejected');
+});
 
-  // Rematch clears the chat.
-  await api('POST', '/api/room/start', { code, seat });
-  await api('POST', '/api/room/rematch', { code, seat });
-  const { json: after } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
-  assert.equal(after.chat.length, 0, 'chat cleared on rematch');
+test('lobby: name CHINCHON is reserved', async () => {
+  const { status, json } = await api('POST', '/api/lobby/enter', { name: 'CHINCHON' });
+  assert.equal(status, 400, 'reserved name rejected');
+  assert.equal(json.error, 'name reserved');
+  // A normal name works.
+  const ok = await api('POST', '/api/lobby/enter', { name: 'Lina' });
+  assert.equal(ok.status, 200, 'normal name accepted');
 });

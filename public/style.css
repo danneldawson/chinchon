@@ -195,6 +195,8 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .go-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; border-radius: 8px; }
 .go-row.winner { background: rgba(255,207,77,0.14); font-weight: 700; }
 .go-row.out { opacity: 0.5; }
+.go-pending { margin: 4px 0 14px; font-weight: 600; color: var(--accent); }
+.chat-msg.system { color: var(--accent); font-style: italic; }
 .go-name { color: var(--ink); }
 .go-score { color: var(--dim); font-variant-numeric: tabular-nums; }
 .go-row.winner .go-score { color: var(--accent); }
@@ -310,6 +312,24 @@ button, .card, .pile, input { touch-action: manipulation; }
   #chat.collapsed .chat-head::after { content: ' ▼'; }
   #chat-log { max-height: 28vh; }
 
+  /* Global lobby */
+  .lobby-enter { display: flex; gap: 10px; align-items: flex-end; justify-content: center; margin: 14px 0; }
+  .lobby-cols { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; margin: 10px 0 16px; }
+  .lobby-col { flex: 1 1 280px; min-width: 260px; max-width: 420px; text-align: left; }
+  .lobby-col h3 { margin: 6px 0 8px; color: var(--accent); }
+  ul.members { list-style: none; margin: 0 0 12px; padding: 0; }
+  ul.members li { padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,0.04); margin-bottom: 5px; }
+  .lobby-actions { display: flex; gap: 10px; }
+  .matches-board { position: relative; }
+  .match-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: rgba(26,29,36,0.5); margin-bottom: 8px; }
+  .match-card .mc-code { font-weight: 700; letter-spacing: 1px; }
+  .match-card .mc-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .match-card .mc-timer { color: var(--dim); font-size: 0.85em; }
+  .match-card .mc-pending { color: var(--accent); font-weight: 600; }
+  #btn-match-next { margin-top: 4px; }
+  #lobby-chat { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: rgba(26,29,36,0.45); }
+  #lobby-chat .chat-log { max-height: 180px; height: 180px; }
+  #lobby-chat-input { width: calc(100% - 70px); margin-right: 6px; }
   /* Room code tiny so it doesn't crowd the top. */
   #room-code-tag { font-size: 0.78em; }
 }
