@@ -32,6 +32,12 @@ const I18N = {
     drawStock: 'Draw from stock',
     drawDiscard: 'Draw from discard',
     deadwood: 'deadwood',
+    stock: 'Stock',
+    discard: 'Discard',
+    yourHand: 'Your hand',
+    roomChat: 'Room chat',
+    quickNote: 'Quick note to the table…',
+    reshuffle: 'Stock reshuffled',
     keepPlaying: 'Keep playing (don’t close)',
     chinchon: 'CHINCHÓN — win!',
     close: 'Close',
@@ -78,7 +84,13 @@ const I18N = {
     waiting: 'Esperando a los demás…',
     drawStock: 'Robar del mazo',
     drawDiscard: 'Robar del descarte',
-    deadwood: 'muerto',
+    deadwood: 'sobrante',
+    stock: 'Mazo',
+    discard: 'Descarte',
+    yourHand: 'Tu mano',
+    roomChat: 'Chat de sala',
+    quickNote: 'Nota rápida para la mesa…',
+    reshuffle: 'Mazo rebarajado',
     keepPlaying: 'Seguir jugando (no cerrar)',
     chinchon: 'CHINCHÓN — ¡ganas!',
     close: 'Cerrar',
@@ -183,6 +195,15 @@ function applyLang() {
   $('btn-solo').textContent = t('startSolo');
   $('btn-rematch').textContent = t('rematch');
   $('btn-tolobby').textContent = t('toLobby');
+  // In-game static labels (the ones not rebuilt on every render()).
+  const lblStock = $('lbl-stock'); if (lblStock) lblStock.textContent = t('stock');
+  const lblDiscard = $('lbl-discard'); if (lblDiscard) lblDiscard.textContent = t('discard');
+  const yourHandH2 = $('your-hand-h2'); if (yourHandH2) yourHandH2.firstChild.textContent = t('yourHand') + ' ';
+  const btnStock = $('btn-draw-stock'); if (btnStock) btnStock.textContent = t('drawStock');
+  const btnDiscard = $('btn-draw-discard'); if (btnDiscard) btnDiscard.textContent = t('drawDiscard');
+  const roomChat = document.querySelector('#chat .chat-head span'); if (roomChat) roomChat.textContent = t('roomChat');
+  const chatInput = $('chat-input'); if (chatInput) chatInput.placeholder = t('quickNote');
+  const reshuffle = $('reshuffle-note'); if (reshuffle) reshuffle.textContent = t('reshuffle');
   // Re-render game if we're already in it (so labels update live).
   if (state.view) render();
 }
@@ -414,8 +435,8 @@ function render() {
   const canAct = v.isYourTurn;
   const phase = v.phase;
 
-  // Room code shown on top of the scoreboard.
-  $('room-code-tag').textContent = v.code ? `Room ${v.code}` : '';
+  // Room code shown on top of the scoreboard (localized "Room XXXX").
+  $('room-code-tag').textContent = v.code ? `${t('roomCodeLabel')} ${v.code}` : '';
 
   // Scoreboard: order = join order (host first). Dot = live connection status.
   // Playing/eliminated show their score; a dropped (spectator) player shows "–".
