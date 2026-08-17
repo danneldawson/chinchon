@@ -25,32 +25,34 @@
       </div>
 
       <div id="lobby-main" class="hidden">
-        <div class="lobby-cols">
-          <div class="lobby-col">
-            <h3>Players here (<span id="lobby-total">0</span>)</h3>
-            <ul id="lobby-members" class="members"></ul>
-            <div class="lobby-actions">
-              <button id="btn-go-create" class="primary">Create room</button>
-              <button id="btn-go-join" class="primary">Join room</button>
-            </div>
-          </div>
+        <h1 id="lobby-title">LOBBY</h1>
 
-          <div class="lobby-col">
-            <h3>Active matches <span class="dim" id="matches-count"></span></h3>
-            <div id="matches-board" class="matches-board hidden">
-              <div id="match-card" class="match-card"></div>
-              <button id="btn-match-next" class="small">Next ▶</button>
-            </div>
-            <p id="no-matches" class="dim">No matches running yet.</p>
+        <section class="lobby-panel">
+          <h3>Players here (<span id="lobby-total">0</span>)</h3>
+          <ul id="lobby-members" class="members"></ul>
+          <div class="lobby-actions">
+            <button id="btn-go-create" class="primary">Create room</button>
+            <button id="btn-go-join" class="primary">Join room</button>
           </div>
-        </div>
+        </section>
 
-        <div id="lobby-chat" class="chat">
+        <section class="lobby-panel">
+          <h3>Active matches <span class="dim" id="matches-count"></span></h3>
+          <div id="matches-board" class="matches-board hidden">
+            <div id="match-card" class="match-card"></div>
+            <button id="btn-match-next" class="small">Next ▶</button>
+          </div>
+          <p id="no-matches" class="dim">No matches running yet.</p>
+        </section>
+
+        <section class="lobby-panel">
           <div class="chat-head"><span>General chat</span></div>
           <div id="lobby-chat-log" class="chat-log"></div>
-          <input id="lobby-chat-input" type="text" placeholder="Say something…" maxlength="160" />
-          <button id="btn-lobby-chat-send" class="small">Send</button>
-        </div>
+          <div class="chat-send-row">
+            <input id="lobby-chat-input" type="text" placeholder="Say something…" maxlength="160" />
+            <button id="btn-lobby-chat-send" class="small">Send</button>
+          </div>
+        </section>
       </div>
     </section>
 

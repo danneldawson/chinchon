@@ -316,9 +316,13 @@ button, .card, .pile, input { touch-action: manipulation; }
 
   /* Global lobby */
   .lobby-enter { display: flex; gap: 10px; align-items: flex-end; justify-content: center; margin: 14px 0; }
-  .lobby-cols { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; margin: 10px 0 16px; }
-  .lobby-col { flex: 1 1 280px; min-width: 260px; max-width: 420px; text-align: left; }
-  .lobby-col h3 { margin: 6px 0 8px; color: var(--accent); }
+  /* Three separate stacked panels instead of one cramped square. */
+  .lobby-panel {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; margin: 14px 0;
+  }
+  .lobby-panel h3 { margin: 0 0 10px; color: var(--accent); }
+  #lobby-title { margin: 6px 0 0; letter-spacing: 2px; color: var(--accent); }
   ul.members { list-style: none; margin: 0 0 12px; padding: 0; }
   ul.members li { padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,0.04); margin-bottom: 5px; }
   .lobby-actions { display: flex; gap: 10px; }
@@ -328,10 +332,11 @@ button, .card, .pile, input { touch-action: manipulation; }
   .match-card .mc-row { display: flex; justify-content: space-between; padding: 2px 0; }
   .match-card .mc-timer { color: var(--dim); font-size: 0.85em; }
   .match-card .mc-pending { color: var(--accent); font-weight: 600; }
+  /* General chat panel */
+  .chat-send-row { display: flex; gap: 8px; margin-top: 8px; }
+  #lobby-chat-input { width: calc(100% - 70px); margin-right: 0; }
   #btn-match-next { margin-top: 4px; }
-  #lobby-chat { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: rgba(26,29,36,0.45); }
-  #lobby-chat .chat-log { max-height: 180px; height: 180px; }
-  #lobby-chat-input { width: calc(100% - 70px); margin-right: 6px; }
+  .lobby-panel .chat-log { max-height: 180px; height: 180px; overflow-y: auto; }
   /* Room code tiny so it doesn't crowd the top. */
   #room-code-tag { font-size: 0.78em; }
 }

@@ -718,7 +718,7 @@ function handleApi(req, res, url) {
       } else {
         room.pending.hold = true;
         // General chat shows HELDBYHOST while the rematch is held (until the host unholds).
-        lobbySystem(`HELDBYHOSTN ${room.code} — waiting for host to start.`);
+        lobbySystem(`HELD BY HOST ${room.code} — waiting for host to start.`);
       }
       return sendJson(res, 200, { ok: true, pending: room.pending });
     });
