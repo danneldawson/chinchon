@@ -8,7 +8,7 @@ const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 // ----------------------------------------------------------- i18n
 const I18N = {
   en: {
-    title: 'CHINCHÓN',
+    title: 'CHINCHON',
     tabMulti: 'Play with friends',
     tabSolo: 'Solo vs bots',
     subCreate: 'Create a room',
@@ -38,7 +38,7 @@ const I18N = {
     quickNote: 'Quick note to the table…',
     reshuffle: 'Stock reshuffled',
     keepPlaying: 'Keep playing (don’t close)',
-    chinchon: 'CHINCHÓN — win!',
+    chinchon: 'CHINCHON — win!',
     close: 'Close',
     discard: 'discard',
     out: 'OUT',
@@ -66,7 +66,7 @@ const I18N = {
     startNow: 'Start now',
   },
   es: {
-    title: 'CHINCHÓN',
+    title: 'CHINCHON',
     tabMulti: 'Jugar con amigos',
     tabSolo: 'Solo vs bots',
     subCreate: 'Crear una sala',
@@ -96,7 +96,7 @@ const I18N = {
     quickNote: 'Nota rápida para la mesa…',
     reshuffle: 'Mazo rebarajado',
     keepPlaying: 'Seguir jugando (no cerrar)',
-    chinchon: 'CHINCHÓN — ¡ganas!',
+    chinchon: 'CHINCHON — ¡ganas!',
     close: 'Cerrar',
     discard: 'descartar',
     out: 'FUERA',
