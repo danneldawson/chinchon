@@ -204,6 +204,23 @@ test('negative totals from -10 closes are allowed', () => {
   assert.strictEqual(match.players[0].total, -10);
 });
 
+test('totals never go below the -50 floor', () => {
+  const match = createMatch(['Ana', 'Beto']);
+  match.players[0].total = -45;
+  applyRound(match, { valid: true, chinchon: false, scores: [-10, 0] }); // -45 + -10 = -55 -> clamps to -50
+  assert.strictEqual(match.players[0].total, -50);
+  // A subsequent -10 does not push further down.
+  applyRound(match, { valid: true, chinchon: false, scores: [-10, 0] });
+  assert.strictEqual(match.players[0].total, -50);
+});
+
+test('a -10 then a +20 lands at +10 (negative is real, no clamp going up)', () => {
+  const match = createMatch(['Ana', 'Beto']);
+  applyRound(match, { valid: true, chinchon: false, scores: [-10, 0] }); // -10
+  applyRound(match, { valid: true, chinchon: false, scores: [20, 0] });  // -10 + 20 = +10
+  assert.strictEqual(match.players[0].total, 10);
+});
+
 test('match ends when only one player remains', () => {
   const match = createMatch(['Ana', 'Beto', 'Cami']);
   match.players[0].total = 99;

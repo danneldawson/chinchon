@@ -3,6 +3,7 @@
 const { resolveRound } = require('./layoff');
 
 const ELIMINATION_SCORE = 101;
+const MIN_SCORE = -50; // totals can dip negative via clean closes, but never below this
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 7;
 
@@ -40,8 +41,8 @@ function applyRound(match, roundResult) {
 
   roundResult.scores.forEach((score, i) => {
     if (match.players[i].out) return;
-    match.players[i].total += score;
-    // Scores can go negative via -10 closes; clamp nothing, that's real.
+    match.players[i].total = Math.max(MIN_SCORE, match.players[i].total + score);
+    // (Scores can go negative via -10 clean closes; floor at MIN_SCORE = -50.)
     if (isEliminated(match.players[i].total)) {
       match.players[i].out = true;
     }
