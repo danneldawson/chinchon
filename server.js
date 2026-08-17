@@ -31,6 +31,8 @@ const cards = require('./src/cards');
 
 const LOBBY_CHAT_CAP = 25;
 const REMATCH_COUNTDOWN_MS = 90000;
+const PUBLIC_COUNTDOWN_MS = 60000;
+const PRIVATE_HUMAN_COUNTDOWN_MS = 90000;
 const lobby = {
   members: new Map(), // token -> { token, name, at }
   chat: [],
@@ -67,16 +69,19 @@ function lobbySystem(text) {
 function lobbyMatches() {
   const out = [];
   for (const room of rooms.values()) {
+    // Private rooms waiting on their countdown are not published in the lobby.
+    if (room.pending && room.pending.visibility === 'private') continue;
     const m = room.match;
     out.push({
       code: room.code,
       mode: room.mode,
+      visibility: room.visibility || 'private',
       started: !!room.started,
       gameOver: m ? !!m.gameOver : false,
       round: m ? m.round : 0,
       elapsedMs: room.started && room.startedAt ? Date.now() - room.startedAt : 0,
       pending: room.pending
-        ? { code: room.code, secondsLeft: room.pending.hold ? null : Math.max(0, Math.ceil((room.pending.until - Date.now()) / 1000)), hold: !!room.pending.hold, hostName: room.pending.hostName }
+        ? { code: room.code, secondsLeft: room.pending.hold ? null : Math.max(0, Math.ceil((room.pending.until - Date.now()) / 1000)), hold: !!room.pending.hold, hostName: room.pending.hostName, type: room.pending.type }
         : null,
       scoreboard: m ? m.players.map((p) => ({ name: p.name, total: p.total, out: p.out })) : [],
     });
@@ -106,6 +111,34 @@ function pendingView(room) {
 }
 
 
+
+function startFreshMatch(room) {
+  const humans = humanSeats(room);
+  if (room.visibility === 'public') {
+    // Public room: start with whoever joined. If only the host, fill 2 bots.
+    if (humans.length < 2) {
+      for (let i = 0; i < 2; i++) {
+        room.players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: room.players.length, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
+      }
+    }
+  } else {
+    // Private + humans: only start if at least 2 humans joined; otherwise the
+    // host explicitly didn't want bots, so bounce them back to the lobby.
+    if (humans.length < 2) {
+      room.gone = true;
+      rooms.delete(room.code);
+      return false;
+    }
+  }
+  room.match = matchMod.createMatch(room.players.map((p) => p.name));
+  room.state = turn.startRound(room.players.length, Math.random);
+  room.pending = null;
+  room.started = true;
+  room.startedAt = Date.now();
+  lobbySystem(`Room ${room.code} started.`);
+  runBotTurns(room);
+  return true;
+}
 
 function startPendingMatch(room) {
   room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
@@ -137,7 +170,7 @@ function newSeatId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function createRoom({ mode, name, bots, lobbyToken }) {
+function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
   const code = makeCode();
   const players = [];
 
@@ -151,15 +184,38 @@ function createRoom({ mode, name, bots, lobbyToken }) {
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, Math.random);
-    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [] };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [], visibility: visibility || 'private' };
     rooms.set(code, room);
     return room;
   }
 
-  // multi: humans only, capacity 2-7, wait for Start.
+  // multi: wait for the countdown / immediate start (bots added up-front for private+bots).
   const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null };
   players.push(host);
-  const room = { code, mode, players, match: null, state: null, started: false, startedAt: null, hostId: host.id, chat: [], pending: null, banned: [] };
+
+  let pending = null;
+  let started = false;
+  let match = null;
+  let state = null;
+  let startedAt = null;
+  const vis = visibility === 'public' ? 'public' : 'private';
+
+  if (vis === 'private' && bots > 0) {
+    // Private + bots: start immediately, no countdown, not published.
+    for (let i = 0; i < bots; i++) {
+      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
+    }
+    match = matchMod.createMatch(players.map((p) => p.name));
+    state = turn.startRound(players.length, Math.random);
+    started = true;
+    startedAt = Date.now();
+  } else {
+    // Public OR private+humans: start on a countdown.
+    const until = Date.now() + (countdownMs || (vis === 'public' ? PUBLIC_COUNTDOWN_MS : PRIVATE_HUMAN_COUNTDOWN_MS));
+    pending = { until, hold: false, hostName: host.name, startedBy: host.id, type: 'fresh', visibility: vis };
+  }
+
+  const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis };
   rooms.set(code, room);
   return room;
 }
@@ -387,10 +443,17 @@ function closeOptionsFor(hand) {
 
 function serialize(room, seatId) {
   const { state, match, players } = room;
-  // Auto-start a pending rematch once its 90s window elapses (no hold).
+  // Auto-start a pending room once its window elapses (no hold). Handles both
+  // rematch pending and a freshly created room's countdown.
   if (room.pending && !room.pending.hold && Date.now() >= room.pending.until) {
-    startPendingMatch(room);
+    if (room.pending.type === 'fresh') {
+      const ok = startFreshMatch(room);
+      if (!ok) return { gone: true, code: room.code }; // room deleted (private, no humans)
+    } else {
+      startPendingMatch(room);
+    }
   }
+  if (room.gone) return { gone: true, code: room.code };
   if (!state) {
     return { code: room.code, mode: room.mode, started: room.started, pending: room.pending ? pendingView(room) : null, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })), chat: room.chat || [] };
   }
@@ -564,7 +627,9 @@ function handleApi(req, res, url) {
     if (!room) return sendJson(res, 404, { error: 'no such room' });
     if (seat) stampSeen(room, seat);
     evaluateWaiting(room);
-    return sendJson(res, 200, serialize(room, seat));
+    const out = serialize(room, seat);
+    if (out && out.gone) return sendJson(res, 410, { error: 'room expired', gone: true, code });
+    return sendJson(res, 200, out);
   }
 
   if (method === 'GET' && p === '/api/room/players') {
@@ -577,13 +642,17 @@ function handleApi(req, res, url) {
   if (method === 'POST' && p === '/api/room/new') {
     return readBody(req).then((body) => {
       const mode = body.mode === 'solo' ? 'solo' : 'multi';
-      if (mode === 'multi') {
-        const room = createRoom({ mode, name: body.name, lobbyToken: body.lobbyToken });
+      const visibility = body.visibility === 'public' ? 'public' : 'private';
+      const bots = Math.max(0, Math.min(6, parseInt(body.bots, 10) || 0));
+      if (mode === 'solo') {
+        const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken });
+        runBotTurns(room);
         return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
       }
-      const room = createRoom({ mode, name: body.name, bots: body.bots || 0, lobbyToken: body.lobbyToken });
-      runBotTurns(room);
-      return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
+      const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, visibility, countdownMs: body.countdownMs });
+      // Private + bots starts immediately (no pending); others wait for the countdown.
+      if (!room.pending) runBotTurns(room);
+      return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}`, pending: room.pending ? pendingView(room) : null, visibility: room.visibility });
     });
   }
 

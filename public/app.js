@@ -64,6 +64,25 @@ const I18N = {
     hold: 'Hold',
     resume: 'Resume',
     startNow: 'Start now',
+    // Lobby (global landing) strings — these were previously hardcoded English.
+    lobbyTitle: 'LOBBY',
+    playersHere: 'Players here',
+    activeMatches: 'Active matches',
+    generalChat: 'General chat',
+    leaveLobby: 'Leave lobby',
+    saySomething: 'Say something…',
+    noMatches: 'No matches running yet.',
+    pendingMatch: 'Starting soon',
+    joinThis: 'Join this game',
+    publicRoom: 'Public room',
+    privateRoom: 'Private room',
+    playWithBots: 'Play with bots?',
+    howManyBots: 'How many bots? (2–6)',
+    enterLobby: 'Enter lobby →',
+    backToLobby: '← Back to lobby',
+    createPublic: 'Create public room',
+    createPrivate: 'Create private room',
+    language: 'Language:',
   },
   es: {
     title: 'CHINCHON',
@@ -122,6 +141,24 @@ const I18N = {
     hold: 'Pausar',
     resume: 'Reanudar',
     startNow: 'Empezar ya',
+    lobbyTitle: 'LOBBY',
+    playersHere: 'Jugadores aquí',
+    activeMatches: 'Partidas activas',
+    generalChat: 'Chat general',
+    leaveLobby: 'Salir del lobby',
+    saySomething: 'Escribe algo…',
+    noMatches: 'Aún no hay partidas.',
+    pendingMatch: 'Empieza pronto',
+    joinThis: 'Unirse a esta partida',
+    publicRoom: 'Sala pública',
+    privateRoom: 'Sala privada',
+    playWithBots: '¿Jugar con bots?',
+    howManyBots: '¿Cuántos bots? (2–6)',
+    enterLobby: 'Entrar al lobby →',
+    backToLobby: '← Volver al lobby',
+    createPublic: 'Crear sala pública',
+    createPrivate: 'Crear sala privada',
+    language: 'Idioma:',
   },
 };
 
@@ -170,41 +207,38 @@ function show(panel) {
   panel.classList.remove('hidden');
 }
 
-function setTab(mode) {
-  const multi = mode === 'multi';
-  $('tab-multi').classList.toggle('active', multi);
-  $('tab-solo').classList.toggle('active', !multi);
-  $('multi-pane').classList.toggle('hidden', !multi);
-  $('solo-pane').classList.toggle('hidden', multi);
-  if (multi) showSub('create');
+// Lobby room-setup panes (create vs join). Replaces the old multi/solo tabs.
+function showCreatePane() {
+  $('create-pane').classList.remove('hidden');
+  $('join-pane').classList.add('hidden');
+  // Reset to the initial create choices (hide any in-progress private dialogue).
+  $('create-choices').classList.remove('hidden');
+  $('private-dialogue').classList.add('hidden');
+  $('pd-bots-count').classList.add('hidden');
+  $('room-info').classList.add('hidden');
+  $('room-waiting').textContent = '';
 }
-
-function showSub(which) {
-  const create = which === 'create';
-  $('sub-create').classList.toggle('active', create);
-  $('sub-join').classList.toggle('active', !create);
-  $('create-pane').classList.toggle('hidden', !create);
-  $('join-pane').classList.toggle('hidden', create);
+function showJoinPane() {
+  $('join-pane').classList.remove('hidden');
+  $('create-pane').classList.add('hidden');
 }
 
 function applyLang() {
   document.documentElement.lang = lang;
   $('title').textContent = t('title');
   document.title = t('title');
-  $('tab-multi').textContent = t('tabMulti');
-  $('tab-solo').textContent = t('tabSolo');
-  $('sub-create').textContent = t('subCreate');
-  $('sub-join').textContent = t('subJoin');
-  $('back-to-create').textContent = t('backToCreate');
-  $('host-name').placeholder = t('yourName');
-  $('btn-create').textContent = t('createRoom');
+  // (tab-multi / tab-solo / sub-create / sub-join were removed in the lobby rework)
+  const createH = $('create-h'); if (createH) createH.textContent = t('createRoom');
+  const joinH = $('join-h'); if (joinH) joinH.textContent = t('joinRoom');
+  const backToCreate = $('back-to-create'); if (backToCreate) backToCreate.textContent = t('backToCreate');
+  // (host-name / btn-create / btn-start / solo-* were removed in the lobby rework)
   $('join-code').placeholder = 'ABCD';
   $('join-name').placeholder = t('yourName');
-  $('btn-join').textContent = t('joinRoom');
-  $('btn-start').textContent = t('startGame');
-  $('solo-name').placeholder = t('soloName');
-  $('solo-bots-label').childNodes[0].textContent = t('soloBots') + ' ';
-  $('btn-solo').textContent = t('startSolo');
+  const joinBtn = $('btn-join'); if (joinBtn) joinBtn.textContent = t('joinRoom');
+  const createPublic = $('btn-create-public'); if (createPublic) createPublic.textContent = t('createPublic');
+  const createPrivate = $('btn-create-private'); if (createPrivate) createPrivate.textContent = t('createPrivate');
+  const pdQ1 = $('pd-q1'); if (pdQ1) pdQ1.textContent = t('playWithBots');
+  const pdQ2 = $('pd-q2'); if (pdQ2) pdQ2.textContent = t('howManyBots');
   $('btn-rematch').textContent = t('rematch');
   $('btn-tolobby').textContent = t('toLobby');
   // In-game static labels (the ones not rebuilt on every render()).
@@ -216,15 +250,23 @@ function applyLang() {
   const roomChat = document.querySelector('#chat .chat-head span'); if (roomChat) roomChat.textContent = t('roomChat');
   const chatInput = $('chat-input'); if (chatInput) chatInput.placeholder = t('quickNote');
   const reshuffle = $('reshuffle-note'); if (reshuffle) reshuffle.textContent = t('reshuffle');
+  // Lobby (global landing) strings — previously hardcoded English.
+  const lobbyTitle = $('lobby-title'); if (lobbyTitle) lobbyTitle.textContent = t('lobbyTitle');
+  const playersLabel = $('lobby-players-label'); if (playersLabel) playersLabel.textContent = t('playersHere');
+  const matchesLabel = $('lobby-matches-label'); if (matchesLabel) matchesLabel.textContent = t('activeMatches');
+  const chatLabel = $('lobby-chat-label'); if (chatLabel) chatLabel.textContent = t('generalChat');
+  const langLabel = $('lang-label'); if (langLabel) langLabel.textContent = t('language');
+  const noMatches = $('no-matches'); if (noMatches) noMatches.textContent = t('noMatches');
+  const lobbyChatInput = $('lobby-chat-input'); if (lobbyChatInput) lobbyChatInput.placeholder = t('saySomething');
+  const enterBtn = $('btn-lobby-enter'); if (enterBtn) enterBtn.textContent = t('enterLobby');
+  const leaveBtn = $('btn-leave-lobby'); if (leaveBtn) leaveBtn.textContent = t('leaveLobby');
+  const goCreate = $('btn-go-create'); if (goCreate) goCreate.textContent = t('createRoom');
+  const goJoin = $('btn-go-join'); if (goJoin) goJoin.textContent = t('joinRoom');
+  const backLobby = $('btn-back-lobby'); if (backLobby) backLobby.textContent = t('backToLobby');
+  const leaveMatch = $('btn-leave-match'); if (leaveMatch) leaveMatch.textContent = t('leaveLobby');
   // Re-render game if we're already in it (so labels update live).
   if (state.view) render();
 }
-
-$('tab-multi').onclick = () => { setTab('multi'); };
-$('tab-solo').onclick = () => { setTab('solo'); };
-$('sub-create').onclick = () => showSub('create');
-$('sub-join').onclick = () => showSub('join');
-$('back-to-create').onclick = () => showSub('create');
 
 // Language selector
 document.querySelectorAll('.lang-btn').forEach((b) => {
@@ -243,7 +285,6 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
   if (!code) return;
   const seat = params.get('seat');
   if (seat) {
-    // Auto-resume this seat on load.
     (async () => {
       const res = await fetch('/api/room/join', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -258,17 +299,40 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
     })();
     return;
   }
-  setTab('multi');
-  showSub('join');
+  // No seat: just prefill the join code and show the join pane.
+  showJoinPane();
   $('join-code').value = code.toUpperCase();
 })();
+$('btn-create-public').onclick = () => createRoom('public', 0);
+$('btn-create-private').onclick = () => {
+  $('create-choices').classList.add('hidden');
+  $('private-dialogue').classList.remove('hidden');
+  $('pd-summary').textContent = '';
+};
+// Private dialogue — Q1: play with bots?
+document.querySelectorAll('.pd-answer').forEach((b) => {
+  b.onclick = () => {
+    if (b.dataset.ans === 'bots-yes') {
+      $('pd-bots-count').classList.remove('hidden');
+    } else {
+      // No bots -> 90s private (unlisted) countdown waiting for humans.
+      createRoom('private', 0);
+    }
+  };
+});
+// Private dialogue — Q2: how many bots? (2–6) -> immediate start.
+$('pd-bots-go').onclick = () => {
+  const n = Math.max(2, Math.min(6, parseInt($('pd-bots-input').value, 10) || 2));
+  createRoom('private', n);
+};
 
-$('btn-create').onclick = async () => {
-  const name = $('host-name').value.trim() || t('host');
+async function createRoom(visibility, bots) {
+  const name = state.lobbyName || 'Host';
   const res = await fetch('/api/room/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'multi', name, lobbyToken: state.lobbyToken }),
-  }).then((r) => r.json());
+    body: JSON.stringify({ mode: 'multi', name, visibility, bots, lobbyToken: state.lobbyToken }),
+  }).then((r) => r.json()).catch(() => null);
+  if (!res || !res.code) { $('pd-summary').textContent = 'Could not create the room. Try again.'; return; }
   state.code = res.code;
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
@@ -277,10 +341,18 @@ $('btn-create').onclick = async () => {
   $('share-link').textContent = link;
   $('share-link').href = link;
   $('room-info').classList.remove('hidden');
-  $('btn-create').classList.add('hidden');
-  refreshLobby();
-  state.pollTimer = setInterval(refreshLobby, 1500);
-};
+  $('create-choices').classList.add('hidden');
+  $('private-dialogue').classList.add('hidden');
+  if (res.pending) {
+    // Public or private-humans: wait for the countdown, then auto-enter the game.
+    watchRoom();
+    state.pollTimer = setInterval(watchRoom, 1500);
+  } else {
+    // Private + bots: started immediately.
+    clearInterval(state.pollTimer);
+    enterGame();
+  }
+}
 
 $('btn-copy').onclick = () => {
   const link = shareLinkFor(state.code, state.seatId);
@@ -310,18 +382,28 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
-$('btn-start').onclick = async () => {
-  await fetch('/api/room/start', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  });
-  clearInterval(state.pollTimer);
-  enterGame();
-};
+// Polls a pending room (host or joiner) and transitions into the game once it
+// starts. If a private room expires with no humans, bounces back to the lobby.
+async function watchRoom() {
+  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json()).catch(() => null);
+  if (!res) return;
+  if (res.gone) { goToLobby(); return; }
+  if (res.started) { clearInterval(state.pollTimer); enterGame(); return; }
+  // Still waiting: list who's in and show the countdown.
+  const ul = $('lobby-players');
+  ul.innerHTML = '';
+  for (const p of (res.lobby || [])) {
+    const li = document.createElement('li');
+    li.textContent = (p.isBot ? '🤖 ' : '') + p.name;
+    ul.appendChild(li);
+  }
+  const secs = res.pending ? res.pending.secondsLeft : null;
+  $('room-waiting').textContent = secs != null ? `Match starts in ${secs}s…` : 'Waiting for the match to start…';
+}
 
 $('btn-join').onclick = async () => {
   const code = $('join-code').value.trim().toUpperCase();
-  const name = $('join-name').value.trim() || t('player');
+  const name = $('join-name').value.trim() || state.lobbyName || t('player');
   const res = await fetch('/api/room/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
@@ -330,32 +412,19 @@ $('btn-join').onclick = async () => {
   state.code = code;
   state.seatId = res.seatId;
   persistSeat(code, res.seatId);
-  enterGame();
+  // Joining an already-started room -> straight into the game; a pending one
+  // (public countdown or private-humans) -> watch until it starts.
+  const st = await fetch(`/api/state?code=${code}&seat=${res.seatId}`).then((r) => r.json()).catch(() => null);
+  if (st && st.started) { enterGame(); return; }
+  // Show the room-info waiting view and watch.
+  $('room-code').textContent = code;
+  const link = shareLinkFor(code, res.seatId);
+  $('share-link').textContent = link;
+  $('share-link').href = link;
+  $('room-info').classList.remove('hidden');
+  watchRoom();
+  state.pollTimer = setInterval(watchRoom, 1500);
 };
-
-$('btn-solo').onclick = async () => {
-  const name = $('solo-name').value.trim() || t('player');
-  const bots = Math.max(0, Math.min(6, parseInt($('solo-bots').value, 10) || 0));
-  const res = await fetch('/api/room/new', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'solo', name, bots }),
-  }).then((r) => r.json());
-  state.code = res.code;
-  state.seatId = res.seatId;
-  persistSeat(res.code, res.seatId);
-  enterGame();
-};
-
-async function refreshLobby() {
-  const res = await fetch(`/api/room/players?code=${state.code}`).then((r) => r.json());
-  const ul = $('lobby-players');
-  ul.innerHTML = '';
-  for (const p of res.players) {
-    const li = document.createElement('li');
-    li.textContent = (p.isBot ? '🤖 ' : '') + p.name;
-    ul.appendChild(li);
-  }
-}
 
 // ----------------------------------------------------------- game wiring
 
@@ -1041,6 +1110,7 @@ async function enterLobby() {
   persistLobby(res.token, res.name);
   $('lobby-enter').classList.add('hidden');
   $('lobby-main').classList.remove('hidden');
+  applyLang(); // translate the lobby strings to the chosen language
   $('lobby-name').value = res.name;
   lobbyChatSeen = 0;
   await lobbyPoll();
@@ -1111,19 +1181,55 @@ function renderLobbyMatches(matches) {
   const elapsed = Math.floor((m.elapsedMs || 0) / 1000);
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
-  let html = `<div class="mc-code">Room ${m.code} · ${m.mode === 'solo' ? 'vs bots' : 'friends'}</div>`;
+  let html = `<div class="mc-code">Room ${m.code} · ${m.mode === 'solo' ? 'vs bots' : (m.visibility === 'public' ? 'public' : 'private')}</div>`;
   if (m.pending) {
-    html += `<div class="mc-pending">${m.pending.hold ? `HELD BY HOST ${m.pending.hostName}` : `New game in ${m.pending.secondsLeft}s`}</div>`;
+    if (m.pending.hold) {
+      html += `<div class="mc-pending">HELD BY HOST ${m.pending.hostName}</div>`;
+    } else if (m.pending.type === 'fresh') {
+      html += `<div class="mc-pending">${t('pendingMatch')} · ${m.pending.secondsLeft}s</div>`;
+    } else {
+      html += `<div class="mc-pending">New game in ${m.pending.secondsLeft}s</div>`;
+    }
   } else {
     html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
   }
   html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' (out)' : ''}</span><span>${p.total}</span></div>`).join('');
-  if (m.pending) html += `<button class="small" data-joinrem="${m.code}">Join rematch</button>`;
+  if (m.pending) {
+    const label = m.pending.type === 'fresh' ? t('joinThis') : 'Join rematch';
+    html += `<button class="small" data-joinmatch="${m.code}">${label}</button>`;
+  }
   $('match-card').innerHTML = html;
-  // Wire the join-rematch button for this card.
-  const jb = $('match-card').querySelector('[data-joinrem]');
-  if (jb) jb.onclick = () => joinRematch(m.code);
+  const jb = $('match-card').querySelector('[data-joinmatch]');
+  if (jb) jb.onclick = () => joinPublicOrRematch(m.code, m.pending && m.pending.type === 'fresh');
   $('btn-match-next').classList.toggle('hidden', matches.length <= 1);
+}
+
+// Joining a pending public room (fresh) vs a rematch pending window.
+async function joinPublicOrRematch(code, isFresh) {
+  if (isFresh) {
+    const name = state.lobbyName || $('lobby-name').value.trim() || 'Player';
+    const res = await fetch('/api/room/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
+    }).then((r) => r.json());
+    if (res.error) { alert(res.error); return; }
+    state.code = code;
+    state.seatId = res.seatId;
+    persistSeat(code, res.seatId);
+    clearInterval(lobbyTimer);
+    // Show the waiting view and watch until the countdown ends, then join game.
+    show($('lobby'));
+    showJoinPane();
+    $('room-code').textContent = code;
+    const link = shareLinkFor(code, res.seatId);
+    $('share-link').textContent = link;
+    $('share-link').href = link;
+    $('room-info').classList.remove('hidden');
+    watchRoom();
+    state.pollTimer = setInterval(watchRoom, 1500);
+    return;
+  }
+  joinRematch(code);
 }
 
 async function joinRematch(code) {
@@ -1161,21 +1267,23 @@ $('btn-match-next').onclick = () => { matchIdx++; lobbyPoll(); };
 
 // Create / Join from the lobby route into the room-setup screen.
 $('btn-go-create').onclick = () => {
-  const name = state.lobbyName || $('lobby-name').value.trim();
-  $('host-name').value = name;
   clearInterval(lobbyTimer);
   show($('lobby'));
-  setTab('multi');
-  showSub('create');
+  showCreatePane();
 };
 $('btn-go-join').onclick = () => {
   const name = state.lobbyName || $('lobby-name').value.trim();
   $('join-name').value = name;
   clearInterval(lobbyTimer);
   show($('lobby'));
-  setTab('multi');
-  showSub('join');
+  showJoinPane();
 };
+$('btn-go-join-2').onclick = () => {
+  const name = state.lobbyName || $('lobby-name').value.trim();
+  $('join-name').value = name;
+  showJoinPane();
+};
+$('back-to-create').onclick = showCreatePane;
 function goToLobby() {
   clearInterval(state.pollTimer);
   state.code = null;
@@ -1219,7 +1327,6 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-name').value = '';
   $('lobby-name').focus();
 })();
-setTab('multi');
 
 window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
 window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);

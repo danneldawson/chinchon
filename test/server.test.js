@@ -129,28 +129,25 @@ test('7 humans, no bots: full match to a winner, zero bot seats', async () => {
   assert.ok(after.players.every((p) => !p.isBot), 'still no bots after the match');
 });
 
-test('multi room rejects a bot seat attempt at the API level', async () => {
-  // The server never accepts bots in multi; createRoom only adds bots in solo.
-  // We confirm creating a solo room with bots works (control), and that a multi
-  // room created with a bogus bots field yields zero bots.
-  const { json: multi } = await api('POST', '/api/room/new', { mode: 'multi', name: 'H', bots: 3 });
-  const { json: lobby } = await api('GET', `/api/room/players?code=${multi.code}`);
-  assert.equal(lobby.players.length, 1);
-  assert.ok(!lobby.players[0].isBot, 'multi host is a human even with bots:3');
+test('private room with bots starts immediately and includes those bots', async () => {
+  // A private room created with bots begins right away (no countdown, no lobby
+  // listing) and seeds exactly the requested number of bot seats.
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'H', visibility: 'private', bots: 3 });
+  assert.ok(created.code, 'private room created');
+  assert.equal(created.visibility, 'private');
+  const { json: lobby } = await api('GET', `/api/room/players?code=${created.code}`);
+  assert.equal(lobby.players.length, 4, '1 human + 3 bots');
+  assert.equal(lobby.players.filter((p) => p.isBot).length, 3, 'three bot seats');
+  const { json: v } = await api('GET', `/api/state?code=${created.code}&seat=${created.seatId}`);
+  assert.ok(v.started, 'private+bots game started immediately');
 });
 
-test('solo + 2 bots: bots auto-play their turns', async () => {
-  const { json: created } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
-  assert.ok(created.code, 'solo room created');
+test('public room does not start with bots; waits on a countdown', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'H', visibility: 'public' });
+  assert.equal(created.visibility, 'public');
+  assert.ok(created.pending, 'public room has a pending countdown');
   const { json: lobby } = await api('GET', `/api/room/players?code=${created.code}`);
-  assert.equal(lobby.players.length, 3, '1 human + 2 bots');
-  assert.equal(lobby.players.filter((p) => p.isBot).length, 2, 'two bot seats');
-
-  // After creation, runBotTurns has run; it should be the human's turn (seat 0)
-  // OR the round may have already progressed. Just assert state is coherent.
-  const { json: v } = await api('GET', `/api/state?code=${created.code}&seat=${created.seatId}`);
-  assert.ok(v.started, 'solo game started');
-  assert.ok(['draw', 'discard'].includes(v.phase), 'human-facing phase present');
+  assert.equal(lobby.players.length, 1, 'only the host, no bots yet');
 });
 
 test('solo with bots:0 does not crash — clamps to 1 bot', async () => {

@@ -342,6 +342,18 @@ button, .card, .pile, input { touch-action: manipulation; }
   #lobby-chat-input { width: calc(100% - 70px); margin-right: 0; }
   #btn-match-next { margin-top: 4px; }
   .lobby-panel .chat-log { max-height: 180px; height: 180px; overflow-y: auto; }
+  /* Room-setup: create choices, private dialogue, room-info waiting view */
+  #create-choices { display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+  #create-choices .primary { width: 100%; }
+  .dialogue-q { font-weight: 600; margin: 12px 0 6px; }
+  .dialogue-answers { display: flex; gap: 10px; }
+  .pd-answer { padding: 8px 18px; border-radius: 8px; background: var(--accent); color: #1a1d24; font-weight: 700; cursor: pointer; }
+  .pd-answer:hover { opacity: 0.9; }
+  #pd-bots-count { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; max-width: 200px; }
+  #room-info { margin-top: 14px; }
+  #room-info .code { font-weight: 800; letter-spacing: 2px; color: var(--accent); font-size: 1.2em; }
+  #room-waiting { margin: 6px 0; color: var(--dim); }
+  .lobby-actions .small { margin-top: 0; }
   /* Room code tiny so it doesn't crowd the top. */
   #room-code-tag { font-size: 0.78em; }
 }

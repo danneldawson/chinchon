@@ -14,7 +14,7 @@
 
       <div id="lobby-enter" class="lobby-enter">
         <div class="lang-row">
-          <span class="dim">Language:</span>
+          <span class="dim" id="lang-label">Language:</span>
           <button class="lang-btn active" data-lang="en">English</button>
           <button class="lang-btn" data-lang="es">Español</button>
         </div>
@@ -27,7 +27,7 @@
         <h1 id="lobby-title">LOBBY</h1>
 
         <section class="lobby-panel">
-          <h3>Players here (<span id="lobby-total">0</span>)</h3>
+          <h3><span id="lobby-players-label">Players here</span> (<span id="lobby-total">0</span>)</h3>
           <ul id="lobby-members" class="members"></ul>
           <div class="lobby-actions">
             <button id="btn-go-create" class="primary">Create room</button>
@@ -37,7 +37,7 @@
         </section>
 
         <section class="lobby-panel">
-          <h3>Active matches <span class="dim" id="matches-count"></span></h3>
+          <h3><span id="lobby-matches-label">Active matches</span> <span class="dim" id="matches-count"></span></h3>
           <div id="matches-board" class="matches-board hidden">
             <div id="match-card" class="match-card"></div>
             <button id="btn-match-next" class="small">Next ▶</button>
@@ -46,7 +46,7 @@
         </section>
 
         <section class="lobby-panel">
-          <div class="chat-head"><span>General chat</span></div>
+          <div class="chat-head"><span id="lobby-chat-label">General chat</span></div>
           <div id="lobby-chat-log" class="chat-log"></div>
           <div class="chat-send-row">
             <input id="lobby-chat-input" type="text" placeholder="Say something…" maxlength="160" />
@@ -60,55 +60,58 @@
     <section id="lobby" class="panel hidden">
       <button id="btn-back-lobby" class="small">← Back to lobby</button>
 
-      <div class="tabs">
-        <button id="tab-multi" class="tab active">Play with friends</button>
-        <button id="tab-solo" class="tab">Solo vs bots</button>
-      </div>
+      <!-- CREATE -->
+      <div id="create-pane" class="pane">
+        <h3 id="create-h">Create a room</h3>
 
-      <!-- Multi: create / join -->
-      <div id="multi-pane" class="pane">
-        <div class="sub-tabs">
-          <button id="sub-create" class="sub-tab active">Create a room</button>
-          <button id="sub-join" class="sub-tab">Have a code? Join</button>
+        <div id="create-choices">
+          <button id="btn-create-public" class="primary">Create public room</button>
+          <button id="btn-create-private" class="primary">Create private room</button>
         </div>
 
-        <div id="create-pane">
-          <label>Your name
-            <input id="host-name" type="text" placeholder="Your name" maxlength="16" />
-          </label>
-          <button id="btn-create" class="primary">Create room</button>
-          <div id="room-info" class="hidden">
-            <p>Room code: <span id="room-code" class="code"></span></p>
-            <p>Share link: <a id="share-link" href="#" target="_blank"></a>
-              <button id="btn-copy" class="small">Copy</button></p>
-            <p>Players joined:</p>
-            <ul id="lobby-players"></ul>
-            <button id="btn-start" class="primary">Start game</button>
+        <!-- Private room dialogue (shown after picking Private) -->
+        <div id="private-dialogue" class="hidden">
+          <p id="pd-q1" class="dialogue-q">Play with bots?</p>
+          <div class="dialogue-answers">
+            <button class="pd-answer" data-ans="bots-yes">Yes</button>
+            <button class="pd-answer" data-ans="bots-no">No</button>
           </div>
+
+          <div id="pd-bots-count" class="hidden">
+            <p id="pd-q2" class="dialogue-q">How many bots? (2–6)</p>
+            <input id="pd-bots-input" type="number" min="2" max="6" value="2" />
+            <button id="pd-bots-go" class="primary">Start game</button>
+          </div>
+
+          <p id="pd-summary" class="msg"></p>
         </div>
 
-        <div id="join-pane" class="hidden">
-          <label>Room code
-            <input id="join-code" type="text" placeholder="ABCD" maxlength="4" />
-          </label>
-          <label>Your name
-            <input id="join-name" type="text" placeholder="Your name" maxlength="16" />
-          </label>
-          <button id="btn-join" class="primary">Join room</button>
-          <p id="join-msg" class="msg"></p>
-          <button id="back-to-create" class="sub-tab-link">← Back to create</button>
+        <div id="room-info" class="hidden">
+          <p>Room code: <span id="room-code" class="code"></span></p>
+          <p>Share link: <a id="share-link" href="#" target="_blank"></a>
+            <button id="btn-copy" class="small">Copy</button></p>
+          <p id="room-waiting" class="dim"></p>
+          <p>Players joined:</p>
+          <ul id="lobby-players"></ul>
         </div>
       </div>
 
-      <!-- Solo: bots -->
-      <div id="solo-pane" class="pane hidden">
+      <!-- JOIN -->
+      <div id="join-pane" class="pane hidden">
+        <h3 id="join-h">Have a code? Join</h3>
+        <label>Room code
+          <input id="join-code" type="text" placeholder="ABCD" maxlength="4" />
+        </label>
         <label>Your name
-          <input id="solo-name" type="text" placeholder="Your name" maxlength="16" />
+          <input id="join-name" type="text" placeholder="Your name" maxlength="16" />
         </label>
-        <label id="solo-bots-label">Number of bots (0–6)
-          <input id="solo-bots" type="number" min="1" max="6" value="3" />
-        </label>
-        <button id="btn-solo" class="primary">Start solo game</button>
+        <button id="btn-join" class="primary">Join room</button>
+        <p id="join-msg" class="msg"></p>
+        <button id="back-to-create" class="sub-tab-link">← Back to create</button>
+      </div>
+
+      <div class="lobby-actions" style="margin-top:14px">
+        <button id="btn-go-join-2" class="small">Join a room instead</button>
       </div>
     </section>
 
