@@ -42,8 +42,8 @@ button {
 }
 button.primary { background: var(--accent); color: #1a1d24; font-weight: 700; }
 button.small { padding: 4px 10px; font-size: 0.8em; }
-button.danger { background: #c0392b; color: #fff; font-weight: 700; margin-top: 28px; width: 100%; }
-#lobby button.danger { border-top: 1px solid #2a2f3a; padding-top: 14px; margin-top: 28px; border-radius: 0 0 12px 12px; }
+button.danger { background: #c0392b; color: #fff; font-weight: 700; }
+#lobby-main .danger { margin: 0 8px 0 0; width: auto; }
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
 .tab { background: #2a2f3a; }
 .tab.active { background: var(--accent); color: #1a1d24; font-weight: 700; }
@@ -315,7 +315,8 @@ button, .card, .pile, input { touch-action: manipulation; }
   #chat-log { max-height: 28vh; }
 
   /* Global lobby */
-  .lobby-enter { display: flex; gap: 10px; align-items: flex-end; justify-content: center; margin: 14px 0; }
+  .lobby-enter { display: flex; flex-direction: column; gap: 12px; align-items: stretch; justify-content: center; margin: 14px 0; max-width: 360px; }
+  .lobby-enter input { margin-top: 0; }
   .arrow-btn { font-size: 1.05em; letter-spacing: 0.5px; }
   .arrow-btn:hover { transform: translateX(3px); }
   /* Three separate stacked panels instead of one cramped square. */

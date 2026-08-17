@@ -12,13 +12,12 @@
     <section id="globby" class="panel hidden">
       <h1 id="title">CHINCHON</h1>
 
-      <div class="lang-row">
-        <span class="dim">Language:</span>
-        <button class="lang-btn active" data-lang="en">English</button>
-        <button class="lang-btn" data-lang="es">Español</button>
-      </div>
-
       <div id="lobby-enter" class="lobby-enter">
+        <div class="lang-row">
+          <span class="dim">Language:</span>
+          <button class="lang-btn active" data-lang="en">English</button>
+          <button class="lang-btn" data-lang="es">Español</button>
+        </div>
         <input id="lobby-name" type="text" placeholder="Your name" maxlength="24" />
         <button id="btn-lobby-enter" class="primary arrow-btn">Enter lobby →</button>
         <p id="lobby-msg" class="msg"></p>
@@ -33,6 +32,7 @@
           <div class="lobby-actions">
             <button id="btn-go-create" class="primary">Create room</button>
             <button id="btn-go-join" class="primary">Join room</button>
+            <button id="btn-leave-lobby" class="danger">Leave lobby</button>
           </div>
         </section>
 
@@ -110,8 +110,6 @@
         </label>
         <button id="btn-solo" class="primary">Start solo game</button>
       </div>
-
-      <button id="btn-leave-lobby" class="danger">Leave lobby</button>
     </section>
 
     <!-- GAME -->
