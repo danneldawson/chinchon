@@ -218,7 +218,7 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 
 /* Per-room chat — floats top-right, under the turn banner */
 #game { position: relative; }
-#chat { position: absolute; top: 56px; right: 14px; width: 230px; z-index: 5;
+#chat { position: absolute; top: 56px; right: 14px; width: 230px; z-index: 60; /* above the game-over overlay so chat stays usable */
   border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
   background: rgba(26, 29, 36, 0.55); backdrop-filter: blur(2px); }
 .chat-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
@@ -301,7 +301,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   #game { position: static; }
   #chat {
     position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
-    z-index: 40; border-radius: 14px 14px 0 0; max-height: 45vh;
+    z-index: 60; border-radius: 14px 14px 0 0; max-height: 45vh; /* 60 > gameover overlay (50) */
   }
   #chat.collapsed { max-height: 42px; overflow: hidden; }
   #chat.collapsed #chat-log, #chat.collapsed #chat-input { display: none; }
