@@ -1165,6 +1165,7 @@ $('btn-back-lobby').onclick = goToLobby;
 // Leave the global lobby entirely: drop the name + token on the server, clear
 // localStorage, stop polling, and return to the landing (name-entry) screen.
 $('btn-leave-lobby').onclick = async () => {
+  if (!window.confirm('Leave the lobby? You will return to the landing page.')) return;
   await fetch('/api/lobby/leave', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: state.lobbyToken }),
