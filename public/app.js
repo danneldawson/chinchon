@@ -976,6 +976,16 @@ $('scoreboard').addEventListener('click', (e) => {
   }).then(() => poll()).catch(() => null);
 });
 
+// Leave the current match (with confirmation) and return to the lobby.
+$('btn-leave-match').onclick = async () => {
+  if (!window.confirm('Leave this match? You will return to the lobby.')) return;
+  const res = await fetch('/api/room/leave', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  }).then((r) => r.json()).catch(() => null);
+  if (res && res.error) { alert(res.error); return; }
+  goToLobby();
+};
 $('btn-tolobby').onclick = async () => {
   // Leave the room server-side (room + code + chat stay for the others).
   await fetch('/api/room/leave', {

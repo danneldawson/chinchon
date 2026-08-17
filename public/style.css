@@ -53,6 +53,8 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 
 /* Board */
 #board-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.board-top-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#btn-leave-match { margin-left: auto; }
 #scoreboard { font-size: 0.9em; }
 #scoreboard .row { margin: 2px 0; }
 #scoreboard .out { color: var(--dim); text-decoration: line-through; }
