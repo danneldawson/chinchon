@@ -408,6 +408,8 @@ function onceAnimate(el, cls) {
 function render() {
   const v = state.view;
   if (!v || !v.started) return;
+  const canAct = v.isYourTurn;
+  const phase = v.phase;
 
   // Room code shown on top of the scoreboard.
   $('room-code-tag').textContent = v.code ? `Room ${v.code}` : '';
@@ -496,8 +498,6 @@ function render() {
   // are reorderable while waiting / on the draw turn.
   const handWrap = $('hand');
   handWrap.innerHTML = '';
-  const canAct = v.isYourTurn;
-  const phase = v.phase;
   const handLen = v.yourHand.length;
   if (handLen === 7 && _animState.handLen !== 7) onceAnimate(handWrap, 'deal-anim');
   _animState.handLen = handLen;
