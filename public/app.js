@@ -283,7 +283,7 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
   if (!code) return;
-  const seat = params.get('seat');
+  const seat = params.get('seat') || loadSeat(code.toUpperCase());
   if (seat) {
     (async () => {
       const res = await fetch('/api/room/join', {
@@ -566,8 +566,8 @@ function render() {
   // The host sees a Kick button on every other player (sends them back to lobby).
   $('scoreboard').innerHTML = v.scoreboard
     .map((p) => {
-      const dot = p.spectator ? 'red' : p.away ? 'yellow' : 'green';
-      const title = p.spectator ? 'disconnected' : p.away ? 'idle' : 'connected';
+      const dot = p.spectator ? 'red' : !p.connected ? 'red' : p.away ? 'amber' : 'green';
+      const title = p.spectator ? 'disconnected' : !p.connected ? 'disconnected' : p.away ? 'idle' : 'connected';
       const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
       const score = p.spectator ? '–' : p.total;
       const kick = (v.isHost && p.seat && p.seat !== state.seatId)

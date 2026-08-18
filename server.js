@@ -272,6 +272,8 @@ function topOfDiscardOk(state) {
 const AWAY_MS = 120000;        // no poll in 2 min => considered away (lenient: wifi blips / backgrounded tabs don't flip to amber)
 const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
 const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
+const CONNECTED_MS = 45000;     // a seat that polled within this is "connected" (green)
+const ROOM_IDLE_EVICT_MS = 15 * 60 * 1000; // evict stale waiting/finished rooms
 
 function stampSeen(room, seatId) {
   const p = room.players.find((x) => x.id === seatId);
@@ -334,6 +336,21 @@ function evaluateWaiting(room) {
     if (cur && !cur.isBot && isAway(cur) && !cur.spectator) {
       room.waiting = { seat: room.state.turn, since: Date.now() };
     }
+  }
+}
+
+// Periodic cleanup: drop rooms nobody is actively in so they don't pile up in
+// memory. Only safe-to-evict rooms: a waiting room (never dealt) or a finished
+// match, where every human seat has been idle past ROOM_IDLE_EVICT_MS. An
+// in-progress game is left alone so a paused family match isn't disrupted.
+// `now` is injectable so tests can advance time without sleeping.
+function sweepRooms(now = Date.now()) {
+  for (const [code, room] of [...rooms]) {
+    const finished = room.match && room.match.gameOver;
+    if (room.started && !finished) continue; // active game: leave it
+    const humans = humanSeats(room);
+    const anyAlive = humans.length > 0 && humans.some((p) => now - (p.lastSeen || 0) < ROOM_IDLE_EVICT_MS);
+    if (!anyAlive) rooms.delete(code);
   }
 }
 
@@ -539,15 +556,20 @@ function serialize(room, seatId) {
     yourDeadwood: split.deadwood,
     closeOptions: opts,
     opponents,
-    scoreboard: match.players.map((p, i) => ({
-      name: p.name,
-      total: p.total,
-      out: p.out,
-      seat: players[i].id, // host kick targets by this id
-      eliminatedRank: match.eliminatedOrder.indexOf(i) + 1, // 1=first out, 0=still in/winner
-      away: isAway(players[i]),
-      spectator: !!players[i].spectator,
-    })),
+    scoreboard: match.players.map((p, i) => {
+      const pc = players[i];
+      const connected = pc.isBot ? true : (Date.now() - (pc.lastSeen || 0) < CONNECTED_MS);
+      return {
+        name: p.name,
+        total: p.total,
+        out: p.out,
+        seat: pc.id, // host kick targets by this id
+        eliminatedRank: match.eliminatedOrder.indexOf(i) + 1, // 1=first out, 0=still in/winner
+        away: isAway(pc),
+        connected,
+        spectator: !!pc.spectator,
+      };
+    }),
     chat: room.chat || [],
   };
 }
@@ -675,6 +697,18 @@ function handleApi(req, res, url) {
           return sendJson(res, 200, { seatId: existing.id, rejoined: true });
         }
         return sendJson(res, 404, { error: 'no such seat to rejoin' });
+      }
+
+      // No explicit seatId: if a human with this same lobby token already holds
+      // a seat here, reuse it (one seat per human) instead of duplicating.
+      if (!body.seatId && body.lobbyToken) {
+        const existing = room.players.find((pl) => !pl.isBot && pl.lobbyToken === body.lobbyToken);
+        if (existing) {
+          if (room.banned.includes(body.lobbyToken)) return sendJson(res, 403, { error: 'you have been removed from this room' });
+          stampSeen(room, existing.id);
+          evaluateWaiting(room);
+          return sendJson(res, 200, { seatId: existing.id, rejoined: true });
+        }
       }
 
       // A kicked player (by lobby token) cannot rejoin this room by code.
@@ -1011,7 +1045,7 @@ function handleApi(req, res, url) {
 }
 
 function createServer() {
-  return http.createServer((req, res) => {
+  const srv = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
       return handleApi(req, res, url);
@@ -1042,6 +1076,9 @@ function createServer() {
       res.end(data);
     });
   });
+  const sweepTimer = setInterval(() => sweepRooms(), 5 * 60 * 1000);
+  srv.on('close', () => clearInterval(sweepTimer));
+  return srv;
 }
 
 if (require.main === module) {
@@ -1051,4 +1088,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, humanSeats } };

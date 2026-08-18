@@ -6,7 +6,7 @@
 //   2. NO bot seat was ever created in that multi room (the hard requirement).
 //   3. A SOLO + 2-bot room auto-plays the bots' turns.
 
-const { createServer } = require('../server');
+const { createServer, rooms, _internals } = require('../server');
 const { AddressInfo } = require('net');
 
 let server;
@@ -304,4 +304,75 @@ test('lobby: name CHINCHON is reserved', async () => {
   // A normal name works.
   const ok = await api('POST', '/api/lobby/enter', { name: 'Lina' });
   assert.equal(ok.status, 200, 'normal name accepted');
+});
+
+// ---------------------------------------------------------------- dedupe
+test('one seat per human: reopening the same room reuses the seat (no duplicate)', async () => {
+  // A same-device player (same lobbyToken) re-entering must get back their
+  // original seat, never a second one — fixes "two of me" from a bare-code link.
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', lobbyToken: 'host-token' });
+  const code = created.code;
+  // Host re-joins WITHOUT a seatId but WITH the same lobbyToken -> reuse.
+  const { json: rejoin } = await api('POST', '/api/room/join', { code, name: 'Host', lobbyToken: 'host-token' });
+  assert.equal(rejoin.seatId, created.seatId, 'same seat returned on rejoin');
+  assert.equal(rejoin.rejoined, true, 'flagged as a rejoin');
+  // The room still has exactly one human, not two.
+  const { json: lobby } = await api('GET', `/api/room/players?code=${code}`);
+  assert.equal(lobby.players.length, 1, 'no duplicate seat created');
+});
+
+test('one seat per human: a second distinct human still gets their own seat', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', lobbyToken: 'host-token' });
+  const code = created.code;
+  const { json: p2 } = await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-token' });
+  assert.ok(p2.seatId && p2.seatId !== created.seatId, 'different human gets a different seat');
+  // P2 reopening reuses P2's seat, not the host's.
+  const { json: p2again } = await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-token' });
+  assert.equal(p2again.seatId, p2.seatId, 'P2 rejoin reuses P2 seat');
+  const { json: lobby } = await api('GET', `/api/room/players?code=${code}`);
+  assert.equal(lobby.players.length, 2, 'exactly two humans, no duplicates');
+});
+
+test('connected flag: present when polling, false when a seat stops polling', async () => {
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
+  const code = created.code;
+  let { json: v1 } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
+  const me = v1.scoreboard.find((p) => p.seat === created.seatId);
+  assert.equal(me.connected, true, 'just-polled seat is connected (green)');
+  // Simulate the seat going silent (tab closed): no more polls, lastSeen ages out.
+  // Read serialize() directly so we don't re-stamp lastSeen via another poll.
+  const room = rooms.get(code);
+  const pc = room.players.find((x) => x.id === created.seatId);
+  pc.lastSeen = Date.now() - 10 * 60 * 1000; // 10 min ago
+  const view = _internals.serialize(room, created.seatId);
+  const me2 = view.scoreboard.find((p) => p.seat === created.seatId);
+  assert.equal(me2.connected, false, 'stale seat is disconnected (red)');
+});
+
+// ---------------------------------------------------------------- sweep
+test('idle-room sweep evicts a stale waiting room but keeps an active game', async () => {
+  // Stale waiting (never-started) room: nobody polled for >15 min.
+  const { json: w } = await api('POST', '/api/room/new', { mode: 'multi', name: 'W', lobbyToken: 'w' });
+  const wRoom = rooms.get(w.code);
+  wRoom.players.forEach((p) => { p.lastSeen = Date.now() - 20 * 60 * 1000; });
+  // Active (started) room: must survive the sweep.
+  const { json: g } = await api('POST', '/api/room/new', { mode: 'solo', name: 'G', bots: 2 });
+  _internals.sweepRooms(Date.now());
+  assert.equal(rooms.has(w.code), false, 'stale waiting room evicted');
+  assert.equal(rooms.has(g.code), true, 'active game kept');
+  // A finished match with idle players is evicted too.
+  const { json: f } = await api('POST', '/api/room/new', { mode: 'solo', name: 'F', bots: 2 });
+  await playMatchToEnd(f.code, [f.seatId]);
+  const fRoom = rooms.get(f.code);
+  assert.ok(fRoom.match.gameOver, 'match reached game over');
+  fRoom.players.forEach((p) => { p.lastSeen = Date.now() - 20 * 60 * 1000; });
+  _internals.sweepRooms(Date.now());
+  assert.equal(rooms.has(f.code), false, 'idle finished match evicted');
+});
+
+test('idle-room sweep keeps a waiting room with a recently-active player', async () => {
+  const { json: w } = await api('POST', '/api/room/new', { mode: 'multi', name: 'W', lobbyToken: 'w' });
+  // Leave lastSeen fresh (just created) — players are recent, so keep it.
+  _internals.sweepRooms(Date.now());
+  assert.equal(rooms.has(w.code), true, 'room with active player is kept');
 });
