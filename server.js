@@ -23,6 +23,8 @@ const layoffCore = require('./src/layoff');
 const layoffInteractive = require('./src/layoff-interactive');
 const cards = require('./src/cards');
 
+const dealRng = Math.random;
+
 // ----------------------------------------------------------------- global lobby
 // A single shared lobby for the whole app. Anyone can enter with a username,
 // see who's present, and use the general chat. No 7-cap here (it's a waiting
@@ -131,7 +133,7 @@ function startFreshMatch(room) {
     }
   }
   room.match = matchMod.createMatch(room.players.map((p) => p.name));
-  room.state = turn.startRound(room.players.length, Math.random);
+  room.state = turn.startRound(room.players.length, dealRng);
   room.pending = null;
   room.started = true;
   room.startedAt = Date.now();
@@ -142,7 +144,7 @@ function startFreshMatch(room) {
 
 function startPendingMatch(room) {
   room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
-  room.state = turn.startRound(room.players.length, Math.random);
+  room.state = turn.startRound(room.players.length, dealRng);
   room.layoff = null;
   room.pending = null;
   room.startedAt = Date.now();
@@ -183,7 +185,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
       players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
     }
     const match = matchMod.createMatch(players.map((p) => p.name));
-    const state = turn.startRound(players.length, Math.random);
+    const state = turn.startRound(players.length, dealRng);
     const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [], visibility: visibility || 'private' };
     rooms.set(code, room);
     return room;
@@ -206,7 +208,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
       players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
     }
     match = matchMod.createMatch(players.map((p) => p.name));
-    state = turn.startRound(players.length, Math.random);
+    state = turn.startRound(players.length, dealRng);
     started = true;
     startedAt = Date.now();
   } else {
@@ -698,7 +700,7 @@ function handleApi(req, res, url) {
       room.started = true;
       room.startedAt = Date.now();
       room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
-      room.state = turn.startRound(room.players.length, Math.random);
+      room.state = turn.startRound(room.players.length, dealRng);
       runBotTurns(room);
       return sendJson(res, 200, { ok: true });
     });

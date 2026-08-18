@@ -51,10 +51,8 @@ function showHand(state) {
   console.log(`\n${R.title('  Your hand:')}`);
   console.log('  ' + R.hand(h).split('\n').join('\n  '));
 
-  if (split.melds.length > 0) {
-    console.log(`\n  ${R.DIM}Combinations found:${R.RESET}`);
-    for (const m of split.melds) console.log(`    ${R.meld(m)}`);
-  }
+  // Live hand hints (which combinations you hold) are intentionally NOT shown
+  // — the player does their own counting. Deadwood total stays as a reference.
   console.log(`  ${R.DIM}Deadwood: ${split.deadwood} pts${R.RESET}\n`);
 }
 

@@ -504,9 +504,46 @@ function meldsText(split) {
   return parts.join('  ');
 }
 
+// Run detection (client-side mirror of src/melds.js isValidRun) so the narrow
+// close hint can check whether a meld is a run. Wild = 1 de Oros.
+const RANK_ORDER = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
+function rankIndexOf(rank) { return RANK_ORDER.indexOf(rank); }
+function isRunMeld(cards) {
+  if (!Array.isArray(cards) || cards.length < 3) return false;
+  const naturals = cards.filter((c) => !(c.suit === 'Oros' && c.rank === 1));
+  if (naturals.length === 0) return false;
+  const suit = naturals[0].suit;
+  if (!naturals.every((c) => c.suit === suit)) return false;
+  const idxs = naturals.map((c) => rankIndexOf(c.rank)).sort((a, b) => a - b);
+  if (new Set(idxs).size !== idxs.length) return false;
+  const span = idxs[idxs.length - 1] - idxs[0] + 1;
+  const wilds = cards.length - naturals.length;
+  return span <= cards.length && (span - naturals.length) <= wilds;
+}
+
+// Narrow close hint (client-side mirror of src/hints.js, which is unit-tested).
+// Returns a run of length 3..4 that contains the drawn card, or null.
+// Never shows sets, never reveals a chinchon.
+function drawRunHint(closeOptions, lastDrawnId) {
+  if (!Array.isArray(closeOptions) || closeOptions.length === 0) return null;
+  const nonChinchon = closeOptions.filter((o) => !o.chinchon);
+  if (nonChinchon.length === 0) return null;
+  for (const opt of nonChinchon) {
+    const splits = Array.isArray(opt.split) ? opt.split : [];
+    for (const meld of splits) {
+      if (!isRunMeld(meld)) continue;
+      if (meld.length < 3 || meld.length > 4) continue;
+      const ids = meld.map((c) => c.id);
+      if (lastDrawnId && !ids.includes(lastDrawnId)) continue;
+      return { run: meld.slice() };
+    }
+  }
+  return null;
+}
+
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
-const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null };
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null };
 function onceAnimate(el, cls) {
   if (!el) return;
   el.classList.remove(cls);
@@ -717,17 +754,35 @@ function render() {
     handWrap.appendChild(el);
   }
 
-  // Melds + deadwood
+  // Deadwood stays as a reference; live combination hints are intentionally
+  // NOT shown so the player does their own counting (mirrors the TTY client).
   $('deadwood').textContent = `${t('deadwood')} ${v.yourDeadwood}`;
   const melds = $('melds');
   melds.innerHTML = '';
-  if (v.yourMelds && v.yourMelds.length) {
-    for (const m of v.yourMelds) {
-      const d = document.createElement('div');
-      d.className = 'meld';
-      d.innerHTML = '[ ' + m.map(meldChip).join(' ') + ' ]';
-      melds.appendChild(d);
-    }
+
+  // Narrow close hint: a run that forms ON THE SPOT (contains the drawn card).
+  // Shown for ~10s then fades. Never sets, never a chinchon (whole-game win).
+  const hintEl = $('run-hint');
+  const hint = drawRunHint(v.closeOptions || [], v.lastDrawnId);
+  const hintKey = hint ? hint.run.map((c) => c.id).join(',') : '';
+  if (hint && hintKey !== _animState.runHintKey) {
+    const cards = hint.run.map((c) => coloredLabel(c)).join(' ');
+    hintEl.innerHTML = (lang === 'es' ? 'Cierre posible con esta escalera:' : 'You can close with this run:')
+      + `<span class="run-cards">${cards}</span>`;
+    hintEl.classList.remove('hidden', 'show');
+    // reflow so the animation restarts even if it was already shown
+    void hintEl.offsetWidth;
+    hintEl.classList.add('show');
+    if (_animState.runHintTimer) clearTimeout(_animState.runHintTimer);
+    _animState.runHintTimer = setTimeout(() => {
+      hintEl.classList.add('hidden');
+      hintEl.classList.remove('show');
+    }, 10000);
+    _animState.runHintKey = hintKey;
+  } else if (!hint) {
+    hintEl.classList.add('hidden');
+    hintEl.classList.remove('show');
+    _animState.runHintKey = '';
   }
 
   // Controls
