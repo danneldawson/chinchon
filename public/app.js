@@ -38,6 +38,8 @@ const I18N = {
     quickNote: 'Quick note to the table…',
     reshuffle: 'Stock reshuffled',
     keepPlaying: 'Keep playing (don’t close)',
+    closeOffer: 'You can close now — Close, or keep playing?',
+    closeOfferContinue: 'Keep playing',
     chinchon: 'CHINCHON — win!',
     close: 'Close',
     discard: 'discard',
@@ -83,6 +85,8 @@ const I18N = {
     createPublic: 'Create public room',
     createPrivate: 'Create private room',
     language: 'Language:',
+    learnSession: 'Learning session',
+    learnSessionDesc: 'Practice with up to 3 players (and bots). No pressure — learn the game.',
   },
   es: {
     title: 'CHINCHON',
@@ -115,6 +119,8 @@ const I18N = {
     quickNote: 'Nota rápida para la mesa…',
     reshuffle: 'Mazo rebarajado',
     keepPlaying: 'Seguir jugando (no cerrar)',
+    closeOffer: 'Puedes cerrar ahora — ¿Cerrar o seguir jugando?',
+    closeOfferContinue: 'Seguir jugando',
     chinchon: 'CHINCHON — ¡ganas!',
     close: 'Cerrar',
     discard: 'descartar',
@@ -159,8 +165,39 @@ const I18N = {
     createPublic: 'Crear sala pública',
     createPrivate: 'Crear sala privada',
     language: 'Idioma:',
+    learnSession: 'Sesión de aprendizaje',
+    learnSessionDesc: 'Practica con hasta 3 jugadores (y bots). Sin presión — aprende el juego.',
   },
 };
+
+// Rules text shown in the lobby "Gameplay" screen and read aloud one-by-one in
+// a tutorial match. No numbers, bold titles (rendered), EN only until ES review.
+// Order = reading order the user approved (win -> deck -> hand -> runs -> sets
+// -> closing -> scoring -> out/match).
+const RULES_EN = [
+  { title: 'How to win', body: 'You win Chinchón by getting all 7 of your cards into melds, with nothing left over — that\'s a chinchón, and you win the hand outright. If you can\'t make a perfect hand, you win by having the lowest leftover points when the match ends.' },
+  { title: 'The deck', body: 'We play with 80 cards: two Spanish decks of 40. Each suit — Oros (coins), Copas (cups), Espadas (swords), Bastos (clubs) — has ranks 1 through 7, plus 10, 11, and 12. The 1 of Oros is wild: it can stand in for any card in a meld (only one wild per meld), but it can also be used as a natural 1.' },
+  { title: 'Your hand', body: 'You will always hold seven cards. On your turn, draw one card from the stockpile or the discard pile, then you must discard one — so you always have seven cards in your hand.' },
+  { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchón win — but if two 1-of-Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be anyone, anywhere.' },
+  { title: 'Sets', body: 'A set is three or more cards of the same rank, any suits — like three 10s.' },
+  { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. Or two 3-card melds with one leftover card worth 5 or less.' },
+  { title: 'Scoring', body: 'The computer keeps the score — you never do. After everyone reveals their hands, the computer counts each player\'s leftover cards. Face cards 10, 11, 12 count as 10 each; the 1 of Oros counts as 0 (it\'s wild); other cards count their number. A clean close by the closer scores −10. The floor is −50 — but you don\'t win automatically at −50; it just means you\'re the farthest from the 101-out line.' },
+  { title: 'Out and match', body: 'When a player reaches 101 or more points, they are out — eliminated on their own, by their own score. One player at a time is eliminated until only one stands. That last player, with the lowest total, wins the match. 2 to 7 players.' },
+];
+
+// Spanish mirror of the locked EN rules (same order, no numbers, bold titles).
+const RULES_ES = [
+  { title: 'Cómo ganar', body: 'Ganas el Chinchón dejando las 7 cartas en melés, sin nada de sobrante — eso es un chinchón, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.' },
+  { title: 'La baraja', body: 'Jugamos con 80 cartas: dos barajas españolas de 40. Cada palo — Oros, Copas, Espadas, Bastos — tiene los números del 1 al 7, más el 10, el 11 y el 12. El 1 de Oros es comodín: puede ocupar el lugar de cualquier carta en un melé (solo un comodín por melé), pero también puede usarse como un 1 natural.' },
+  { title: 'Tu mano', body: 'Siempre tendrás siete cartas. En tu turno, robas una carta del mazo o de la pila de descarte, y luego debes descartar una — así siempre tienes siete cartas en la mano.' },
+  { title: 'Escaleras', body: 'Una escalera es tres o más cartas del mismo palo, en orden. Como la baraja salta el 8 y el 9, la secuencia pasa del 7 al 10 — así que 6-7-10 es una escalera válida, y también lo es 11-12-1. El comodín 1 de Oros puede llenar cualquier hueco. Dos límites: no puede usarse como segundo comodín en un chinchón — pero si hay dos 1 de Oros en un trío, uno debe ser el 1 de Oros real. Fuera de eso, puede ser cualquiera, en cualquier lugar.' },
+  { title: 'Grupos', body: 'Un grupo es tres o más cartas del mismo número, de cualquier palo — como tres 10.' },
+  { title: 'Cerrar', body: 'Cuando tus 7 cartas forman melés con un pequeño sobrante, puedes cerrar. Un cierre limpio es un melé de 4 más un melé de 3 sin nada de sobrante — eso suma −10. O dos melés de 3 con una carta sobrante que valga 5 o menos.' },
+  { title: 'Puntaje', body: 'La computadora lleva el puntaje — tú nunca. Cuando todos muestran sus manos, la computadora cuenta las cartas sobrantes de cada jugador. Las figuras 10, 11, 12 valen 10 cada una; el 1 de Oros vale 0 (es comodín); las demás cartas valen su número. Un cierre limpio del que cierra suma −10. El piso es −50 — pero no ganas automáticamente con −50; solo significa que estás más lejos de la línea de salida en 101.' },
+  { title: 'Salida y partida', body: 'Cuando un jugador llega a 101 puntos o más, queda fuera — eliminado por su propia cuenta, por su propio puntaje. Se elimina un jugador a la vez hasta que queda uno solo. Ese último jugador, con el total más bajo, gana la partida. De 2 a 7 jugadores.' },
+];
+
+function rulesForLang(l) { return l === 'es' ? RULES_ES : RULES_EN; }
 
 let lang = 'en';
 const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key];
@@ -217,6 +254,8 @@ function showCreatePane() {
   $('pd-bots-count').classList.add('hidden');
   $('room-info').classList.add('hidden');
   $('room-waiting').textContent = '';
+  // Drop any pending learning-session intent when returning to a normal create.
+  const lm = $('lobby-msg'); if (lm) lm.textContent = '';
 }
 function showJoinPane() {
   $('join-pane').classList.remove('hidden');
@@ -315,7 +354,7 @@ document.querySelectorAll('.pd-answer').forEach((b) => {
     if (b.dataset.ans === 'bots-yes') {
       $('pd-bots-count').classList.remove('hidden');
     } else {
-      // No bots -> 90s private (unlisted) countdown waiting for humans.
+      // No bots -> private (unlisted) countdown waiting for humans.
       createRoom('private', 0);
     }
   };
@@ -326,11 +365,11 @@ $('pd-bots-go').onclick = () => {
   createRoom('private', n);
 };
 
-async function createRoom(visibility, bots) {
+async function createRoom(visibility, bots, learning = false, tutorial = false) {
   const name = state.lobbyName || 'Host';
   const res = await fetch('/api/room/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'multi', name, visibility, bots, lobbyToken: state.lobbyToken }),
+    body: JSON.stringify({ mode: 'multi', name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { $('pd-summary').textContent = 'Could not create the room. Try again.'; return; }
   state.code = res.code;
@@ -504,46 +543,17 @@ function meldsText(split) {
   return parts.join('  ');
 }
 
-// Run detection (client-side mirror of src/melds.js isValidRun) so the narrow
-// close hint can check whether a meld is a run. Wild = 1 de Oros.
-const RANK_ORDER = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
-function rankIndexOf(rank) { return RANK_ORDER.indexOf(rank); }
-function isRunMeld(cards) {
-  if (!Array.isArray(cards) || cards.length < 3) return false;
-  const naturals = cards.filter((c) => !(c.suit === 'Oros' && c.rank === 1));
-  if (naturals.length === 0) return false;
-  const suit = naturals[0].suit;
-  if (!naturals.every((c) => c.suit === suit)) return false;
-  const idxs = naturals.map((c) => rankIndexOf(c.rank)).sort((a, b) => a - b);
-  if (new Set(idxs).size !== idxs.length) return false;
-  const span = idxs[idxs.length - 1] - idxs[0] + 1;
-  const wilds = cards.length - naturals.length;
-  return span <= cards.length && (span - naturals.length) <= wilds;
-}
-
-// Narrow close hint (client-side mirror of src/hints.js, which is unit-tested).
-// Returns a run of length 3..4 that contains the drawn card, or null.
-// Never shows sets, never reveals a chinchon.
-function drawRunHint(closeOptions, lastDrawnId) {
-  if (!Array.isArray(closeOptions) || closeOptions.length === 0) return null;
-  const nonChinchon = closeOptions.filter((o) => !o.chinchon);
-  if (nonChinchon.length === 0) return null;
-  for (const opt of nonChinchon) {
-    const splits = Array.isArray(opt.split) ? opt.split : [];
-    for (const meld of splits) {
-      if (!isRunMeld(meld)) continue;
-      if (meld.length < 3 || meld.length > 4) continue;
-      const ids = meld.map((c) => c.id);
-      if (lastDrawnId && !ids.includes(lastDrawnId)) continue;
-      return { run: meld.slice() };
-    }
-  }
-  return null;
-}
+// (Close-hint rule, kept here for reference:)
+// The ONLY close prompt shown is a generic "You can close now — or keep
+// playing", fired whenever any NON-chinchon close is available. It never lists
+// cards, never reveals a run, and NEVER reveals a chinchon (whole-game win stays
+// hidden — everyone knows the game by this point). It fades after ~10s. The
+// authoritative run/chinchon detection for scoring lives in src/hints.js +
+// src/melds.js (unit-tested) and is what the close-options UI relies on.
 
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
-const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null };
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null, closeOfferDismissed: false };
 function onceAnimate(el, cls) {
   if (!el) return;
   el.classList.remove(cls);
@@ -598,15 +608,16 @@ function render() {
     go.classList.remove('hidden');
     $('go-title').textContent = t('goTitle');
 
-    // Winner line: chinchón wins show the word only (no points); point wins show total.
-    // If everyone left (no winner), show a neutral end message.
-    if (!v.winner) {
-      $('go-winner').textContent = t('matchEnded');
-    } else if (v.chinchonWin) {
-      $('go-winner').textContent = `🏆 ${v.winner} — ${t('chinchon')}`;
-    } else {
-      const w = (v.scoreboard || []).find((p) => p.name === v.winner);
-      $('go-winner').textContent = `🏆 ${v.winner} — ${w ? w.total : ''}`;
+    // Special celebration in LEARNING rooms: if a human (not a bot) wins,
+    // congratulate them on beating the bots — that's the point of practice.
+    if (v.learning && v.winner) {
+      const winnerIsBot = (v.scoreboard || []).some((p) => p.name === v.winner && p.isBot);
+      if (!winnerIsBot) {
+        const msg = lang === 'es'
+          ? `¡Felicidades ${v.winner}! Derrotaste a los bots. 🎉`
+          : `Congrats ${v.winner} — you beat the bots! 🎉`;
+        $('go-winner').textContent += `  ${msg}`;
+      }
     }
 
     // Leaderboard: winner first, then everyone else by ELIMINATION ORDER
@@ -760,29 +771,63 @@ function render() {
   const melds = $('melds');
   melds.innerHTML = '';
 
-  // Narrow close hint: a run that forms ON THE SPOT (contains the drawn card).
-  // Shown for ~10s then fades. Never sets, never a chinchon (whole-game win).
+  // Close prompt. Normal rooms: a small generic "you can close now" that fades
+  // after ~10s (everyone knows the game). LEARNING rooms: a bigger, didactic
+  // banner that spells out the possible close(s) and stays up while available,
+  // so a newcomer can study it. Never reveals a chinchon in either mode.
   const hintEl = $('run-hint');
-  const hint = drawRunHint(v.closeOptions || [], v.lastDrawnId);
-  const hintKey = hint ? hint.run.map((c) => c.id).join(',') : '';
-  if (hint && hintKey !== _animState.runHintKey) {
-    const cards = hint.run.map((c) => coloredLabel(c)).join(' ');
-    hintEl.innerHTML = (lang === 'es' ? 'Cierre posible con esta escalera:' : 'You can close with this run:')
-      + `<span class="run-cards">${cards}</span>`;
-    hintEl.classList.remove('hidden', 'show');
-    // reflow so the animation restarts even if it was already shown
-    void hintEl.offsetWidth;
-    hintEl.classList.add('show');
-    if (_animState.runHintTimer) clearTimeout(_animState.runHintTimer);
-    _animState.runHintTimer = setTimeout(() => {
-      hintEl.classList.add('hidden');
-      hintEl.classList.remove('show');
-    }, 10000);
-    _animState.runHintKey = hintKey;
-  } else if (!hint) {
+  const canCloseNow = (v.closeOptions || []).some((o) => !o.chinchon);
+  const hintKey = canCloseNow ? 'on' : '';
+  if (canCloseNow) {
+    if (v.learning) {
+      // Didactic: list the actual possible close(s) and persist (no auto-hide).
+      const lines = (v.closeOptions || [])
+        .filter((o) => !o.chinchon)
+        .map((o) => {
+          const disc = coloredLabel(findCard(o.cardId));
+          const sign = o.score < 0 ? '' : '+';
+          return `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
+        });
+      hintEl.innerHTML = `<div class="run-hint-title">${lang === 'es' ? 'Cierre posible:' : 'Possible close:'}</div>`
+        + lines.map((l) => `<div class="run-hint-line">${l}</div>`).join('');
+      hintEl.classList.remove('hidden', 'show', 'learning');
+      void hintEl.offsetWidth;
+      hintEl.classList.add('show', 'learning');
+      if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
+      _animState.runHintKey = hintKey;
+    } else if (hintKey !== _animState.runHintKey) {
+      hintEl.innerHTML = (lang === 'es' ? 'Puedes cerrar ahora — o seguir jugando.' : 'You can close now — or keep playing.');
+      hintEl.classList.remove('hidden', 'show', 'learning');
+      void hintEl.offsetWidth;
+      hintEl.classList.add('show');
+      if (_animState.runHintTimer) clearTimeout(_animState.runHintTimer);
+      _animState.runHintTimer = setTimeout(() => {
+        hintEl.classList.add('hidden');
+        hintEl.classList.remove('show');
+      }, 10000);
+      _animState.runHintKey = hintKey;
+    }
+  } else {
     hintEl.classList.add('hidden');
-    hintEl.classList.remove('show');
+    hintEl.classList.remove('show', 'learning');
+    if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
     _animState.runHintKey = '';
+  }
+
+  // Close/Continue offer: on the human's discard turn, when a legal close exists
+  // (incl. chinchon). The computer has VERIFIED the close is legal — it never
+  // reveals the melds or suggests a card. Agency stays with the player.
+  // Reset the "Keep playing" dismissal at the start of each turn (draw phase)
+  // so the offer re-appears on every discard turn a close is available.
+  if (isYourTurn && phase === 'draw') _animState.closeOfferDismissed = false;
+  const closeOfferEl = $('close-offer');
+  const showCloseOffer = isYourTurn && phase === 'discard' && !!v.canClose && !_animState.closeOfferDismissed;
+  if (showCloseOffer) {
+    $('close-offer-text').textContent = t('closeOffer');
+    $('btn-close-continue').textContent = t('closeOfferContinue');
+    closeOfferEl.classList.remove('hidden');
+  } else {
+    closeOfferEl.classList.add('hidden');
   }
 
   // Controls
@@ -790,6 +835,21 @@ function render() {
   $('btn-draw-discard').textContent = t('drawDiscard');
   $('btn-draw-stock').classList.toggle('hidden', !(canAct && phase === 'draw'));
   $('btn-draw-discard').classList.toggle('hidden', !(canAct && phase === 'draw'));
+
+  // Tutorial gating: while a rule is pending, the human cannot act. Show the
+  // current rule (text) with a Continue button that acknowledges it server-side.
+  // Voice is added later (the user approved text-only first).
+  const tutEl = $('tutorial-rule');
+  if (v.tutorial && v.tutorialPaused && v.tutorialRuleIndex < RULES_EN.length) {
+    const rule = rulesForLang(lang)[v.tutorialRuleIndex];
+    tutEl.querySelector('.tutorial-rule-title').textContent = rule.title;
+    tutEl.querySelector('.tutorial-rule-body').textContent = rule.body;
+    tutEl.classList.remove('hidden');
+    $('btn-draw-stock').classList.add('hidden');
+    $('btn-draw-discard').classList.add('hidden');
+  } else {
+    tutEl.classList.add('hidden');
+  }
 
   const co = $('close-options');
   co.innerHTML = '';
@@ -1037,6 +1097,18 @@ $('chat').querySelector('.chat-head').addEventListener('click', (e) => {
 // Start collapsed on small screens so the board is clear on load.
 if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('collapsed');
 
+// Close/Continue offer: "Close" just focuses the existing close buttons (the
+// player still chooses the meld + card there); "Keep playing" dismisses the
+// prominent offer for this turn (the close buttons stay available).
+$('btn-close-accept').onclick = () => {
+  const co = document.getElementById('close-options');
+  if (co) { co.scrollIntoView({ behavior: 'smooth', block: 'center' }); co.classList.add('flash'); setTimeout(() => co.classList.remove('flash'), 700); }
+};
+$('btn-close-continue').onclick = () => {
+  _animState.closeOfferDismissed = true;
+  $('close-offer').classList.add('hidden');
+};
+
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {
   const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
@@ -1051,6 +1123,16 @@ async function doDiscard(card, close = false, splitIdx = null) {
 
 $('btn-draw-stock').onclick = () => doDraw('stock');
 $('btn-draw-discard').onclick = () => doDraw('discard');
+// Tutorial: acknowledge the current rule so the game may proceed. Calls the
+// server to advance the rule queue and unpause; render() will hide the prompt.
+$('btn-tutorial-continue').onclick = async () => {
+  if (!state.code || !state.seatId) return;
+  await fetch('/api/tutorial/ack', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  }).catch(() => null);
+  if (state.view) render(state.view);
+};
 // Piles are directly tappable (the "physical game" feel). Gated to the draw
 // turn inside render() via the .tappable class, but guard here too.
 $('stock').onclick = () => { if (state.view && state.view.isYourTurn && state.view.phase === 'draw') doDraw('stock'); };
@@ -1326,6 +1408,13 @@ $('btn-go-create').onclick = () => {
   show($('lobby'));
   showCreatePane();
 };
+// Learning session: one tap starts a didactic tutorial game — 1 novice (you)
+// + 2 bots, flagged learning:true AND tutorial:true (so the per-turn rule reads
+// and random open/hidden bots apply). Friends can still join (cap 3 humans).
+$('btn-go-learn').onclick = () => {
+  clearInterval(lobbyTimer);
+  createRoom('private', 2, true, true);
+};
 $('btn-go-join').onclick = () => {
   const name = state.lobbyName || $('lobby-name').value.trim();
   $('join-name').value = name;
@@ -1351,6 +1440,41 @@ function goToLobby() {
   lobbyTimer = setInterval(lobbyPoll, 2000);
 }
 $('btn-back-lobby').onclick = goToLobby;
+
+// Gameplay rules screen: a black, in-game-styled reference of every rule (no
+// numbers; bold titles). Opens from the lobby; no voice yet — just readable.
+function renderGameplayRules() {
+  const wrap = $('gameplay-rules');
+  wrap.innerHTML = '';
+  for (const r of rulesForLang(lang)) {
+    const block = document.createElement('div');
+    block.className = 'rule-block';
+    const title = document.createElement('span');
+    title.className = 'rule-title';
+    title.textContent = r.title;
+    const body = document.createElement('span');
+    body.className = 'rule-body';
+    body.textContent = r.body;
+    block.appendChild(title);
+    block.appendChild(body);
+    wrap.appendChild(block);
+  }
+};
+$('btn-gameplay').onclick = () => {
+  clearInterval(lobbyTimer);
+  renderGameplayRules();
+  show($('gameplay'));
+};
+// Language is handled globally by the .lang-btn handler (lobby + gameplay share
+// the same lang state), so the gameplay toggle just needs the rules re-render.
+$('btn-lang-en').onclick = () => renderGameplayRules();
+$('btn-lang-es').onclick = () => renderGameplayRules();
+$('btn-gameplay-close').onclick = () => {
+  show($('globby'));
+  $('lobby-main').classList.remove('hidden');
+  clearInterval(lobbyTimer);
+  lobbyTimer = setInterval(lobbyPoll, 2000);
+};
 
 // Leave the global lobby entirely: drop the name + token on the server, clear
 // localStorage, stop polling, and return to the landing (name-entry) screen.

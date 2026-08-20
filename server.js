@@ -172,7 +172,7 @@ function newSeatId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
+function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, learning, tutorial }) {
   const code = makeCode();
   const players = [];
 
@@ -184,9 +184,11 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
     for (let i = 0; i < nBots; i++) {
       players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
     }
+    // Tutorial: one bot plays open (cards visible), the other hidden — random which.
+    if (tutorial) assignTutorialReveals(players);
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, dealRng);
-    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [], visibility: visibility || 'private' };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [], visibility: visibility || 'private', learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
     rooms.set(code, room);
     return room;
   }
@@ -207,6 +209,8 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
     for (let i = 0; i < bots; i++) {
       players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
     }
+    // Tutorial: one bot plays open (cards visible), the other hidden — random which.
+    if (tutorial) assignTutorialReveals(players);
     match = matchMod.createMatch(players.map((p) => p.name));
     state = turn.startRound(players.length, dealRng);
     started = true;
@@ -217,7 +221,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
     pending = { until, hold: false, hostName: host.name, startedBy: host.id, type: 'fresh', visibility: vis };
   }
 
-  const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis };
+  const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis, learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
   rooms.set(code, room);
   return room;
 }
@@ -226,6 +230,10 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs }) {
 // next actor is a human, or the round phase is no longer 'draw'/'discard'.
 function runBotTurns(room) {
   const { state, match, players } = room;
+  // Tutorial: arm the pause if the human is about to start their turn. Done
+  // here (before the loop) so it also covers the case where the human is the
+  // very first actor and the loop returns immediately.
+  maybePauseForTutorial(room);
   let guard = 0;
   while (state && (state.phase === 'draw' || state.phase === 'discard') && guard < 500) {
     guard++;
@@ -260,6 +268,24 @@ function runBotTurns(room) {
   if (room.layoff && room.layoff.phase === 'layoff') {
     runBotLayoffTurns(room);
   }
+  // Tutorial: if the turn has landed on the human and rules still remain to be
+  // read, freeze the game until they acknowledge the current rule.
+  maybePauseForTutorial(room);
+}
+
+// Pause a tutorial room whenever it becomes the human's turn and unread rules
+// remain. Cleared on /api/tutorial/ack for the current turn; re-arms on the
+// human's NEXT turn (so each novice turn = exactly one rule). Gate on the
+// 'draw' phase so we only pause at the START of the human's turn — after they
+// ack and draw, the phase is 'discard' and we must NOT re-pause mid-turn.
+function maybePauseForTutorial(room) {
+  if (!room.tutorial) return;
+  const st = room.state;
+  if (!st || st.phase === 'over' || st.phase === 'closed') { room.tutorialPaused = false; return; }
+  if (room.tutorialRuleIndex >= 8) { room.tutorialPaused = false; return; }
+  const humanSeat = room.players.findIndex((p) => !p.isBot && !p.spectator);
+  if (humanSeat < 0) { room.tutorialPaused = false; return; }
+  room.tutorialPaused = (st.turn === humanSeat && st.phase === 'draw');
 }
 
 function topOfDiscardOk(state) {
@@ -489,6 +515,9 @@ function serialize(room, seatId) {
     away: isAway(p),
     total: match.players[i].total,
     handCount: state.hands[i] ? state.hands[i].length : 0,
+    // In a tutorial, the "open" bot exposes its hand; the "hidden" bot does not
+    // (revealed only at game over). Non-tutorial rooms: never reveal a bot hand.
+    reveal: !!p.reveal && room.tutorial && !match.gameOver,
     isYou: p.id === seatId,
   }));
 
@@ -524,9 +553,20 @@ function serialize(room, seatId) {
     };
   }
 
+  // Tutorial gating: room.tutorialPaused is a real flag maintained by
+  // maybePauseForTutorial() at each turn transition (see runBotTurns / ack).
+  // While paused, the human cannot act; the client shows the current rule.
+  const TUTORIAL_RULES_TOTAL = 8;
+  const tutorialActive = room.tutorial && state && !match.gameOver;
+  const tutorialPaused = !!room.tutorialPaused && tutorialActive;
+
   return {
     code: room.code,
     mode: room.mode,
+    learning: !!room.learning,
+    tutorial: !!room.tutorial,
+    tutorialRuleIndex: room.tutorialRuleIndex,
+    tutorialPaused,
     started: room.started,
     gameOver: match.gameOver,
     pending: room.pending ? pendingView(room) : null,
@@ -545,7 +585,7 @@ function serialize(room, seatId) {
       : null,
     phase: state.phase,
     turnSeat: state.turn,
-    isYourTurn: state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard') || layoffYourTurn,
+    isYourTurn: !tutorialPaused && (state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard') || layoffYourTurn),
     layoff: layoffView,
     stockCount: state.stock.length,
     lastReshuffle: room.lastReshuffle || 0,
@@ -555,6 +595,7 @@ function serialize(room, seatId) {
     yourMelds: split.melds,
     yourDeadwood: split.deadwood,
     closeOptions: opts,
+    canClose: opts.length > 0,
     opponents,
     scoreboard: match.players.map((p, i) => {
       const pc = players[i];
@@ -574,7 +615,26 @@ function serialize(room, seatId) {
   };
 }
 
-// Public base URL for share links. Priority:
+// Reserved suffix: only our official bots may use a name ending in ".Bot"
+// (single word, e.g. "Professor.Bot"). Human/Cuchi players may not register
+// such a name — it is reserved for track-keeping and deployment.
+function isReservedName(name) {
+  return typeof name === 'string' && /\.Bot$/i.test(name.trim());
+}
+
+// Tutorial rooms: exactly one bot plays with its hand face-up (visible to all),
+// the other plays hidden and is revealed only at game over. Which is which is
+// chosen at random so the lesson isn't tied to a fixed seat.
+function assignTutorialReveals(players) {
+  const bots = players.filter((p) => p.isBot);
+  // Fixed, genderless personas: Pro.Bot (older English professor) and Dee.Bot
+  // (young American). Which one plays open vs hidden is random per the brief.
+  const names = ['Pro.Bot', 'Dee.Bot'];
+  bots.forEach((b, i) => { b.name = names[i % names.length]; });
+  if (bots.length < 2) { bots.forEach((b) => { b.reveal = true; }); return; }
+  const openIdx = Math.floor(Math.random() * bots.length);
+  bots.forEach((b, i) => { b.reveal = i === openIdx; });
+}
 //   1. An explicit tunnel URL dropped into .tunnel-url (local dev via cloudflared).
 //   2. The actual Host the request arrived on (correct for any deployed host
 //      like Railway, which listens on a non-3000 port behind its own domain).
@@ -668,12 +728,16 @@ function handleApi(req, res, url) {
       const mode = body.mode === 'solo' ? 'solo' : 'multi';
       const visibility = body.visibility === 'public' ? 'public' : 'private';
       const bots = Math.max(0, Math.min(6, parseInt(body.bots, 10) || 0));
+      const learning = !!body.learning;
+      const tutorial = !!body.tutorial;
+      // Reserve ".Bot" usernames for our official bots only.
+      if (isReservedName(body.name)) return sendJson(res, 400, { error: 'that name is reserved for bots' });
       if (mode === 'solo') {
-        const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken });
+        const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, learning, tutorial });
         runBotTurns(room);
         return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
       }
-      const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, visibility, countdownMs: body.countdownMs });
+      const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, visibility, countdownMs: body.countdownMs, learning, tutorial });
       // Private + bots starts immediately (no pending); others wait for the countdown.
       if (!room.pending) runBotTurns(room);
       return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}`, pending: room.pending ? pendingView(room) : null, visibility: room.visibility });
@@ -684,6 +748,8 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const room = rooms.get(body.code);
       if (!room) return sendJson(res, 404, { error: 'no such room' });
+      // Reserve ".Bot" usernames for our official bots only.
+      if (isReservedName(body.name)) return sendJson(res, 400, { error: 'that name is reserved for bots' });
 
       // Rejoin: a returning player supplies their existing seatId to resume the
       // SAME seat (spectator if eliminated/match moved on, active if just back).
@@ -715,7 +781,9 @@ function handleApi(req, res, url) {
       if (room.banned.includes(body.lobbyToken)) return sendJson(res, 403, { error: 'you have been removed from this room' });
       if (room.started) return sendJson(res, 400, { error: 'game already started' });
       const humans = room.players.filter((pl) => !pl.isBot).length;
-      if (humans >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
+      // Learning sessions are capped at 3 humans (per house rules); other rooms at 7.
+      const humanCap = room.learning ? 3 : 7;
+      if (humans >= humanCap) return sendJson(res, 400, { error: `room full (${humanCap} humans)` });
       const seat = room.players.length;
       const id = newSeatId();
       room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null });
@@ -887,6 +955,26 @@ function handleApi(req, res, url) {
     });
   }
 
+  // Tutorial: the human acknowledges the current rule (read it), which lets the
+  // game proceed. Advances the rule queue by one; when all rules are read the
+  // room stops pausing and play continues to the end on its own.
+  if (method === 'POST' && p === '/api/tutorial/ack') {
+    return readBody(req).then((body) => {
+      const room = rooms.get(body.code);
+      if (!room) return sendJson(res, 404, { error: 'no such room' });
+      if (!room.tutorial) return sendJson(res, 400, { error: 'not a tutorial room' });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only the player can ack' });
+      // Advance the rule queue and unpause THIS turn. We do not run bot turns
+      // here: the human still owns this turn and will draw/discard next, which
+      // drives runBotTurns and re-arms the pause for their NEXT turn.
+      room.tutorialRuleIndex = Math.min(8, room.tutorialRuleIndex + 1);
+      room.tutorialPaused = false;
+      evaluateWaiting(room);
+      return sendJson(res, 200, { tutorialRuleIndex: room.tutorialRuleIndex });
+    });
+  }
+
   // Per-room chat: short gameplay notes only, capped at the last 10 messages.
   // Available while the room is up; cleared on rematch (fresh match).
   if (method === 'POST' && p === '/api/room/chat') {
@@ -910,6 +998,8 @@ function handleApi(req, res, url) {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'draw') return sendJson(res, 400, { error: 'not the draw phase' });
+      // Tutorial: a human may not act until they've acknowledged the current rule.
+      if (room.tutorial && room.tutorialPaused) return sendJson(res, 409, { error: 'read the rule first', tutorialPause: true });
       const r = body.from === 'discard' ? turn.drawFromDiscard(room.state) : turn.drawFromStock(room.state);
       if (r.reshuffled) room.lastReshuffle = Date.now();
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
@@ -925,6 +1015,8 @@ function handleApi(req, res, url) {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'discard') return sendJson(res, 400, { error: 'not the discard phase' });
+      // Tutorial: a human may not act until they've acknowledged the current rule.
+      if (room.tutorial && room.tutorialPaused) return sendJson(res, 409, { error: 'read the rule first', tutorialPause: true });
       const hand = room.state.hands[viewer.seat];
       const card = hand.find((c) => c.id === body.cardId);
       if (!card) return sendJson(res, 400, { error: 'you do not hold that card' });

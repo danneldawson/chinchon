@@ -119,12 +119,11 @@ async function yourTurn(state, match) {
   // DISCARD
   const opts = closeOptions(state);
   if (opts.length > 0) {
-    console.log(`  ${R.BOLD}You can CLOSE this turn.${R.RESET}`);
-    for (const o of opts) {
-      const label = o.reason === 'chinchon'
-        ? `${R.BOLD}CHINCHÓN — wins the whole game${R.RESET}`
-        : `score ${o.score}`;
-      console.log(`    throw ${R.card(o.discard)} → ${label}`);
+    // Generic prompt only: by now everyone knows how to play. Never reveal a
+    // chinchon (whole-game win stays hidden) nor the specific cards.
+    const realClose = opts.some((o) => o.reason !== 'chinchon');
+    if (realClose) {
+      console.log(`  ${R.BOLD}You can close now — or keep playing.${R.RESET}`);
     }
     console.log('');
   }

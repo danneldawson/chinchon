@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chinchón — Built-in Speech Sample</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #14161c; color: #eee; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 1.2rem; }
+  button { font-size: 1rem; padding: 10px 16px; margin: 6px 6px 6px 0; border-radius: 10px; border: 0; background: #7c4dff; color: #fff; font-weight: 700; cursor: pointer; }
+  button.alt { background: #1e88e5; }
+  button.es { background: #43a047; }
+  .row { margin: 14px 0; }
+  select { font-size: 1rem; padding: 6px; }
+  .note { color: #9aa; font-size: 0.85rem; line-height: 1.5; }
+  #status { margin-top: 10px; color: #ffd54f; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <h1>Chinchón — Built-in browser speech sample</h1>
+  <p class="note">This uses your Mac's own system voices (the same engine the app will use). Pick a voice, then press a button to hear Rule #1 spoken — the exact text the tutorial will read aloud.</p>
+
+  <div class="row">
+    <label>Voice: </label>
+    <select id="voices"></select>
+  </div>
+
+  <div class="row">
+    <button id="bBrit">🇬🇧 British (Pro.Bot style)</button>
+    <button id="bAmer" class="alt">🇺🇸 American (Dee.Bot style)</button>
+    <button id="bEsp" class="es">🇪🇸 Español</button>
+  </div>
+
+  <div id="status"></div>
+
+  <p class="note" id="ruleEn"></p>
+
+<script>
+  const RULE_EN = "You win Chinchón by getting all seven of your cards into melds, with nothing left over — that's a chinchón, and you win the hand outright. If you can't make a perfect hand, you win by having the lowest leftover points when the match ends.";
+  const RULE_ES = "Ganas el Chinchón dejando las siete cartas en melés, sin sobrantes — eso es un chinchón, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.";
+
+  document.getElementById('ruleEn').textContent = 'EN text: ' + RULE_EN;
+
+  const sel = document.getElementById('voices');
+  const status = document.getElementById('status');
+  let voices = [];
+
+  function populate() {
+    voices = window.speechSynthesis.getVoices();
+    sel.innerHTML = '';
+    voices.forEach((v, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = `${v.name} (${v.lang})`;
+      sel.appendChild(o);
+    });
+  }
+  populate();
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = populate;
+  }
+
+  function pick(langPrefix) {
+    // prefer the first voice matching the lang prefix, else leave null (browser default)
+    const hit = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix.toLowerCase()));
+    return hit || null;
+  }
+
+  function speak(text, lang, voice) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
+    if (voice) u.voice = voice;
+    u.rate = 0.98;
+    u.pitch = 1.0;
+    status.textContent = 'Speaking with: ' + (voice ? voice.name : 'default (' + lang + ')');
+    window.speechSynthesis.speak(u);
+  }
+
+  document.getElementById('bBrit').onclick = () => speak(RULE_EN, 'en-GB', pick('en-GB'));
+  document.getElementById('bAmer').onclick = () => speak(RULE_EN, 'en-US', pick('en-US'));
+  document.getElementById('bEsp').onclick  = () => speak(RULE_ES, 'es-ES', pick('es'));
+
+  // Allow manual override from the dropdown for any voice (incl. Spanish variants)
+  sel.onchange = () => {};
+  // double-click a voice then press a button? simpler: add a "speak with selected" button
+  const customBtn = document.createElement('button');
+  customBtn.textContent = '▶ Speak with selected voice';
+  customBtn.style.background = '#555';
+  customBtn.onclick = () => {
+    const v = voices[sel.value];
+    // use the voice's own lang; default to EN text unless it's Spanish
+    const isEs = v && v.lang && v.lang.toLowerCase().startsWith('es');
+    speak(isEs ? RULE_ES : RULE_EN, v ? v.lang : 'en-US', v || null);
+  };
+  document.querySelector('.row:nth-of-type(2)').appendChild(customBtn);
+</script>
+</body>
+</html>

@@ -286,6 +286,29 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 }
 .run-hint.show { animation: runHintLife 10s ease forwards; }
 
+/* Learning rooms: a bigger, didactic banner that lists the possible close(s).
+   It persists (no 10s fade) so a newcomer can study it. */
+.run-hint.learning {
+  font-size: 1.25em;
+  padding: 14px 18px;
+  border-width: 2px;
+  background: rgba(124, 77, 255, 0.16);
+  animation: none; /* persist while the close is available */
+}
+.run-hint.learning .run-hint-title {
+  font-size: 1.05em;
+  margin-bottom: 6px;
+  color: var(--accent);
+}
+.run-hint.learning .run-hint-line {
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 2px 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-hint.learning { animation: none !important; opacity: 1 !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card, button, .hand.deal-anim .card, .card-mini.slide-in,
   .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; }
@@ -357,6 +380,51 @@ button, .card, .pile, input { touch-action: manipulation; }
   .matches-board { position: relative; }
   .match-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: rgba(26,29,36,0.5); margin-bottom: 8px; }
   .match-card .mc-code { font-weight: 700; letter-spacing: 1px; }
+
+/* Blue "Gameplay" info button (lobby, beside the red Leave button). */
+  .info {
+    background: linear-gradient(135deg, #1e88e5, #1565c0);
+    color: #fff;
+    border: none;
+  }
+  .info:hover { filter: brightness(1.1); }
+
+  /* Black full-screen rules reference (opens from the lobby). */
+  #gameplay { background: #000; }
+  .gameplay-screen {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+    color: #f2f2f2;
+  }
+  .gameplay-screen h1 {
+    color: #fff;
+    letter-spacing: 1px;
+    margin: 14px 0 22px;
+    text-align: center;
+  }
+  .gameplay-rules { display: flex; flex-direction: column; gap: 18px; }
+  .rule-block { line-height: 1.6; }
+  .rule-block .rule-title {
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 1.05em;
+  }
+  .rule-block .rule-body { color: #e6e6e6; }
+
+  /* Tutorial rule prompt (shown each novice turn before they may act). */
+  .tutorial-rule {
+    background: rgba(124, 77, 255, 0.12);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 12px 0;
+    max-width: 720px;
+  }
+  .tutorial-rule-title { font-weight: 700; color: var(--accent); font-size: 1.1em; margin-bottom: 6px; }
+  .tutorial-rule-body { line-height: 1.6; margin-bottom: 12px; }
   .match-card .mc-row { display: flex; justify-content: space-between; padding: 2px 0; }
   .match-card .mc-timer { color: var(--dim); font-size: 0.85em; }
   .match-card .mc-pending { color: var(--accent); font-weight: 600; }
@@ -372,6 +440,23 @@ button, .card, .pile, input { touch-action: manipulation; }
   .dialogue-answers { display: flex; gap: 10px; }
   .pd-answer { padding: 8px 18px; border-radius: 8px; background: var(--accent); color: #1a1d24; font-weight: 700; cursor: pointer; }
   .pd-answer:hover { opacity: 0.9; }
+
+  /* Close/Continue offer (human's discard turn, when a legal close exists). */
+  .close-offer {
+    margin: 14px auto;
+    max-width: 560px;
+    background: rgba(124, 77, 255, 0.14);
+    border: 2px solid rgba(124, 77, 255, 0.6);
+    border-radius: 14px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .close-offer-text { font-size: 1.05rem; font-weight: 600; margin-bottom: 12px; color: #fff; }
+  .close-offer-actions { display: flex; gap: 12px; justify-content: center; }
+
+  /* Flash highlight when the Close/Continue "Close" button focuses the close options. */
+  #close-options.flash { animation: coflash 0.7s ease; }
+  @keyframes coflash { 0% { box-shadow: 0 0 0 0 rgba(124,77,255,0.9); } 100% { box-shadow: 0 0 0 14px rgba(124,77,255,0); } }
   #pd-bots-count { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; max-width: 200px; }
   #room-info { margin-top: 14px; }
   #room-info .code { font-weight: 800; letter-spacing: 2px; color: var(--accent); font-size: 1.2em; }
@@ -380,3 +465,8 @@ button, .card, .pile, input { touch-action: manipulation; }
   /* Room code tiny so it doesn't crowd the top. */
   #room-code-tag { font-size: 0.78em; }
 }
+
+/* Gameplay overlay language toggle (EN / ES). */
+.lang-toggle { display: flex; gap: 8px; margin: 10px 0 4px; }
+.lang-btn { padding: 6px 16px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; }
+.lang-btn.active { background: var(--accent); color: #14161c; }

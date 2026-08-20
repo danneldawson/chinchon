@@ -31,7 +31,9 @@
           <ul id="lobby-members" class="members"></ul>
           <div class="lobby-actions">
             <button id="btn-go-create" class="primary">Create room</button>
+            <button id="btn-go-learn" class="primary">Learning session</button>
             <button id="btn-go-join" class="primary">Join room</button>
+            <button id="btn-gameplay" class="info">Gameplay</button>
             <button id="btn-leave-lobby" class="danger">Leave lobby</button>
           </div>
         </section>
@@ -53,6 +55,19 @@
             <button id="btn-lobby-chat-send" class="small">Send</button>
           </div>
         </section>
+      </div>
+    </section>
+
+    <!-- GAMEPLAY RULES (black full-screen reference, opens from lobby) -->
+    <section id="gameplay" class="panel hidden">
+      <div class="gameplay-screen">
+        <button id="btn-gameplay-close" class="small">← Back to lobby</button>
+        <h1 id="gameplay-title">How to play Chinchón</h1>
+        <div class="lang-toggle">
+          <button id="btn-lang-en" class="lang-btn active" data-lang="en">English</button>
+          <button id="btn-lang-es" class="lang-btn" data-lang="es">Español</button>
+        </div>
+        <div id="gameplay-rules" class="gameplay-rules"></div>
       </div>
     </section>
 
@@ -148,6 +163,19 @@
       <div id="reshuffle-note" class="banner info hidden">Stock reshuffled</div>
 
       <div id="status-banner" class="hidden"></div>
+
+      <!-- Tutorial: one rule per novice turn, shown (and later read aloud) before they may act. -->
+      <div id="tutorial-rule" class="tutorial-rule hidden"></div>
+
+      <!-- Close/Continue offer: shown on the human's discard turn when a legal
+           close exists (incl. chinchon). No card/meld revealed — pure agency. -->
+      <div id="close-offer" class="close-offer hidden">
+        <div id="close-offer-text" class="close-offer-text"></div>
+        <div class="close-offer-actions">
+          <button id="btn-close-accept" class="primary">Close</button>
+          <button id="btn-close-continue" class="ghost">Keep playing</button>
+        </div>
+      </div>
 
       <div id="your-area">
         <h2 id="your-hand-h2">Your hand <span id="deadwood" class="dim"></span></h2>
