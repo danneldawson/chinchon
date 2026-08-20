@@ -81,17 +81,11 @@ function shouldClose(state, skill, opts) {
   const chinchon = opts.find((o) => o.reason === 'chinchon');
   const clean = opts.find((o) => o.score === -10);
   if (skill === 'cautious') {
-    // Cautious: don't snipe a marginal leftover early, but still close on a
-    // genuinely good hand. Takes a chinchon, a clean -10, or any leftover close
-    // of 5 or fewer. And once the stock is nearly empty the round must end, so
-    // any legal close is fine then.
-    const stockLow = state.stock && state.stock.length <= 8;
+    // Cautious still closes whenever a legal close exists — it just never
+    // refuses one (no need to hold the match up). Prefers chinchon, then clean.
     if (chinchon) return chinchon;
     if (clean) return clean;
-    const good = opts.filter((o) => o.score <= 5).sort((a, b) => a.score - b.score)[0];
-    if (good) return good;
-    if (stockLow) return opts.reduce((a, b) => (a.score <= b.score ? a : b));
-    return null;
+    return opts.reduce((a, b) => (a.score <= b.score ? a : b));
   }
   // aggressive + balanced: close on anything, preferring chinchon then clean.
   if (chinchon) return chinchon;
