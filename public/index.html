@@ -24,7 +24,10 @@
       </div>
 
       <div id="lobby-main" class="hidden">
-        <h1 id="lobby-title">LOBBY</h1>
+        <div class="lobby-header">
+          <h1 id="lobby-title">LOBBY</h1>
+          <button id="btn-rules-top" class="top-pill" title="How to play">ⓘ Rules</button>
+        </div>
 
         <section class="lobby-panel">
           <h3><span id="lobby-players-label">Players here</span> (<span id="lobby-total">0</span>)</h3>
@@ -68,6 +71,7 @@
           <button id="btn-lang-es" class="lang-btn" data-lang="es">Español</button>
         </div>
         <div id="gameplay-rules" class="gameplay-rules"></div>
+        <button id="btn-gameplay-tutorial" class="primary gameplay-tutorial-btn">Start tutorial match</button>
       </div>
     </section>
 

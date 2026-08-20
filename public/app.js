@@ -1475,6 +1475,18 @@ $('btn-gameplay-close').onclick = () => {
   clearInterval(lobbyTimer);
   lobbyTimer = setInterval(lobbyPoll, 2000);
 };
+// Top-bar Rules pill (next to Leave) opens the same Gameplay rules overlay.
+$('btn-rules-top').onclick = () => {
+  clearInterval(lobbyTimer);
+  renderGameplayRules();
+  show($('gameplay'));
+};
+// Inside the rules overlay: launch the optional tutorial match (readable rules
+// only — no voice). Closes the overlay and starts a Learning session.
+$('btn-gameplay-tutorial').onclick = () => {
+  clearInterval(lobbyTimer);
+  createRoom('private', 2, true, true);
+};
 
 // Leave the global lobby entirely: drop the name + token on the server, clear
 // localStorage, stop polling, and return to the landing (name-entry) screen.

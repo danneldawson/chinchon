@@ -470,3 +470,15 @@ button, .card, .pile, input { touch-action: manipulation; }
 .lang-toggle { display: flex; gap: 8px; margin: 10px 0 4px; }
 .lang-btn { padding: 6px 16px; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; }
 .lang-btn.active { background: var(--accent); color: #14161c; }
+
+/* Lobby header: title left, small Rules pill right (next to Leave). */
+.lobby-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lobby-header h1 { margin: 0; }
+.top-pill {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.top-pill:hover { background: rgba(124,77,255,0.12); }
+
+/* "Start tutorial match" button at the foot of the rules overlay. */
+.gameplay-tutorial-btn { margin: 18px auto 4px; display: block; }
