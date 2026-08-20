@@ -482,3 +482,11 @@ button, .card, .pile, input { touch-action: manipulation; }
 
 /* "Start tutorial match" button at the foot of the rules overlay. */
 .gameplay-tutorial-btn { margin: 18px auto 4px; display: block; }
+
+/* Bot avatar chip (emoji on the bot's color) shown next to opponent names. */
+.bot-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.5em; height: 1.5em; border-radius: 50%;
+  margin-right: 6px; font-size: 0.85em; vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+}

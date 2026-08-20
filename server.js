@@ -172,18 +172,48 @@ function newSeatId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// ----------------------------------------------------------- family bots
+// The 10 family bots. Solo games (placement a) draw 2 random opponents from
+// this roster. Each keeps its own name, look, and play-style; language mirrors
+// the last chat message (handled client-side). Pro.Bot/Dee.Bot are NOT here —
+// they are the tutorial-only demo pair.
+const FAMILY_BOTS = [
+  { name: 'Sunilde.Bot', role: 'aunt', persona: 'hyped-aggressive', skill: 'aggressive', color: '#E0A93B', emoji: '🍺', quirk: 'trashtalks when ahead' },
+  { name: 'Grisel.Bot', role: 'grandma', persona: 'serious-knowledgeable', skill: 'cautious', color: '#7E8AA2', emoji: '👓', quirk: 'narrates her discards like a teacher' },
+  { name: 'Flor.Bot', role: 'neighbour', persona: 'hyped', skill: 'balanced', color: '#E23B3B', emoji: '🎀', quirk: 'cheers for everyone’s good draws' },
+  { name: 'Clavillazo.Bot', role: 'neighbour', persona: 'hyped-underdog', skill: 'cautious', color: '#3B6FE2', emoji: '👖', quirk: 'celebrates surviving each round even when losing' },
+  { name: 'Yoya.Bot', role: 'aunt', persona: 'happy-laughing', skill: 'cautious', color: '#FF7E6B', emoji: '👗', quirk: 'laughs in chat after every discard' },
+  { name: 'Ernesto.Bot', role: 'uncle', persona: 'calm-dry', skill: 'balanced', color: '#1F7A4D', emoji: '🎩', quirk: 'only speaks when someone closes' },
+  { name: 'Barrabah.Bot', role: 'uncle', persona: 'hyped-aggressive', skill: 'aggressive', color: '#E2542B', emoji: '🔥', quirk: 'trash-talks the most of the family' },
+  { name: 'Tibursio.Bot', role: 'cousin', persona: 'playful-competitive', skill: 'aggressive', color: '#7C4DFF', emoji: '🎮', quirk: 'spams quick chat after every win' },
+  { name: 'Chon.Bot', role: 'kid', persona: 'excited-naive', skill: 'cautious', color: '#F2C94C', emoji: '🧸', quirk: 'asks “is this a good card?” in chat' },
+  { name: 'Matea.Bot', role: 'big-sister', persona: 'encouraging-steady', skill: 'balanced', color: '#2BB3A3', emoji: '🌟', quirk: 'hypes the human player specifically' },
+];
+
+// Pick n distinct family bots at random (Fisher-Yates partial shuffle).
+function pickFamilyBots(n) {
+  const pool = FAMILY_BOTS.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, Math.max(1, Math.min(pool.length, n)));
+}
+
 function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, learning, tutorial }) {
   const code = makeCode();
   const players = [];
 
   if (mode === 'solo') {
     // Chinchón needs at least 2 players, so a solo game must have >= 1 bot.
-    // Clamp the requested count (the UI labels this 1-6).
+    // Clamp the requested count (the UI labels this 1-6). Opponents are drawn
+    // at random from the 10 family bots (placement a: solo only).
     const nBots = Math.max(1, Math.min(6, bots | 0));
     players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null });
-    for (let i = 0; i < nBots; i++) {
-      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
-    }
+    const fam = pickFamilyBots(nBots);
+    fam.forEach((fb, i) => {
+      players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb });
+    });
     // Tutorial: one bot plays open (cards visible), the other hidden — random which.
     if (tutorial) assignTutorialReveals(players);
     const match = matchMod.createMatch(players.map((p) => p.name));
@@ -510,6 +540,8 @@ function serialize(room, seatId) {
     seat: i,
     name: p.name,
     isBot: p.isBot,
+    botEmoji: p.bot ? p.bot.emoji : (/\.Bot$/i.test(p.name || '') ? '🤖' : ''),
+    botColor: p.bot ? p.bot.color : (/\.Bot$/i.test(p.name || '') ? '#7c4dff' : ''),
     out: match.players[i].out,
     spectator: !!p.spectator,
     away: isAway(p),

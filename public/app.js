@@ -677,7 +677,10 @@ function render() {
     if (o.isYou) continue;
     const el = document.createElement('div');
     el.className = 'opp' + (v.turnSeat === o.seat ? ' active' : '');
-    el.innerHTML = `<div class="name">${o.name}</div><div class="count">${o.handCount} cards${o.out ? ' · ' + t('out') : ''}</div>`;
+    const avatar = o.botEmoji
+      ? `<span class="bot-avatar" style="background:${o.botColor || '#7c4dff'}">${o.botEmoji}</span>`
+      : '';
+    el.innerHTML = `<div class="name">${avatar}${o.name}</div><div class="count">${o.handCount} cards${o.out ? ' · ' + t('out') : ''}</div>`;
     oppWrap.appendChild(el);
   }
 
