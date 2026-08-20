@@ -1,23 +1,53 @@
 'use strict';
 
 // Simple bot policy. Draws sensibly, discards its worst card, closes when it can.
+// Behavior is tuned by the bot's `skill`, passed in from the room (default 'balanced'):
+//   - 'aggressive': closes on ANY legal close; grabs the discard pile whenever it
+//                   builds toward a set/run (even if deadwood stays flat).
+//   - 'balanced'  : closes on any legal close; draws discard only if it lowers deadwood.
+//   - 'cautious'  : only closes on a chinchon or a clean -10; otherwise keeps playing.
 
-const { cardValue } = require('./cards');
+const { cardValue, rankIndex, RANKS } = require('./cards');
 const { bestSplit, canClose } = require('./scoring');
 const { canAttach } = require('./layoff');
 const { closeOptions, topOfDiscard } = require('./turn');
 
-// Would taking this card improve the hand?
+function normSkill(s) {
+  return s === 'aggressive' || s === 'cautious' ? s : 'balanced';
+}
+
+// Would taking this card improve the hand (lower deadwood)?
 function improvesHand(hand, card) {
   const before = bestSplit(hand).deadwood;
   const after = bestSplit([...hand, card]).deadwood;
   return after < before;
 }
 
-// Decide draw source: 'discard' if the visible card helps, else 'stock'.
-function chooseDraw(state) {
+// Does this card build toward a set/run with the hand even if it doesn't drop
+// deadwood? Set = same rank; run = adjacent rank (cyclic: 12 next to 1) same suit.
+function buildsToward(hand, card) {
+  const ri = rankIndex(card.rank);
+  const len = RANKS.length;
+  for (const h of hand) {
+    if (h.rank === card.rank) return true;                 // potential set
+    if (h.suit === card.suit) {
+      const d = Math.abs(rankIndex(h.rank) - ri);
+      const cycled = Math.min(d, len - d);                 // wrap 11-12-1
+      if (cycled === 1 || cycled === 2) return true;       // run neighbor
+    }
+  }
+  return false;
+}
+
+// Decide draw source.
+function chooseDraw(state, skill) {
+  skill = normSkill(skill);
   const top = topOfDiscard(state);
   if (!top) return 'stock';
+  if (skill === 'aggressive') {
+    return (improvesHand(state.hands[state.turn], top) || buildsToward(state.hands[state.turn], top))
+      ? 'discard' : 'stock';
+  }
   return improvesHand(state.hands[state.turn], top) ? 'discard' : 'stock';
 }
 
@@ -44,20 +74,37 @@ function chooseDiscard(state) {
   return best ? best.card : hand[0];
 }
 
-// Full turn decision. Returns { close: bool, card }.
-function chooseTurn(state) {
-  const opts = closeOptions(state);
-  if (opts.length > 0) {
-    // Prefer a chinchon, then a clean -10, then the cheapest leftover.
-    const chinchon = opts.find((o) => o.reason === 'chinchon');
-    if (chinchon) return { close: true, card: chinchon.discard };
-
-    const clean = opts.find((o) => o.score === -10);
-    if (clean) return { close: true, card: clean.discard };
-
-    const cheapest = opts.reduce((a, b) => (a.score <= b.score ? a : b));
-    return { close: true, card: cheapest.discard };
+// Should this bot close, given its skill?
+function shouldClose(state, skill, opts) {
+  skill = normSkill(skill);
+  if (opts.length === 0) return null;
+  const chinchon = opts.find((o) => o.reason === 'chinchon');
+  const clean = opts.find((o) => o.score === -10);
+  if (skill === 'cautious') {
+    // Cautious: don't snipe a marginal leftover early, but still close on a
+    // genuinely good hand. Takes a chinchon, a clean -10, or any leftover close
+    // of 5 or fewer. And once the stock is nearly empty the round must end, so
+    // any legal close is fine then.
+    const stockLow = state.stock && state.stock.length <= 8;
+    if (chinchon) return chinchon;
+    if (clean) return clean;
+    const good = opts.filter((o) => o.score <= 5).sort((a, b) => a.score - b.score)[0];
+    if (good) return good;
+    if (stockLow) return opts.reduce((a, b) => (a.score <= b.score ? a : b));
+    return null;
   }
+  // aggressive + balanced: close on anything, preferring chinchon then clean.
+  if (chinchon) return chinchon;
+  if (clean) return clean;
+  return opts.reduce((a, b) => (a.score <= b.score ? a : b));
+}
+
+// Full turn decision. Returns { close: bool, card }.
+function chooseTurn(state, skill) {
+  skill = normSkill(skill);
+  const opts = closeOptions(state);
+  const pick = shouldClose(state, skill, opts);
+  if (pick) return { close: true, card: pick.discard };
   return { close: false, card: chooseDiscard(state) };
 }
 
@@ -81,6 +128,8 @@ module.exports = {
   chooseDraw,
   chooseDiscard,
   chooseTurn,
+  shouldClose,
   planLayoff,
   findAttach,
 };
+

@@ -274,7 +274,7 @@ function runBotTurns(room) {
 
     // Bot draw.
     if (state.phase === 'draw') {
-      const src = bot.chooseDraw(state);
+      const src = bot.chooseDraw(state, p.bot ? p.bot.skill : 'balanced');
       if (src === 'discard' && topOfDiscardOk(state)) turn.drawFromDiscard(state);
       else {
         const r = turn.drawFromStock(state);
@@ -284,7 +284,7 @@ function runBotTurns(room) {
     }
     // Bot discard / close.
     if (state.phase === 'discard') {
-      const decision = bot.chooseTurn(state);
+      const decision = bot.chooseTurn(state, p.bot ? p.bot.skill : 'balanced');
       const res = turn.discardCard(state, decision.card, decision.close);
       if (!res.ok) return;
     }
