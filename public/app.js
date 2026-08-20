@@ -1465,6 +1465,11 @@ function renderGameplayRules() {
     block.appendChild(body);
     wrap.appendChild(block);
   }
+  // Reflect the active language on the in-overlay toggle so it's obvious
+  // which language the rules are showing (and it follows the global pick).
+  document.querySelectorAll('#gameplay .lang-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
 };
 $('btn-gameplay').onclick = () => {
   clearInterval(lobbyTimer);
