@@ -1412,9 +1412,12 @@ $('btn-go-create').onclick = () => {
   showCreatePane();
 };
 // Learning session: one tap starts a didactic tutorial game — 1 novice (you)
-// + 2 bots, flagged learning:true AND tutorial:true (so the per-turn rule reads
-// and random open/hidden bots apply). Friends can still join (cap 3 humans).
-$('btn-go-learn').onclick = () => {
+// (Leave-lobby handler is wired below. The old "Learning session" lobby button
+// was removed — the tutorial is launched from the Rules overlay's
+// "Start tutorial match" button instead. Keep this guarded in case the id
+// returns later, but do not let a missing element crash startup.)
+const goLearn = $('btn-go-learn');
+if (goLearn) goLearn.onclick = () => {
   clearInterval(lobbyTimer);
   createRoom('private', 2, true, true);
 };

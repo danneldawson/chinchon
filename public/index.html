@@ -26,7 +26,10 @@
       <div id="lobby-main" class="hidden">
         <div class="lobby-header">
           <h1 id="lobby-title">LOBBY</h1>
-          <button id="btn-rules-top" class="top-pill" title="How to play">ⓘ Rules</button>
+          <div class="header-actions">
+            <button id="btn-rules-top" class="top-pill" title="How to play">ⓘ Rules</button>
+            <button id="btn-leave-lobby" class="top-pill danger-pill" title="Leave the lobby">Leave</button>
+          </div>
         </div>
 
         <section class="lobby-panel">
@@ -34,10 +37,8 @@
           <ul id="lobby-members" class="members"></ul>
           <div class="lobby-actions">
             <button id="btn-go-create" class="primary">Create room</button>
-            <button id="btn-go-learn" class="primary">Learning session</button>
             <button id="btn-go-join" class="primary">Join room</button>
             <button id="btn-gameplay" class="info">Gameplay</button>
-            <button id="btn-leave-lobby" class="danger">Leave lobby</button>
           </div>
         </section>
 
