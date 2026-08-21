@@ -366,11 +366,11 @@ $('pd-bots-go').onclick = () => {
   createRoom('private', n);
 };
 
-async function createRoom(visibility, bots, learning = false, tutorial = false) {
+async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
   const name = state.lobbyName || 'Host';
   const res = await fetch('/api/room/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'multi', name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
+    body: JSON.stringify({ mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { $('pd-summary').textContent = 'Could not create the room. Try again.'; return; }
   state.code = res.code;
@@ -584,7 +584,10 @@ function render() {
       const title = p.spectator ? 'disconnected' : !p.connected ? 'disconnected' : p.away ? 'idle' : 'connected';
       const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
       const score = p.spectator ? '–' : p.total;
-      const kick = (v.isHost && !v.tutorial && p.seat && p.seat !== state.seatId)
+      // Kick is only offered in all-human games (no bots present), and only
+      // to the host. Bots (solo/tutorial) manage themselves — no kick option.
+      const anyBots = v.scoreboard.some((p) => p.isBot);
+      const kick = (v.isHost && !anyBots && p.seat && p.seat !== state.seatId)
         ? ` <button class="kick" data-kick="${p.seat}" title="Kick to lobby">✕</button>`
         : '';
       return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
@@ -1178,10 +1181,12 @@ $('btn-hold').onclick = async () => {
   });
   await poll();
 };
-// Host kick: send a player back to the lobby.
+// Host kick: send a player back to the lobby (all-human games only; the
+// kick button is only rendered in that case). Confirm before acting.
 $('scoreboard').addEventListener('click', (e) => {
   const btn = e.target.closest('.kick');
   if (!btn) return;
+  if (!window.confirm('Kick this player out of the match?')) return;
   const target = btn.getAttribute('data-kick');
   fetch('/api/room/kick', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1483,10 +1488,10 @@ function renderGameplayRules() {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
 };
+// "Play solo": quick solo game vs 2 random family bots (placement a).
 $('btn-gameplay').onclick = () => {
   clearInterval(lobbyTimer);
-  renderGameplayRules();
-  show($('gameplay'));
+  createRoom('private', 2, false, false, 'solo');
 };
 // Language is handled globally by the .lang-btn handler (lobby + gameplay share
 // the same lang state), so the gameplay toggle just needs the rules re-render.

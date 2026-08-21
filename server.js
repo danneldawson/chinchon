@@ -636,6 +636,7 @@ function serialize(room, seatId) {
         name: p.name,
         total: p.total,
         out: p.out,
+        isBot: pc.isBot, // used by the client to hide Kick in bot games
         seat: pc.id, // host kick targets by this id
         eliminatedRank: match.eliminatedOrder.indexOf(i) + 1, // 1=first out, 0=still in/winner
         away: isAway(pc),
