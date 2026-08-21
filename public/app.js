@@ -233,10 +233,6 @@ function clearSeat(code) {
   try { localStorage.removeItem('chinchon:' + code); } catch { /* ignore */ }
 }
 // Share link embeds the seat so it doubles as a rejoin link on any device.
-function shareLinkFor(code, seatId) {
-  return location.origin + '/?code=' + code + (seatId ? '&seat=' + seatId : '');
-}
-
 // ----------------------------------------------------------- lobby wiring
 
 function show(panel) {
@@ -275,7 +271,6 @@ function applyLang() {
   const backToCreate = $('back-to-create'); if (backToCreate) backToCreate.textContent = t('backToCreate');
   // (host-name / btn-create / btn-start / solo-* were removed in the lobby rework)
   $('join-code').placeholder = 'ABCD';
-  $('join-name').placeholder = t('yourName');
   const joinBtn = $('btn-join'); if (joinBtn) joinBtn.textContent = t('joinRoom');
   const createPublic = $('btn-create-public'); if (createPublic) createPublic.textContent = t('createPublic');
   const createPrivate = $('btn-create-private'); if (createPrivate) createPrivate.textContent = t('createPrivate');
@@ -319,32 +314,6 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
   };
 });
 
-// If opened with ?code=ABCD[&seat=ZZZ], jump straight to the room. With a seat
-// we auto-rejoin that exact seat (spectator if eliminated/match moved on).
-(function initFromUrl() {
-  const params = new URLSearchParams(location.search);
-  const code = params.get('code');
-  if (!code) return;
-  const seat = params.get('seat') || loadSeat(code.toUpperCase());
-  if (seat) {
-    (async () => {
-      const res = await fetch('/api/room/join', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.toUpperCase(), seatId: seat, lobbyToken: state.lobbyToken }),
-      }).then((r) => r.json()).catch(() => null);
-      if (res && res.seatId) {
-        state.code = code.toUpperCase();
-        state.seatId = res.seatId;
-        persistSeat(state.code, res.seatId);
-        enterGame();
-      }
-    })();
-    return;
-  }
-  // No seat: just prefill the join code and show the join pane.
-  showJoinPane();
-  $('join-code').value = code.toUpperCase();
-})();
 $('btn-create-public').onclick = () => createRoom('public', 0);
 $('btn-create-private').onclick = () => {
   $('create-choices').classList.add('hidden');
@@ -379,9 +348,6 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
   $('room-code').textContent = res.code;
-  const link = shareLinkFor(res.code, res.seatId);
-  $('share-link').textContent = link;
-  $('share-link').href = link;
   $('room-info').classList.remove('hidden');
   $('create-choices').classList.add('hidden');
   $('private-dialogue').classList.add('hidden');
@@ -394,34 +360,6 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
     clearInterval(state.pollTimer);
     enterGame();
   }
-}
-
-$('btn-copy').onclick = () => {
-  const link = shareLinkFor(state.code, state.seatId);
-  copyText(link);
-  $('btn-copy').textContent = t('copy') + '!';
-  setTimeout(() => ($('btn-copy').textContent = t('copy')), 1200);
-};
-
-// Robust clipboard copy: navigator.clipboard only works in a secure context
-// (https or localhost). Fall back to a hidden textarea + execCommand so the
-// share link still copies when served over a plain-http tunnel.
-function copyText(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
-  } else {
-    fallbackCopy(text);
-  }
-}
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch { /* ignore */ }
-  document.body.removeChild(ta);
 }
 
 // Polls a pending room (host or joiner) and transitions into the game once it
@@ -445,7 +383,8 @@ async function watchRoom() {
 
 $('btn-join').onclick = async () => {
   const code = $('join-code').value.trim().toUpperCase();
-  const name = $('join-name').value.trim() || state.lobbyName || t('player');
+  if (!code) { $('join-msg').textContent = 'Enter the room code.'; return; }
+  const name = state.lobbyName || $('lobby-name').value.trim() || t('player');
   const res = await fetch('/api/room/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
@@ -454,15 +393,14 @@ $('btn-join').onclick = async () => {
   state.code = code;
   state.seatId = res.seatId;
   persistSeat(code, res.seatId);
+  // Make sure the lobby panel (which holds the waiting view) is visible.
+  show($('lobby'));
   // Joining an already-started room -> straight into the game; a pending one
   // (public countdown or private-humans) -> watch until it starts.
   const st = await fetch(`/api/state?code=${code}&seat=${res.seatId}`).then((r) => r.json()).catch(() => null);
   if (st && st.started) { enterGame(); return; }
   // Show the room-info waiting view and watch.
   $('room-code').textContent = code;
-  const link = shareLinkFor(code, res.seatId);
-  $('share-link').textContent = link;
-  $('share-link').href = link;
   $('room-info').classList.remove('hidden');
   watchRoom();
   state.pollTimer = setInterval(watchRoom, 1500);
@@ -1387,9 +1325,6 @@ async function joinPublicOrRematch(code, isFresh) {
     show($('lobby'));
     showJoinPane();
     $('room-code').textContent = code;
-    const link = shareLinkFor(code, res.seatId);
-    $('share-link').textContent = link;
-    $('share-link').href = link;
     $('room-info').classList.remove('hidden');
     watchRoom();
     state.pollTimer = setInterval(watchRoom, 1500);
@@ -1448,15 +1383,11 @@ if (goLearn) goLearn.onclick = () => {
   createRoom('private', 2, true, true);
 };
 $('btn-go-join').onclick = () => {
-  const name = state.lobbyName || $('lobby-name').value.trim();
-  $('join-name').value = name;
   clearInterval(lobbyTimer);
   show($('lobby'));
   showJoinPane();
 };
 $('btn-go-join-2').onclick = () => {
-  const name = state.lobbyName || $('lobby-name').value.trim();
-  $('join-name').value = name;
   showJoinPane();
 };
 $('back-to-create').onclick = showCreatePane;
