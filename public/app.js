@@ -62,6 +62,7 @@ const I18N = {
     rematch: 'Play again (same players)',
     toLobby: 'Leave',
     leave: 'Leave room',
+    leaveMatch: 'Leave match',
     matchEnded: 'Match ended',
     hold: 'Hold',
     resume: 'Resume',
@@ -143,6 +144,7 @@ const I18N = {
     rematch: 'Jugar otra (mismos jugadores)',
     toLobby: 'Salir',
     leave: 'Salir de la sala',
+    leaveMatch: 'Salir de la partida',
     matchEnded: 'Partida terminada',
     hold: 'Pausar',
     resume: 'Reanudar',
@@ -303,7 +305,7 @@ function applyLang() {
   const goCreate = $('btn-go-create'); if (goCreate) goCreate.textContent = t('createRoom');
   const goJoin = $('btn-go-join'); if (goJoin) goJoin.textContent = t('joinRoom');
   const backLobby = $('btn-back-lobby'); if (backLobby) backLobby.textContent = t('backToLobby');
-  const leaveMatch = $('btn-leave-match'); if (leaveMatch) leaveMatch.textContent = t('leaveLobby');
+  const leaveMatch = $('btn-leave-match'); if (leaveMatch) leaveMatch.textContent = t('leaveMatch');
   // Re-render game if we're already in it (so labels update live).
   if (state.view) render();
 }
@@ -1195,8 +1197,15 @@ $('scoreboard').addEventListener('click', (e) => {
 });
 
 // Leave the current match (with confirmation) and return to the lobby.
+// Anyone may leave at any time; in a 2-player game this ends the match.
 $('btn-leave-match').onclick = async () => {
-  if (!window.confirm('Leave this match? You will return to the lobby.')) return;
+  const humanCount = (state.view && state.view.scoreboard)
+    ? state.view.scoreboard.filter((p) => !p.isBot).length
+    : 0;
+  const msg = humanCount <= 2
+    ? 'Leave this match? This will end the game for everyone.'
+    : 'Leave this match? You will return to the lobby.';
+  if (!window.confirm(msg)) return;
   const res = await fetch('/api/room/leave', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code: state.code, seat: state.seatId }),

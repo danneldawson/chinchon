@@ -950,16 +950,14 @@ function handleApi(req, res, url) {
     return { ok: true, remaining: room.players.length };
   }
 
-  // A player leaves the room. Allowed any time — it does NOT affect the match
-  // in progress — EXCEPT in a 2-player game, where leaving would end it, so it
-  // is blocked (they must finish or use rematch instead).
+  // A player leaves the room. Allowed any time. If leaving drops the room
+  // below 2 players, removePlayer() ends the match (gameOver = true).
   if (method === 'POST' && p === '/api/room/leave') {
     return readBody(req).then((body) => {
       const room = rooms.get(body.code);
       if (!room) return sendJson(res, 404, { error: 'no such room' });
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer) return sendJson(res, 404, { error: 'not in this room' });
-      if (room.players.length <= 2) return sendJson(res, 400, { error: 'cannot leave a 2-player game' });
       const r = removePlayer(room, body.seat);
       if (r.error) return sendJson(res, 404, { error: r.error });
       return sendJson(res, 200, r);
