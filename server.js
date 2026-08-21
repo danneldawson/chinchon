@@ -326,6 +326,7 @@ function topOfDiscardOk(state) {
 // ----------------------------------------------------------- reconnection
 // No WebSocket: a client stamps lastSeen on every /api/state poll (~1.2s).
 const AWAY_MS = 120000;        // no poll in 2 min => considered away (lenient: wifi blips / backgrounded tabs don't flip to amber)
+const AWAY_END_MS = 8 * 60 * 1000; // a player away this long => match ends (auto continue-without)
 const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
 const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
 const CONNECTED_MS = 45000;     // a seat that polled within this is "connected" (green)
@@ -391,6 +392,17 @@ function evaluateWaiting(room) {
     const cur = room.players[room.state.turn];
     if (cur && !cur.isBot && isAway(cur) && !cur.spectator) {
       room.waiting = { seat: room.state.turn, since: Date.now() };
+    }
+  }
+  // Auto-end: if any player has been away longer than AWAY_END_MS (8 min), the
+  // match ends. We don't skip them — we just wait until they return or the
+  // timeout hits, then stop the game.
+  if (room.started && room.state && !room.match.gameOver) {
+    const goneTooLong = room.players.some((p) => !p.isBot && !p.spectator
+      && Date.now() - (p.lastSeen || 0) > AWAY_END_MS);
+    if (goneTooLong) {
+      room.match.gameOver = true;
+      room.state.phase = 'over';
     }
   }
 }
