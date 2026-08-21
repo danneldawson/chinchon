@@ -679,12 +679,17 @@ function render() {
 
   const reorderable = !canAct || phase === 'draw'; // not while discarding
   const discarding = canAct && phase === 'discard';
+  // When a close is available and the player hasn't chosen "Keep playing",
+  // the hand is NOT directly tappable for a plain discard — tapping a card
+  // would kill the close by accident. They must use a Close option (which
+  // discards that card AND closes) or tap "Keep playing" to opt out.
+  const closeAvailable = discarding && !!v.canClose && !_animState.closeOfferDismissed;
   for (const c of ordered) {
     const el = renderCardEl(c, {
-      clickable: discarding,
+      clickable: discarding && !closeAvailable,
       reorderable,
       onClick: () => {
-        if (discarding) { doDiscard(c, false); return; }
+        if (discarding && !closeAvailable) { doDiscard(c, false); return; }
         // Reorder mode: tap to pick up, tap another to swap.
         if (state.swapPick === c.id) { state.swapPick = null; return; }
         if (!state.swapPick) { state.swapPick = c.id; return; }
@@ -708,8 +713,8 @@ function render() {
     sep.textContent = '⟶';
     handWrap.appendChild(sep);
     const el = renderCardEl(drawn, {
-      clickable: discarding,
-      onClick: () => { if (discarding) doDiscard(drawn, false); },
+      clickable: discarding && !closeAvailable,
+      onClick: () => { if (discarding && !closeAvailable) doDiscard(drawn, false); },
     });
     el.classList.add('drawn-locked');
     handWrap.appendChild(el);
