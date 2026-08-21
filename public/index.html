@@ -105,14 +105,6 @@
 
           <p id="pd-summary" class="msg"></p>
         </div>
-
-        <div id="room-info" class="hidden">
-          <p>Room code: <span id="room-code" class="code"></span></p>
-          <p class="dim">Share this code with the other players however you like.</p>
-          <p id="room-waiting" class="dim"></p>
-          <p>Players joined:</p>
-          <ul id="lobby-players"></ul>
-        </div>
       </div>
 
       <!-- JOIN -->
@@ -124,6 +116,17 @@
         <button id="btn-join" class="primary">Join room</button>
         <p id="join-msg" class="msg"></p>
         <button id="back-to-create" class="sub-tab-link">← Back to create</button>
+      </div>
+
+      <!-- WAITING VIEW: shown for the host (after create) and any joiner,
+           once a room exists. Must be a sibling of the panes (not nested in
+           #create-pane) so it's visible regardless of which pane is active. -->
+      <div id="room-info" class="hidden">
+        <p>Room code: <span id="room-code" class="code"></span></p>
+        <p class="dim">Share this code with the other players however you like.</p>
+        <p id="room-waiting" class="dim"></p>
+        <p>Players joined:</p>
+        <ul id="lobby-players"></ul>
       </div>
 
       <div class="lobby-actions" style="margin-top:14px">
