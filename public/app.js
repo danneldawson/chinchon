@@ -475,6 +475,9 @@ async function enterGame() {
 }
 
 async function poll() {
+  // If we've already left the room (code cleared), don't fetch or redirect.
+  // A poll in-flight when Leave was clicked must not call goToLobby().
+  if (!state.code) return;
   const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
   if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.seat === state.seatId))) {
@@ -1194,7 +1197,15 @@ $('btn-leave-match').onclick = async () => {
     body: JSON.stringify({ code: state.code, seat: state.seatId }),
   }).then((r) => r.json()).catch(() => null);
   if (res && res.error) { alert(res.error); return; }
-  goToLobby();
+  // Return to the LOBBY (players/rooms view), not the global landing screen.
+  clearInterval(state.pollTimer);
+  clearSeat(state.code);
+  state.code = null;
+  state.seatId = null;
+  state.view = null;
+  state.selected.clear();
+  show($('lobby'));
+  $('lobby-main').classList.remove('hidden');
 };
 $('btn-tolobby').onclick = async () => {
   // Leave the room server-side (room + code + chat stay for the others).
