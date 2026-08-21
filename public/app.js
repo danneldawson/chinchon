@@ -721,48 +721,14 @@ function render() {
   const melds = $('melds');
   melds.innerHTML = '';
 
-  // Close prompt. Normal rooms: a small generic "you can close now" that fades
-  // after ~10s (everyone knows the game). LEARNING rooms: a bigger, didactic
-  // banner that spells out the possible close(s) and stays up while available,
-  // so a newcomer can study it. Never reveals a chinchon in either mode.
-  const hintEl = $('run-hint');
-  const canCloseNow = (v.closeOptions || []).some((o) => !o.chinchon);
-  const hintKey = canCloseNow ? 'on' : '';
-  if (canCloseNow) {
-    if (v.learning) {
-      // Didactic: list the actual possible close(s) and persist (no auto-hide).
-      const lines = (v.closeOptions || [])
-        .filter((o) => !o.chinchon)
-        .map((o) => {
-          const disc = coloredLabel(findCard(o.cardId));
-          const sign = o.score < 0 ? '' : '+';
-          return `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
-        });
-      hintEl.innerHTML = `<div class="run-hint-title">${lang === 'es' ? 'Cierre posible:' : 'Possible close:'}</div>`
-        + lines.map((l) => `<div class="run-hint-line">${l}</div>`).join('');
-      hintEl.classList.remove('hidden', 'show', 'learning');
-      void hintEl.offsetWidth;
-      hintEl.classList.add('show', 'learning');
-      if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
-      _animState.runHintKey = hintKey;
-    } else if (hintKey !== _animState.runHintKey) {
-      hintEl.innerHTML = (lang === 'es' ? 'Puedes cerrar ahora — o seguir jugando.' : 'You can close now — or keep playing.');
-      hintEl.classList.remove('hidden', 'show', 'learning');
-      void hintEl.offsetWidth;
-      hintEl.classList.add('show');
-      if (_animState.runHintTimer) clearTimeout(_animState.runHintTimer);
-      _animState.runHintTimer = setTimeout(() => {
-        hintEl.classList.add('hidden');
-        hintEl.classList.remove('show');
-      }, 10000);
-      _animState.runHintKey = hintKey;
-    }
-  } else {
-    hintEl.classList.add('hidden');
-    hintEl.classList.remove('show', 'learning');
-    if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
-    _animState.runHintKey = '';
-  }
+  // Close availability is surfaced ONLY through the Close / Keep playing
+  // buttons (shown on the 8-card discard turn below) — no separate "you can
+  // close now" hint text. Agency stays with the player: they pick which 8th
+  // card to discard to close.
+  hintEl.classList.add('hidden');
+  hintEl.classList.remove('show', 'learning');
+  if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
+  _animState.runHintKey = '';
 
   // Close/Continue offer: on the human's discard turn, when a legal close exists
   // (incl. chinchon). The computer has VERIFIED the close is legal — it never
@@ -1051,14 +1017,16 @@ if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('co
 // player still chooses the meld + card there); "Keep playing" dismisses the
 // prominent offer for this turn (the close buttons stay available).
 $('btn-close-accept').onclick = () => {
-  // Close now using the best available decomposition (lowest score). The
-  // individual options are also listed in #close-options if the player wants
-  // to pick a specific meld set, but the banner's Close must work on its own.
-  const opts = (state.view && state.view.closeOptions) || [];
-  if (!opts.length) return;
-  const best = opts.reduce((a, b) => (b.score < a.score ? b : a), opts[0]);
-  const card = findCard(best.cardId);
-  if (card) doDiscard(card, true, opts.indexOf(best));
+  // Reveal the per-card close options so the player chooses which 8th card to
+  // discard to close. Each option in #close-options discards that card AND
+  // closes. (We don't auto-pick — the player decides.)
+  const co = document.getElementById('close-options');
+  if (co) {
+    co.classList.remove('hidden');
+    co.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    co.classList.add('flash');
+    setTimeout(() => co.classList.remove('flash'), 700);
+  }
 };
 $('btn-close-continue').onclick = () => {
   _animState.closeOfferDismissed = true;
