@@ -241,6 +241,7 @@ function show(panel) {
   $('globby').classList.add('hidden');
   $('lobby').classList.add('hidden');
   $('game').classList.add('hidden');
+  $('gameplay').classList.add('hidden'); // rules overlay is an overlay too
   panel.classList.remove('hidden');
 }
 
@@ -580,7 +581,7 @@ function render() {
       const title = p.spectator ? 'disconnected' : !p.connected ? 'disconnected' : p.away ? 'idle' : 'connected';
       const dotEl = `<span class="dot dot-${dot}" title="${title}"></span>`;
       const score = p.spectator ? '–' : p.total;
-      const kick = (v.isHost && p.seat && p.seat !== state.seatId)
+      const kick = (v.isHost && !v.tutorial && p.seat && p.seat !== state.seatId)
         ? ` <button class="kick" data-kick="${p.seat}" title="Kick to lobby">✕</button>`
         : '';
       return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
