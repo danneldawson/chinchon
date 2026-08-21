@@ -497,7 +497,7 @@ function meldsText(split) {
 
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
-const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null, closeOfferDismissed: false };
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null };
 function onceAnimate(el, cls) {
   if (!el) return;
   el.classList.remove(cls);
@@ -679,17 +679,12 @@ function render() {
 
   const reorderable = !canAct || phase === 'draw'; // not while discarding
   const discarding = canAct && phase === 'discard';
-  // When a close is available and the player hasn't chosen "Keep playing",
-  // the hand is NOT directly tappable for a plain discard — tapping a card
-  // would kill the close by accident. They must use a Close option (which
-  // discards that card AND closes) or tap "Keep playing" to opt out.
-  const closeAvailable = discarding && !!v.canClose && !_animState.closeOfferDismissed;
   for (const c of ordered) {
     const el = renderCardEl(c, {
-      clickable: discarding && !closeAvailable,
+      clickable: discarding,
       reorderable,
       onClick: () => {
-        if (discarding && !closeAvailable) { doDiscard(c, false); return; }
+        if (discarding) { doDiscard(c, false); return; }
         // Reorder mode: tap to pick up, tap another to swap.
         if (state.swapPick === c.id) { state.swapPick = null; return; }
         if (!state.swapPick) { state.swapPick = c.id; return; }
@@ -713,8 +708,8 @@ function render() {
     sep.textContent = '⟶';
     handWrap.appendChild(sep);
     const el = renderCardEl(drawn, {
-      clickable: discarding && !closeAvailable,
-      onClick: () => { if (discarding && !closeAvailable) doDiscard(drawn, false); },
+      clickable: discarding,
+      onClick: () => { if (discarding) doDiscard(drawn, false); },
     });
     el.classList.add('drawn-locked');
     handWrap.appendChild(el);
@@ -735,21 +730,9 @@ function render() {
   if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
   _animState.runHintKey = '';
 
-  // Close/Continue offer: on the human's discard turn, when a legal close exists
-  // (incl. chinchon). The computer has VERIFIED the close is legal — it never
-  // reveals the melds or suggests a card. Agency stays with the player.
-  // Reset the "Keep playing" dismissal at the start of each turn (draw phase)
-  // so the offer re-appears on every discard turn a close is available.
-  if (isYourTurn && phase === 'draw') _animState.closeOfferDismissed = false;
-  const closeOfferEl = $('close-offer');
-  const showCloseOffer = isYourTurn && phase === 'discard' && !!v.canClose && !_animState.closeOfferDismissed;
-  if (showCloseOffer) {
-    $('close-offer-text').textContent = t('closeOffer');
-    $('btn-close-continue').textContent = t('closeOfferContinue');
-    closeOfferEl.classList.remove('hidden');
-  } else {
-    closeOfferEl.classList.add('hidden');
-  }
+  // Close options are rendered directly in #close-options below (one button
+  // per legal close: discard that card AND close). No separate banner — the
+  // player sees every option up front and picks the discard they want.
 
   // Controls
   $('btn-draw-stock').textContent = t('drawStock');
@@ -1017,26 +1000,6 @@ $('chat').querySelector('.chat-head').addEventListener('click', (e) => {
 });
 // Start collapsed on small screens so the board is clear on load.
 if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('collapsed');
-
-// Close/Continue offer: "Close" just focuses the existing close buttons (the
-// player still chooses the meld + card there); "Keep playing" dismisses the
-// prominent offer for this turn (the close buttons stay available).
-$('btn-close-accept').onclick = () => {
-  // Reveal the per-card close options so the player chooses which 8th card to
-  // discard to close. Each option in #close-options discards that card AND
-  // closes. (We don't auto-pick — the player decides.)
-  const co = document.getElementById('close-options');
-  if (co) {
-    co.classList.remove('hidden');
-    co.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    co.classList.add('flash');
-    setTimeout(() => co.classList.remove('flash'), 700);
-  }
-};
-$('btn-close-continue').onclick = () => {
-  _animState.closeOfferDismissed = true;
-  $('close-offer').classList.add('hidden');
-};
 
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {
