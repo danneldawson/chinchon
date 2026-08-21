@@ -1051,8 +1051,14 @@ if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('co
 // player still chooses the meld + card there); "Keep playing" dismisses the
 // prominent offer for this turn (the close buttons stay available).
 $('btn-close-accept').onclick = () => {
-  const co = document.getElementById('close-options');
-  if (co) { co.scrollIntoView({ behavior: 'smooth', block: 'center' }); co.classList.add('flash'); setTimeout(() => co.classList.remove('flash'), 700); }
+  // Close now using the best available decomposition (lowest score). The
+  // individual options are also listed in #close-options if the player wants
+  // to pick a specific meld set, but the banner's Close must work on its own.
+  const opts = (state.view && state.view.closeOptions) || [];
+  if (!opts.length) return;
+  const best = opts.reduce((a, b) => (b.score < a.score ? b : a), opts[0]);
+  const card = findCard(best.cardId);
+  if (card) doDiscard(card, true, opts.indexOf(best));
 };
 $('btn-close-continue').onclick = () => {
   _animState.closeOfferDismissed = true;
