@@ -1207,7 +1207,16 @@ function createServer() {
         res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
         return res.end(html);
       }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'text/plain' });
+      // JS/CSS (and other assets): never let the browser cache them, so a
+      // redeploy always reaches players without a manual hard-refresh.
+      // (The ?v=mtime bust helps, but without no-cache some browsers/proxies
+      // still serve a stale copy by URL.)
+      res.writeHead(200, {
+        'Content-Type': MIME[path.extname(filePath)] || 'text/plain',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
       res.end(data);
     });
   });
