@@ -1,5 +1,15 @@
 'use strict';
 
+// Surface uncaught client errors on-screen so they aren't silent (diagnostic).
+window.addEventListener('error', (e) => {
+  try {
+    const box = document.getElementById('status') || document.body;
+    const msg = '⚠ ' + (e.message || e.error || 'client error');
+    if (box && box.textContent !== msg) box.textContent = msg;
+    console.error('uncaught', e.message, e.error);
+  } catch (_) {}
+});
+
 // Chinchon browser client. Talks to the server via fetch and renders state.
 // State lives server-side; we only ever send our seat's actions.
 
@@ -758,45 +768,57 @@ function render() {
   const co = $('close-options');
   co.innerHTML = '';
   if (canAct && phase === 'discard' && v.closeOptions && v.closeOptions.length) {
-    if (!_animState.close) { onceAnimate(co, 'appear'); }
-    _animState.close = true;
-    // Prompt: choose how to close (each option is a distinct meld decomposition).
-    const prompt = document.createElement('div');
-    prompt.className = 'close-prompt';
-    prompt.textContent = lang === 'es' ? '¿Cómo quieres cerrar?' : 'How do you want to close?';
-    co.appendChild(prompt);
+    try {
+      if (!_animState.close) { onceAnimate(co, 'appear'); }
+      _animState.close = true;
+      // Prompt: choose how to close (each option is a distinct meld decomposition).
+      const prompt = document.createElement('div');
+      prompt.className = 'close-prompt';
+      prompt.textContent = lang === 'es' ? '¿Cómo quieres cerrar?' : 'How do you want to close?';
+      co.appendChild(prompt);
 
-    v.closeOptions.forEach((o, idx) => {
-      const b = document.createElement('button');
-      b.className = 'close-btn';
-      const disc = coloredLabel(findCard(o.cardId));
-      if (o.chinchon) {
-        b.innerHTML = `${t('chinchon')} (${t('discard')} ${disc})`;
-      } else {
-        const sign = o.score < 0 ? '' : '+';
-        b.innerHTML = `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
-      }
-      b.onclick = () => doDiscard(findCard(o.cardId), true, idx);
-      co.appendChild(b);
-    });
+      v.closeOptions.forEach((o, idx) => {
+        const b = document.createElement('button');
+        b.className = 'close-btn';
+        const disc = coloredLabel(findCard(o.cardId));
+        if (o.chinchon) {
+          b.innerHTML = `${t('chinchon')} (${t('discard')} ${disc})`;
+        } else {
+          const sign = o.score < 0 ? '' : '+';
+          b.innerHTML = `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
+        }
+        b.onclick = () => doDiscard(findCard(o.cardId), true, idx);
+        co.appendChild(b);
+      });
 
-    // Explicit "keep playing" alternative: discard the highest-value card
-    // WITHOUT declaring a close, so the player keeps the same hand shape and
-    // can chase a better/wild draw next turn.
-    const keep = document.createElement('button');
-    keep.className = 'keep-btn';
-    keep.textContent = t('keepPlaying');
-    keep.onclick = () => {
-      const hand = state.view.yourHand;
-      // Prefer discarding the card with the highest deadwood value that is NOT
-      // part of the first close option's kept melds (keeps melds intact).
-      const keepIds = new Set(v.closeOptions[0].split.flat().map((c) => c.id));
-      const candidates = hand.filter((c) => !keepIds.has(c.id));
-      const pool = candidates.length ? candidates : hand;
-      const worst = pool.reduce((a, b) => (window.__cardVal(b) > window.__cardVal(a) ? b : a), pool[0]);
-      doDiscard(worst, false);
-    };
-    co.appendChild(keep);
+      // Explicit "keep playing" alternative: discard the highest-value card
+      // WITHOUT declaring a close, so the player keeps the same hand shape and
+      // can chase a better/wild draw next turn.
+      const keep = document.createElement('button');
+      keep.className = 'keep-btn';
+      keep.textContent = t('keepPlaying');
+      keep.onclick = () => {
+        const hand = state.view.yourHand;
+        // Prefer discarding the card with the highest deadwood value that is NOT
+        // part of the first close option's kept melds (keeps melds intact).
+        const keepIds = new Set(v.closeOptions[0].split.flat().map((c) => c.id));
+        const candidates = hand.filter((c) => !keepIds.has(c.id));
+        const pool = candidates.length ? candidates : hand;
+        const worst = pool.reduce((a, b) => (window.__cardVal(b) > window.__cardVal(a) ? b : a), pool[0]);
+        doDiscard(worst, false);
+      };
+      co.appendChild(keep);
+    } catch (err) {
+      // Surface any render error instead of failing silently — this is a
+      // diagnostic guard so a thrown error shows as text rather than blank.
+      co.innerHTML = '';
+      const e = document.createElement('div');
+      e.className = 'close-prompt';
+      e.style.color = '#ff6b6b';
+      e.textContent = 'Close UI error: ' + (err && err.message ? err.message : err);
+      co.appendChild(e);
+      console.error('close-options render error', err);
+    }
   } else {
     _animState.close = false;
   }
