@@ -767,6 +767,9 @@ function render() {
 
   const co = $('close-options');
   co.innerHTML = '';
+  // DIAGNOSTIC (temporary): surface close-state so we can see why buttons don't show.
+  const dbg = $('status');
+  if (dbg) dbg.textContent = `DIAG co=${(v.closeOptions||[]).length} canAct=${canAct} phase=${phase} yt=${v.isYourTurn}`;
   if (canAct && phase === 'discard' && v.closeOptions && v.closeOptions.length) {
     try {
       if (!_animState.close) { onceAnimate(co, 'appear'); }
