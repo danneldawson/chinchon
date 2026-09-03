@@ -872,6 +872,7 @@ function handleApi(req, res, url) {
       if (humans.length < 2) return sendJson(res, 400, { error: 'need at least 2 players' });
       room.started = true;
       room.startedAt = Date.now();
+      room.pending = null;
       room.match = matchMod.createMatch(room.players.map((pl) => pl.name));
       room.state = turn.startRound(room.players.length, dealRng);
       runBotTurns(room);

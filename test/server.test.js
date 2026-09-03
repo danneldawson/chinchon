@@ -423,3 +423,25 @@ test('sweepRooms keeps an active game where a human polled within 30 min', async
   _internals.sweepRooms(Date.now());
   assert.equal(rooms.has(g.code), true, 'active game with recent human kept');
 });
+
+// ---------------------------------------------------------------- pending bug
+test('host-start clears pending so the countdown does not restart the match', async () => {
+  // Create a private multi room (sets a 90s pending countdown), join a 2nd
+  // player, then have the host start the game manually.
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Host', lobbyToken: 'h-tok' });
+  const code = created.code;
+  await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-tok' });
+  const room = rooms.get(code);
+  assert.ok(room.pending, 'room has a pending countdown before start');
+
+  await api('POST', '/api/room/start', { code, seat: created.seatId });
+  assert.equal(room.pending, null, 'pending is cleared after host starts');
+
+  // Even if we advance time past the countdown, serialize should NOT restart
+  // the match (no pending to fire).
+  const before = room.match.round;
+  const view = _internals.serialize(room, created.seatId);
+  assert.equal(view.gameOver, false, 'game is not over after start');
+  assert.equal(room.match.round, before, 'match was not restarted by stale pending');
+  assert.ok(!view.gone, 'room is not gone');
+});
