@@ -735,8 +735,11 @@ function render() {
   // buttons (shown on the 8-card discard turn below) — no separate "you can
   // close now" hint text. Agency stays with the player: they pick which 8th
   // card to discard to close.
-  hintEl.classList.add('hidden');
-  hintEl.classList.remove('show', 'learning');
+  const hintEl = $('run-hint');
+  if (hintEl) {
+    hintEl.classList.add('hidden');
+    hintEl.classList.remove('show', 'learning');
+  }
   if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
   _animState.runHintKey = '';
 
