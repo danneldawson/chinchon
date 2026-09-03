@@ -376,3 +376,50 @@ test('idle-room sweep keeps a waiting room with a recently-active player', async
   _internals.sweepRooms(Date.now());
   assert.equal(rooms.has(w.code), true, 'room with active player is kept');
 });
+
+// --------------------------------------------------------------- lobby sweep
+test('sweepLobby removes a lobby member idle > 30 min', async () => {
+  const { json: a } = await api('POST', '/api/lobby/enter', { name: 'Alpha' });
+  const { json: b } = await api('POST', '/api/lobby/enter', { name: 'Bravo' });
+  assert.ok(a.token && b.token, 'both entered lobby');
+
+  // Alpha's lastSeen is fresh, Bravo's is 31 min ago.
+  const lobby = _internals.lobbyRef;
+  lobby.members.get(a.token).lastSeen = Date.now();
+  lobby.members.get(b.token).lastSeen = Date.now() - 31 * 60 * 1000;
+
+  _internals.sweepLobby(Date.now());
+  assert.ok(lobby.members.has(a.token), 'active member kept');
+  assert.ok(!lobby.members.has(b.token), 'idle member evicted');
+});
+
+test('sweepLobby keeps a member who chatted within 30 min', async () => {
+  const { json: a } = await api('POST', '/api/lobby/enter', { name: 'Chatty' });
+  await api('POST', '/api/lobby/chat', { token: a.token, text: 'hi' });
+  const lobby = _internals.lobbyRef;
+  // lastSeen was just stamped by the chat call — 29 min shouldn't evict.
+  lobby.members.get(a.token).lastSeen = Date.now() - 29 * 60 * 1000;
+  _internals.sweepLobby(Date.now());
+  assert.ok(lobby.members.has(a.token), 'member within 30 min kept');
+});
+
+test('sweepRooms evicts an active game where all humans idle > 30 min', async () => {
+  // Start a solo game (1 human + bots), then age the human past 30 min.
+  const { json: g } = await api('POST', '/api/room/new', { mode: 'solo', name: 'Sleepy', bots: 2 });
+  const gRoom = rooms.get(g.code);
+  assert.ok(gRoom.started, 'game started');
+  // Age the single human past 30 min; bots don't count.
+  gRoom.players.forEach((p) => {
+    if (!p.isBot) p.lastSeen = Date.now() - 31 * 60 * 1000;
+  });
+  _internals.sweepRooms(Date.now());
+  assert.equal(rooms.has(g.code), false, 'active game with all humans idle > 30 min evicted');
+});
+
+test('sweepRooms keeps an active game where a human polled within 30 min', async () => {
+  const { json: g } = await api('POST', '/api/room/new', { mode: 'solo', name: 'Awake', bots: 2 });
+  const gRoom = rooms.get(g.code);
+  // Human is fresh, bots are fresh too.
+  _internals.sweepRooms(Date.now());
+  assert.equal(rooms.has(g.code), true, 'active game with recent human kept');
+});

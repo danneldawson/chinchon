@@ -36,9 +36,12 @@ const REMATCH_COUNTDOWN_MS = 90000;
 const PUBLIC_COUNTDOWN_MS = 60000;
 const PRIVATE_HUMAN_COUNTDOWN_MS = 90000;
 const lobby = {
-  members: new Map(), // token -> { token, name, at }
+  members: new Map(), // token -> { token, name, at, lastSeen }
   chat: [],
 };
+
+const LOBBY_IDLE_EVICT_MS = 30 * 60 * 1000; // lobby members inactive this long are removed
+const GAME_IDLE_EVICT_MS  = 30 * 60 * 1000; // in-progress games with all humans idle this long are evicted
 
 function lobbyEnter(name) {
   const clean = String(name || '').trim().slice(0, 24) || 'Player';
@@ -50,7 +53,7 @@ function lobbyEnter(name) {
   let n = 2;
   while (taken.has(finalName.toLowerCase())) finalName = `${clean}${n++}`;
   const token = newSeatId();
-  lobby.members.set(token, { token, name: finalName, at: Date.now() });
+  lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now() });
   return { token, name: finalName };
 }
 
@@ -415,10 +418,27 @@ function evaluateWaiting(room) {
 function sweepRooms(now = Date.now()) {
   for (const [code, room] of [...rooms]) {
     const finished = room.match && room.match.gameOver;
-    if (room.started && !finished) continue; // active game: leave it
+    if (room.started && !finished) {
+      // Active game: only evict if every human has been idle past GAME_IDLE_EVICT_MS.
+      const humans = humanSeats(room);
+      const anyAlive = humans.length > 0 && humans.some((p) => now - (p.lastSeen || 0) < GAME_IDLE_EVICT_MS);
+      if (!anyAlive) rooms.delete(code);
+      continue;
+    }
     const humans = humanSeats(room);
     const anyAlive = humans.length > 0 && humans.some((p) => now - (p.lastSeen || 0) < ROOM_IDLE_EVICT_MS);
     if (!anyAlive) rooms.delete(code);
+  }
+}
+
+// Periodic cleanup: drop lobby members who haven't interacted in
+// LOBBY_IDLE_EVICT_MS (30 min). Prevents the lobby from filling with
+// ghost names from users who closed their tab without leaving.
+function sweepLobby(now = Date.now()) {
+  for (const [token, member] of [...lobby.members]) {
+    if (now - (member.lastSeen || member.at || 0) > LOBBY_IDLE_EVICT_MS) {
+      lobby.members.delete(token);
+    }
   }
 }
 
@@ -734,6 +754,7 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const member = lobby.members.get(body.token);
       if (!member) return sendJson(res, 403, { error: 'not in lobby' });
+      member.lastSeen = Date.now();
       lobbyChatPush(member.name, body.text);
       return sendJson(res, 200, { ok: true });
     });
@@ -746,6 +767,11 @@ function handleApi(req, res, url) {
     });
   }
   if (method === 'GET' && p === '/api/lobby/state') {
+    const token = url.searchParams.get('token');
+    if (token) {
+      const member = lobby.members.get(token);
+      if (member) member.lastSeen = Date.now();
+    }
     return sendJson(res, 200, lobbyState());
   }
 
@@ -1220,7 +1246,7 @@ function createServer() {
       res.end(data);
     });
   });
-  const sweepTimer = setInterval(() => sweepRooms(), 5 * 60 * 1000);
+  const sweepTimer = setInterval(() => { sweepRooms(); sweepLobby(); }, 5 * 60 * 1000);
   srv.on('close', () => clearInterval(sweepTimer));
   return srv;
 }
@@ -1232,4 +1258,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, humanSeats } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, humanSeats, lobbyRef: lobby } };

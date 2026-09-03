@@ -1191,7 +1191,7 @@ async function enterLobby() {
 
 async function lobbyPoll() {
   if (!state.lobbyToken) return;
-  const res = await fetch('/api/lobby/state').then((r) => r.json()).catch(() => null);
+  const res = await fetch(`/api/lobby/state?token=${state.lobbyToken}`).then((r) => r.json()).catch(() => null);
   if (!res) return;
   // Self-heal: if we have a token but the server no longer lists us (e.g. the
   // free instance restarted and wiped the in-memory lobby), re-enter so we stay
