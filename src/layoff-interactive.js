@@ -78,9 +78,12 @@ function beginLayoff(hands, closerIndex, active = null, chosenMelds = null) {
     table: melds,
     hands: hands.map((h) => [...h]),
     remaining: hands.map((h) => [...h]),
-    // Closer already placed their melds; their leftover waits for the final turn.
+    // Closer already placed their melds on the table; their leftover waits.
     placed: hands.map((_, i) => (i === closerIndex ? melds.length : 0)),
-    order: [...layoffOrder(hands.length, closerIndex, active), closerIndex],
+    // Closer goes FIRST in the lay-off (they reveal their game, then everyone
+    // else lays off in turn). Closer already placed their melds; their leftover
+    // waits for their turn in the order.
+    order: [closerIndex, ...layoffOrder(hands.length, closerIndex, active)],
     turnPointer: 0,
     ready: hands.map(() => false),
     scores: hands.map(() => null),

@@ -85,8 +85,8 @@ test('lay-off skips and does not score eliminated players', () => {
 test('the interactive lay-off never asks an eliminated player to act', () => {
   const hands = [closingHand(), [], junkHand()];
   const state = beginLayoff(hands, 0, [0, 2]);
-  // order = lay-off order (seat 2) followed by the closer (seat 0)
-  assert.deepStrictEqual(state.order, [2, 0]);
+  // order = closer (seat 0) first, then the lay-off order (seat 2)
+  assert.deepStrictEqual(state.order, [0, 2]);
 });
 
 // ---------------------------------------------------------------- match end

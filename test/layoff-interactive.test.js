@@ -21,6 +21,19 @@ const closingHand = () => [
 const findMeld = (state, rank, suit) =>
   state.table.findIndex((m) => m.some((x) => x.rank === rank && x.suit === suit));
 
+// ------------------------------------------------- closer goes FIRST
+
+test('the closer acts first in the lay-off', () => {
+  const state = beginLayoff([closingHand(), closingHand()], 0);
+  assert.strictEqual(currentPlayer(state), 0, 'closer is the current player');
+});
+
+// Helper: advance past the closer so the next player can act.
+function skipCloser(state) {
+  assert.strictEqual(currentPlayer(state), state.closerIndex, 'closer is current');
+  declareReady(state);
+}
+
 // ------------------------------------------------- validation of OTHER players
 
 test('another player CANNOT lay down an invalid combination', () => {
@@ -29,7 +42,8 @@ test('another player CANNOT lay down an invalid combination', () => {
     c(10, 'Oros'), c(4, 'Copas'), c(11, 'Bastos'), c(3, 'Espadas'),
   ];
   const state = beginLayoff([closingHand(), cheater], 0);
-  assert.strictEqual(currentPlayer(state), 1);
+  skipCloser(state);
+  assert.strictEqual(currentPlayer(state), 1, 'opponent is next after closer');
 
   // Three random cards are not a game.
   const res = layMeld(state, [c(2, 'Copas'), c(7, 'Espadas'), c(12, 'Bastos')]);
@@ -43,6 +57,7 @@ test('a player cannot lay cards they do not hold', () => {
     c(10, 'Oros'), c(4, 'Copas'), c(11, 'Bastos'), c(3, 'Espadas'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   const res = layMeld(state, [c(9, 'Copas'), c(10, 'Copas'), c(11, 'Copas')]);
   assert.strictEqual(res.ok, false);
   assert.match(res.reason, /do not hold/);
@@ -54,6 +69,7 @@ test('a valid combination from another player IS accepted', () => {
     c(10, 'Oros'), c(12, 'Copas'), c(11, 'Copas'), c(7, 'Espadas'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   const res = layMeld(state, [c(2, 'Bastos'), c(3, 'Bastos'), c(4, 'Bastos')]);
   assert.strictEqual(res.ok, true);
   assert.strictEqual(state.table.length, 3); // 2 from closer + 1 new
@@ -65,6 +81,7 @@ test('an attach that does not fit is rejected', () => {
     c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'), c(10, 'Copas'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   // The run 4-5-6-7 Copas will not take a 12 de Bastos.
   const res = attachCard(state, c(12, 'Bastos'), findMeld(state, 4, 'Copas'));
   assert.strictEqual(res.ok, false);
@@ -77,6 +94,7 @@ test('an attach that fits is accepted and shrinks the hand', () => {
     c(10, 'Oros'), c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   const runIdx = findMeld(state, 4, 'Copas');
   const res = attachCard(state, c(3, 'Copas'), runIdx); // extends 4-5-6-7 Copas
   assert.strictEqual(res.ok, true);
@@ -93,6 +111,7 @@ test('a wild cannot be attached to a meld that already has one', () => {
     c(10, 'Oros'), c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'),
   ];
   const state = beginLayoff([closer, opponent], 0);
+  skipCloser(state);
   const res = attachCard(state, WILD(1), findMeld(state, 4, 'Copas'));
   assert.strictEqual(res.ok, false);
 });
@@ -105,33 +124,36 @@ test('a player is only scored once they declare ready', () => {
     c(10, 'Oros'), c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
-  assert.strictEqual(state.scores[1], null, 'not scored before declaring');
-
+  assert.strictEqual(state.scores[0], null, 'closer not scored before declaring');
+  skipCloser(state);
+  assert.strictEqual(state.scores[1], null, 'opponent not scored before declaring');
   declareReady(state);
-  assert.notStrictEqual(state.scores[1], null, 'scored after declaring');
+  assert.notStrictEqual(state.scores[1], null, 'opponent scored after declaring');
 });
 
-test('declaring ready passes the turn to the next player', () => {
+test('declaring ready passes the turn to the next player (closer first, then others)', () => {
   const junk = () => [
     c(12, 'Bastos'), c(2, 'Espadas'), c(10, 'Oros'),
     c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'), c(10, 'Copas'),
   ];
   const state = beginLayoff([closingHand(), junk(), junk()], 0);
-  assert.strictEqual(currentPlayer(state), 1);
+  assert.strictEqual(currentPlayer(state), 0, 'closer goes first');
+  declareReady(state); // closer
+  assert.strictEqual(currentPlayer(state), 1, 'then player 1');
   declareReady(state);
-  assert.strictEqual(currentPlayer(state), 2);
+  assert.strictEqual(currentPlayer(state), 2, 'then player 2');
   declareReady(state);
-  assert.strictEqual(currentPlayer(state), 0, 'closer goes last');
+  assert.strictEqual(state.phase, 'done', 'lay-off ends after the last player');
 });
 
-test('the closer acts last and the phase ends after them', () => {
+test('the closer acts first and the phase ends after everyone', () => {
   const junk = () => [
     c(12, 'Bastos'), c(2, 'Espadas'), c(10, 'Oros'),
     c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'), c(10, 'Copas'),
   ];
   const state = beginLayoff([closingHand(), junk()], 0);
-  declareReady(state); // player 1
   declareReady(state); // closer
+  declareReady(state); // player 1
   assert.strictEqual(state.phase, 'done');
   assert.strictEqual(state.scores[0], -10);
 });
@@ -142,6 +164,7 @@ test('cards still in hand at ready time are counted against you', () => {
     c(10, 'Oros'), c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   declareReady(state);
   // Player did nothing, so every card counts: 10+10+2+10+10+7+2 = 51.
   // Nothing is shed automatically — you must act before declaring ready.
@@ -154,10 +177,12 @@ test('shedding before declaring ready lowers your score', () => {
     c(10, 'Oros'), c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'),
   ];
   const a = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(a);
   declareReady(a);
   const withoutShedding = a.scores[1];
 
   const b = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(b);
   attachCard(b, c(3, 'Copas'), findMeld(b, 4, 'Copas'));
   attachCard(b, c(11, 'Copas'), findMeld(b, 11, 'Oros'));
   declareReady(b);
@@ -171,8 +196,8 @@ test('you cannot act after the lay-off is finished', () => {
     c(11, 'Copas'), c(7, 'Espadas'), c(2, 'Bastos'), c(10, 'Copas'),
   ];
   const state = beginLayoff([closingHand(), junk()], 0);
-  declareReady(state);
-  declareReady(state);
+  declareReady(state); // closer
+  declareReady(state); // player 1
   const res = attachCard(state, c(2, 'Espadas'), 0);
   assert.strictEqual(res.ok, false);
   assert.match(res.reason, /over/);
@@ -199,6 +224,7 @@ test('suggest offers valid melds and real attach targets', () => {
     c(4, 'Bastos'), c(11, 'Copas'), c(7, 'Espadas'), c(12, 'Oros'),
   ];
   const state = beginLayoff([closingHand(), opponent], 0);
+  skipCloser(state);
   const advice = suggest(state, 1);
   assert.ok(advice.melds.length >= 1, 'should spot the 2-3-4 Bastos run');
   const ranks = advice.attachable.map((a) => a.card.rank);
