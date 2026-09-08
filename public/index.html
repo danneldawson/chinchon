@@ -20,6 +20,11 @@
         </div>
         <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" maxlength="24" />
         <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
+        <div id="rejoin-row" class="rejoin-row">
+          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="3" inputmode="numeric" pattern="\d{3}" />
+          <button id="btn-rejoin" class="primary small">Rejoin</button>
+          <p id="rejoin-msg" class="msg"></p>
+        </div>
         <p id="lobby-msg" class="msg"></p>
       </div>
 
@@ -38,7 +43,7 @@
           <div class="lobby-actions">
             <button id="btn-go-create" class="primary" data-i18n="createRoom">Create room</button>
             <button id="btn-go-join" class="primary" data-i18n="joinRoom">Join room</button>
-            <button id="btn-gameplay" class="info" data-i18n="soloVsBots">Play solo</button>
+            <button id="btn-gameplay" class="primary" data-i18n="soloVsBots">Play solo</button>
           </div>
         </section>
 
@@ -88,23 +93,6 @@
           <button id="btn-create-public" class="primary" data-i18n="createPublic">Create public room</button>
           <button id="btn-create-private" class="primary" data-i18n="createPrivate">Create private room</button>
         </div>
-
-        <!-- Private room dialogue (shown after picking Private) -->
-        <div id="private-dialogue" class="hidden">
-          <p id="pd-q1" class="dialogue-q" data-i18n="playWithBots">Play with bots?</p>
-          <div class="dialogue-answers">
-            <button class="pd-answer" data-ans="bots-yes" data-i18n="privateDialogueYes">Yes</button>
-            <button class="pd-answer" data-ans="bots-no" data-i18n="privateDialogueNo">No</button>
-          </div>
-
-          <div id="pd-bots-count" class="hidden">
-            <p id="pd-q2" class="dialogue-q" data-i18n="howManyBots">How many bots? (2–6)</p>
-            <input id="pd-bots-input" type="number" min="2" max="6" value="2" />
-            <button id="pd-bots-go" class="primary" data-i18n="startGameShort">Start game</button>
-          </div>
-
-          <p id="pd-summary" class="msg"></p>
-        </div>
       </div>
 
       <!-- JOIN -->
@@ -123,6 +111,7 @@
            #create-pane) so it's visible regardless of which pane is active. -->
       <div id="room-info" class="hidden">
         <p data-i18n="roomCode">Room code: <span id="room-code" class="code"></span></p>
+        <p id="room-seatid" class="dim"></p>
         <p class="dim" data-i18n="shareCodeNote">Share this code with the other players however you like.</p>
         <p id="room-waiting" class="dim"></p>
         <p data-i18n="playersJoined">Players joined:</p>
@@ -168,6 +157,14 @@
       <div id="reshuffle-note" class="banner info hidden" data-i18n="reshuffle">Stock reshuffled</div>
 
       <div id="status-banner" class="hidden"></div>
+
+      <!-- 2-player alone notice: shown when the other human leaves. -->
+      <div id="alone-notice" class="close-offer hidden">
+        <div id="alone-notice-text" class="close-offer-text">You're the only player left; the game will close.</div>
+        <div class="close-offer-actions">
+          <button id="btn-alone-ok" class="primary">OK</button>
+        </div>
+      </div>
 
       <!-- Tutorial: one rule per novice turn, shown (and later read aloud) before they may act. -->
       <div id="tutorial-rule" class="tutorial-rule hidden">

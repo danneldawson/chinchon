@@ -36,7 +36,7 @@ const REMATCH_COUNTDOWN_MS = 90000;
 const PUBLIC_COUNTDOWN_MS = 60000;
 const PRIVATE_HUMAN_COUNTDOWN_MS = 90000;
 const lobby = {
-  members: new Map(), // token -> { token, name, at, lastSeen }
+  members: new Map(), // token -> { token, name, at, lastSeen, lobbyCode }
   chat: [],
 };
 
@@ -45,16 +45,22 @@ const GAME_IDLE_EVICT_MS  = 30 * 60 * 1000; // in-progress games with all humans
 
 function lobbyEnter(name) {
   const clean = String(name || '').trim().slice(0, 24) || 'Player';
-  // The name "CHINCHON" is reserved for the system's auto-messages.
   if (clean.toLowerCase() === 'chinchon') return { error: 'name reserved' };
-  // Unique-ish name within the lobby (append a number if taken).
   const taken = new Set([...lobby.members.values()].map((m) => m.name.toLowerCase()));
   let finalName = clean;
   let n = 2;
   while (taken.has(finalName.toLowerCase())) finalName = `${clean}${n++}`;
   const token = newSeatId();
-  lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now() });
-  return { token, name: finalName };
+  const lobbyCode = String(Math.floor(100 + Math.random() * 900)); // 3-digit unique-ish code
+  lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now(), lobbyCode });
+  return { token, name: finalName, lobbyCode };
+}
+
+function findMemberByLobbyCode(lobbyCode) {
+  for (const m of lobby.members.values()) {
+    if (m.lobbyCode === String(lobbyCode)) return m;
+  }
+  return null;
 }
 
 function lobbyChatPush(name, text) {
@@ -91,6 +97,8 @@ function lobbyMatches() {
         ? { code: room.code, secondsLeft: room.pending.hold ? null : Math.max(0, Math.ceil((room.pending.until - Date.now()) / 1000)), hold: !!room.pending.hold, hostName: room.pending.hostName, type: room.pending.type }
         : null,
       scoreboard: m ? m.players.map((p) => ({ name: p.name, total: p.total, out: p.out })) : [],
+      playerCount: room.players.length,
+      hostName: room.players.find((p) => p.id === room.hostId)?.name || 'Host',
     });
   }
   return out;
@@ -98,11 +106,24 @@ function lobbyMatches() {
 
 function lobbyState() {
   return {
-    members: [...lobby.members.values()].map((m) => ({ name: m.name })),
+    members: [...lobby.members.values()].map((m) => ({ name: m.name, lobbyCode: m.lobbyCode })),
     total: lobby.members.size,
     chat: lobby.chat,
     matches: lobbyMatches(),
   };
+}
+
+// Rejoin by SeatID: look up the lobby member, then find their active room/seat.
+function lobbyRejoin(lobbyCode) {
+  const member = findMemberByLobbyCode(lobbyCode);
+  if (!member) return { error: 'no such SeatID' };
+  for (const room of rooms.values()) {
+    const seat = room.players.find((pl) => pl.lobbyToken === member.token && !pl.isBot);
+    if (seat) {
+      return { code: room.code, seatId: seat.id, name: member.name };
+    }
+  }
+  return { error: 'no active game for this SeatID' };
 }
 
 // View of a room's pending rematch for clients (counts down live).
@@ -210,25 +231,22 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   const players = [];
 
   if (mode === 'solo') {
-    // Chinchón needs at least 2 players, so a solo game must have >= 1 bot.
-    // Clamp the requested count (the UI labels this 1-6). Opponents are drawn
-    // at random from the 10 family bots (placement a: solo only).
-    const nBots = Math.max(1, Math.min(6, bots | 0));
+    // Solo = human + exactly 2 random family bots. Always starts immediately.
+    const nBots = 2;
     players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null });
     const fam = pickFamilyBots(nBots);
     fam.forEach((fb, i) => {
       players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb });
     });
-    // Tutorial: one bot plays open (cards visible), the other hidden — random which.
-    if (tutorial) assignTutorialReveals(players);
+    const host = players[0];
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, dealRng);
-    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: players[0].id, chat: [], pending: null, banned: [], visibility: visibility || 'private', learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: host.id, chat: [], pending: null, banned: [], visibility: 'private', learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
     rooms.set(code, room);
     return room;
   }
 
-  // multi: wait for the countdown / immediate start (bots added up-front for private+bots).
+  // Multi: host only, waits for countdown. Bots are never auto-added here.
   const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null };
   players.push(host);
 
@@ -239,22 +257,8 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   let startedAt = null;
   const vis = visibility === 'public' ? 'public' : 'private';
 
-  if (vis === 'private' && bots > 0) {
-    // Private + bots: start immediately, no countdown, not published.
-    for (let i = 0; i < bots; i++) {
-      players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
-    }
-    // Tutorial: one bot plays open (cards visible), the other hidden — random which.
-    if (tutorial) assignTutorialReveals(players);
-    match = matchMod.createMatch(players.map((p) => p.name));
-    state = turn.startRound(players.length, dealRng);
-    started = true;
-    startedAt = Date.now();
-  } else {
-    // Public OR private+humans: start on a countdown.
-    const until = Date.now() + (countdownMs || (vis === 'public' ? PUBLIC_COUNTDOWN_MS : PRIVATE_HUMAN_COUNTDOWN_MS));
-    pending = { until, hold: false, hostName: host.name, startedBy: host.id, type: 'fresh', visibility: vis };
-  }
+  const until = Date.now() + (countdownMs || (vis === 'public' ? PUBLIC_COUNTDOWN_MS : PRIVATE_HUMAN_COUNTDOWN_MS));
+  pending = { until, hold: false, hostName: host.name, startedBy: host.id, type: 'fresh', visibility: vis };
 
   const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis, learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
   rooms.set(code, room);
@@ -679,6 +683,7 @@ function serialize(room, seatId) {
       };
     }),
     chat: room.chat || [],
+    aloneNotice: !!room.aloneNotice,
   };
 }
 
@@ -768,6 +773,22 @@ function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true });
     });
   }
+  // Rejoin an active game by SeatID: finds your lobby membership and active seat.
+  if (method === 'POST' && p === '/api/lobby/rejoin') {
+    return readBody(req).then((body) => {
+      const lobbyCode = String(body.lobbyCode || '').trim();
+      if (!lobbyCode) return sendJson(res, 400, { error: 'SeatID required' });
+      const rejoin = lobbyRejoin(lobbyCode);
+      if (rejoin.error) return sendJson(res, 404, { error: rejoin.error });
+      const room = rooms.get(rejoin.code);
+      if (!room) return sendJson(res, 404, { error: 'room expired' });
+      const seat = room.players.find((pl) => pl.id === rejoin.seatId);
+      if (!seat || seat.isBot) return sendJson(res, 404, { error: 'seat not found' });
+      stampSeen(room, rejoin.seatId);
+      evaluateWaiting(room);
+      return sendJson(res, 200, { code: rejoin.code, seatId: rejoin.seatId, name: rejoin.name, rejoined: true });
+    });
+  }
   if (method === 'GET' && p === '/api/lobby/state') {
     const token = url.searchParams.get('token');
     if (token) {
@@ -815,6 +836,19 @@ function handleApi(req, res, url) {
       if (!room.pending) runBotTurns(room);
       return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}`, pending: room.pending ? pendingView(room) : null, visibility: room.visibility });
     });
+  }
+
+  // Look up a room/seat by SeatID.
+  if (method === 'GET' && p === '/api/room/by-seat') {
+    const seatId = String(req.url.split('?seat=')[1] || '').trim().slice(0, 64);
+    if (!seatId) return sendJson(res, 400, { error: 'missing seat' });
+    for (const room of rooms.values()) {
+      const seat = room.players.find((pl) => pl.id === seatId);
+      if (seat && !seat.isBot) {
+        return sendJson(res, 200, { code: room.code, seatId: seat.id, name: seat.name, started: room.started });
+      }
+    }
+    return sendJson(res, 404, { error: 'seat not found' });
   }
 
   if (method === 'POST' && p === '/api/room/join') {
@@ -991,16 +1025,24 @@ function handleApi(req, res, url) {
     return { ok: true, remaining: room.players.length };
   }
 
-  // A player leaves the room. Allowed any time. If leaving drops the room
-  // below 2 players, removePlayer() ends the match (gameOver = true).
+  // A player leaves the room. Allowed any time.
   if (method === 'POST' && p === '/api/room/leave') {
     return readBody(req).then((body) => {
       const room = rooms.get(body.code);
       if (!room) return sendJson(res, 404, { error: 'no such room' });
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer) return sendJson(res, 404, { error: 'not in this room' });
+      const humansBefore = room.players.filter((pl) => !pl.isBot).length;
       const r = removePlayer(room, body.seat);
       if (r.error) return sendJson(res, 404, { error: r.error });
+      const humansAfter = room.players.filter((pl) => !pl.isBot).length;
+      if (humansAfter === 0) {
+        rooms.delete(body.code);
+        return sendJson(res, 200, { ...r, roomDeleted: true });
+      }
+      if (humansBefore === 2 && humansAfter === 1) {
+        room.aloneNotice = true;
+      }
       return sendJson(res, 200, r);
     });
   }

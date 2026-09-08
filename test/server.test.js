@@ -129,17 +129,15 @@ test('7 humans, no bots: full match to a winner, zero bot seats', async () => {
   assert.ok(after.players.every((p) => !p.isBot), 'still no bots after the match');
 });
 
-test('private room with bots starts immediately and includes those bots', async () => {
-  // A private room created with bots begins right away (no countdown, no lobby
-  // listing) and seeds exactly the requested number of bot seats.
-  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'H', visibility: 'private', bots: 3 });
+test('private room does not start with bots; waits for humans', async () => {
+  // Private rooms never auto-add bots anymore; they always wait for humans.
+  const { json: created } = await api('POST', '/api/room/new', { mode: 'multi', name: 'H', visibility: 'private' });
   assert.ok(created.code, 'private room created');
   assert.equal(created.visibility, 'private');
+  assert.ok(created.pending, 'private room has a pending countdown');
   const { json: lobby } = await api('GET', `/api/room/players?code=${created.code}`);
-  assert.equal(lobby.players.length, 4, '1 human + 3 bots');
-  assert.equal(lobby.players.filter((p) => p.isBot).length, 3, 'three bot seats');
-  const { json: v } = await api('GET', `/api/state?code=${created.code}&seat=${created.seatId}`);
-  assert.ok(v.started, 'private+bots game started immediately');
+  assert.equal(lobby.players.length, 1, 'only the host, no auto bots');
+  assert.equal(lobby.players.filter((p) => p.isBot).length, 0, 'no bots in private room');
 });
 
 test('public room does not start with bots; waits on a countdown', async () => {
@@ -150,14 +148,13 @@ test('public room does not start with bots; waits on a countdown', async () => {
   assert.equal(lobby.players.length, 1, 'only the host, no bots yet');
 });
 
-test('solo with bots:0 does not crash — clamps to 1 bot', async () => {
-  // Chinchón needs >= 2 players, so a lone human (bots:0) is invalid. The
-  // server must clamp to 1 bot rather than throw on createMatch.
+test('solo with bots:0 does not crash — always uses 2 family bots', async () => {
+  // Solo mode always uses 2 random family bots, even if the caller passes bots:0.
   const { json: created, status } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 0 });
   assert.equal(status, 200, 'solo room with bots:0 still created (no crash)');
   const { json: lobby } = await api('GET', `/api/room/players?code=${created.code}`);
-  assert.equal(lobby.players.length, 2, '1 human + 1 clamped bot');
-  assert.equal(lobby.players.filter((p) => p.isBot).length, 1, 'exactly one bot after clamp');
+  assert.equal(lobby.players.length, 3, '1 human + 2 family bots');
+  assert.equal(lobby.players.filter((p) => p.isBot).length, 2, 'exactly two bots for solo');
 });
 
 test('rematch enters a 90s pending window; host can hold (toggle), no start-now', async () => {

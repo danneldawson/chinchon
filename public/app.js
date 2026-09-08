@@ -71,7 +71,7 @@ const I18N = {
     chinchon: 'Chinchón',
     rematch: 'Play again (same players)',
     toLobby: 'Leave',
-    leave: 'Leave room',
+    leave: 'Leave',
     leaveMatch: 'Leave match',
     matchEnded: 'Match ended',
     hold: 'Hold',
@@ -420,27 +420,7 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
 });
 
 $('btn-create-public').onclick = () => createRoom('public', 0);
-$('btn-create-private').onclick = () => {
-  $('create-choices').classList.add('hidden');
-  $('private-dialogue').classList.remove('hidden');
-  $('pd-summary').textContent = '';
-};
-// Private dialogue — Q1: play with bots?
-document.querySelectorAll('.pd-answer').forEach((b) => {
-  b.onclick = () => {
-    if (b.dataset.ans === 'bots-yes') {
-      $('pd-bots-count').classList.remove('hidden');
-    } else {
-      // No bots -> private (unlisted) countdown waiting for humans.
-      createRoom('private', 0);
-    }
-  };
-});
-// Private dialogue — Q2: how many bots? (2–6) -> immediate start.
-$('pd-bots-go').onclick = () => {
-  const n = Math.max(2, Math.min(6, parseInt($('pd-bots-input').value, 10) || 2));
-  createRoom('private', n);
-};
+$('btn-create-private').onclick = () => createRoom('private', 0);
 
 async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
   const name = state.lobbyName || 'Host';
@@ -453,6 +433,8 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
   $('room-code').textContent = res.code;
+  const seatEl = $('room-seatid');
+  if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   $('room-info').classList.remove('hidden');
   $('create-choices').classList.add('hidden');
   $('private-dialogue').classList.add('hidden');
@@ -661,6 +643,12 @@ function render() {
 
   // Connection / waiting / spectator banner
   renderStatusBanner(v);
+
+  // Alone notice: shown when the other human leaves a 2-player game.
+  const aloneEl = $('alone-notice');
+  if (aloneEl) {
+    aloneEl.classList.toggle('hidden', !v.aloneNotice);
+  }
 
   // Per-room chat (shown while the room/game is up; cleared on rematch)
   renderChat(v);
@@ -1177,6 +1165,21 @@ $('btn-tutorial-continue').onclick = async () => {
   }).catch(() => null);
   if (state.view) render(state.view);
 };
+$('btn-alone-ok').onclick = async () => {
+  clearInterval(state.pollTimer);
+  await fetch('/api/room/leave', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: state.code, seat: state.seatId }),
+  }).catch(() => null);
+  clearSeat(state.code);
+  state.code = null;
+  state.seatId = null;
+  state.view = null;
+  state.selected.clear();
+  show($('lobby'));
+  $('lobby-main').classList.remove('hidden');
+  await lobbyPoll();
+};
 // Piles are directly tappable (the "physical game" feel). Gated to the draw
 // turn inside render() via the .tappable class, but guard here too.
 $('stock').onclick = () => { if (state.view && state.view.isYourTurn && state.view.phase === 'draw') doDraw('stock'); };
@@ -1343,7 +1346,8 @@ async function lobbyPoll() {
   ul.innerHTML = '';
   for (const m of res.members) {
     const li = document.createElement('li');
-    li.textContent = (m.name === state.lobbyName ? '★ ' : '') + m.name;
+    const seatLabel = m.lobbyCode ? ` · SeatID ${m.lobbyCode}` : '';
+    li.textContent = (m.name === state.lobbyName ? '★ ' : '') + m.name + seatLabel;
     ul.appendChild(li);
   }
   // Active matches.
@@ -1379,7 +1383,7 @@ function renderLobbyMatches(matches) {
   const elapsed = Math.floor((m.elapsedMs || 0) / 1000);
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
-  let html = `<div class="mc-code">Room ${m.code} · ${m.mode === 'solo' ? 'vs bots' : (m.visibility === 'public' ? 'public' : 'private')}</div>`;
+  let html = `<div class="mc-code">Room ${m.visibility === 'private' ? m.code.slice(0, 2) + '••' : m.code} · ${m.mode === 'solo' ? 'vs bots' : (m.visibility === 'public' ? 'public' : 'private')}</div>`;
   if (m.pending) {
     if (m.pending.hold) {
       html += `<div class="mc-pending">HELD BY HOST ${m.pending.hostName}</div>`;
@@ -1392,7 +1396,7 @@ function renderLobbyMatches(matches) {
     html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
   }
   html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' (out)' : ''}</span><span>${p.total}</span></div>`).join('');
-  if (m.pending) {
+  if (m.pending && m.visibility !== 'private') {
     const label = m.pending.type === 'fresh' ? t('joinThis') : 'Join rematch';
     html += `<button class="small" data-joinmatch="${m.code}">${label}</button>`;
   }
@@ -1446,6 +1450,40 @@ function escapeHtml(s) {
 
 $('btn-lobby-enter').onclick = enterLobby;
 $('lobby-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') enterLobby(); });
+$('btn-rejoin').onclick = async () => {
+  const seatInput = $('rejoin-seatid');
+  const msg = $('rejoin-msg');
+  const seatId = (seatInput && seatInput.value || '').trim().slice(0, 64);
+  if (!seatId) { if (msg) msg.textContent = 'Enter a SeatID'; return; }
+  if (msg) msg.textContent = '';
+  try {
+    const lookup = await fetch(`/api/room/by-seat?seat=${encodeURIComponent(seatId)}`).then((r) => r.json()).catch(() => null);
+    if (!lookup || !lookup.code) { if (msg) msg.textContent = 'SeatID not found'; return; }
+    const res = await fetch('/api/room/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: lookup.code, name: lookup.name || 'Player', seatId: lookup.seatId }),
+    }).then((r) => r.json());
+    if (res.error) { if (msg) msg.textContent = res.error; return; }
+    state.code = lookup.code;
+    state.seatId = res.seatId;
+    persistSeat(lookup.code, res.seatId);
+    clearInterval(lobbyTimer);
+    if (lookup.started) {
+      enterGame();
+    } else {
+      show($('lobby'));
+      showJoinPane();
+      $('room-code').textContent = lookup.code;
+      $('room-info').classList.remove('hidden');
+      watchRoom();
+      state.pollTimer = setInterval(watchRoom, 1500);
+    }
+  } catch (e) {
+    if (msg) msg.textContent = 'Rejoin failed';
+  }
+};
+$('rejoin-seatid').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-rejoin').click(); });
 $('btn-lobby-chat-send').onclick = async () => {
   const input = $('lobby-chat-input');
   const text = input.value.trim();
