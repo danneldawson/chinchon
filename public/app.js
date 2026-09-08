@@ -807,8 +807,17 @@ function render() {
     _animState.discardId = dtKey;
     if (v.discardTop) onceAnimate(dt, 'slide-in');
   }
-  dt.innerHTML = v.discardTop ? meldChip(v.discardTop) : '—';
-  dt.className = v.discardTop ? `card-mini ${v.discardTop.suit.toLowerCase()}` : '';
+  if (v.discardTop) {
+    const isWild = window.__isWild(v.discardTop);
+    dt.innerHTML =
+      `<span class="rank">${v.discardTop.rank}</span>` +
+      `<span class="emblem-wrap">${suitEmblem(v.discardTop.suit)}</span>` +
+      (isWild ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
+    dt.className = `discard-top ${v.discardTop.suit.toLowerCase()}${isWild ? ' has-wild' : ''}`;
+  } else {
+    dt.innerHTML = '';
+    dt.className = 'discard-top';
+  }
 
   // Your hand. The freshly-drawn card is pinned to a LOCKED 8th slot; the
   // player chooses which of the original 7 to throw (tap-to-discard). The 7
