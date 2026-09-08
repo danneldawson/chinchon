@@ -77,6 +77,8 @@ function lobbyMatches() {
     // Private rooms waiting on their countdown are not published in the lobby.
     if (room.pending && room.pending.visibility === 'private') continue;
     const m = room.match;
+    // Hide finished matches from the lobby; they should not appear as active.
+    if (m && m.gameOver) continue;
     out.push({
       code: room.code,
       mode: room.mode,

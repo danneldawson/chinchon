@@ -457,11 +457,13 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   $('create-choices').classList.add('hidden');
   $('private-dialogue').classList.add('hidden');
   if (res.pending) {
-    // Public or private-humans: wait for the countdown, then auto-enter the game.
+    const secs = res.pending.secondsLeft;
+    $('room-waiting').textContent = secs != null
+      ? t('matchStartsIn').replace('{s}', String(secs))
+      : t('waitingForMatch');
     watchRoom();
     state.pollTimer = setInterval(watchRoom, 1500);
   } else {
-    // Private + bots: started immediately.
     clearInterval(state.pollTimer);
     enterGame();
   }
