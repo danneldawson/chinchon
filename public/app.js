@@ -123,6 +123,7 @@ const I18N = {
     privateDialogueYes: 'Yes',
     privateDialogueNo: 'No',
     startGameShort: 'Start game',
+    matchStarting: 'Match starting…',
     joinRoomShort: 'Join room',
     backToCreateShort: '← Back to create',
     lobbyPlayersLabel: 'Players here',
@@ -270,6 +271,7 @@ const I18N = {
     privateDialogueYes: 'Sí',
     privateDialogueNo: 'No',
     startGameShort: 'Empezar partida',
+    matchStarting: 'Partida comenzando…',
     joinRoomShort: 'Unirse a sala',
     backToCreateShort: '← Volver a crear',
     lobbyPlayersLabel: 'Jugadores aquí',
@@ -468,6 +470,13 @@ async function watchRoom() {
   }
   const secs = res.pending ? res.pending.secondsLeft : null;
   $('room-waiting').textContent = secs != null ? `Match starts in ${secs}s…` : 'Waiting for the match to start…';
+  // Show/hide the host start button each poll; the handler itself is wired once.
+  const startBtn = $('btn-host-start');
+  if (startBtn) {
+    const humans = (res.lobby || []).filter((p) => !p.isBot).length;
+    const show = res.isHost && humans >= 2;
+    startBtn.classList.toggle('hidden', !show);
+  }
 }
 
 $('btn-join').onclick = async () => {
@@ -491,6 +500,25 @@ $('btn-join').onclick = async () => {
   // Show the room-info waiting view and watch.
   $('room-code').textContent = code;
   $('room-info').classList.remove('hidden');
+  // Wire the host start button once — it persists across polls (watchRoom only
+  // toggles .hidden each tick).
+  const startBtn = $('btn-host-start');
+  if (startBtn) {
+    startBtn.onclick = async () => {
+      startBtn.disabled = true;
+      const res2 = await fetch('/api/room/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: state.code, seat: state.seatId }),
+      }).then((r) => r.json());
+      if (res2.error) {
+        $('room-waiting').textContent = res2.error;
+        startBtn.disabled = false;
+        return;
+      }
+      $('room-waiting').textContent = t('matchStarting');
+    };
+  }
   watchRoom();
   state.pollTimer = setInterval(watchRoom, 1500);
 };

@@ -18,7 +18,7 @@
           <button class="lang-btn active" data-lang="en">English</button>
           <button class="lang-btn" data-lang="es">Español</button>
         </div>
-        <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" maxlength="24" />
+        <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" minlength="4" maxlength="14" />
         <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
         <div id="rejoin-row" class="rejoin-row">
           <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="3" inputmode="numeric" pattern="\d{3}" />
@@ -116,6 +116,7 @@
         <p id="room-waiting" class="dim"></p>
         <p data-i18n="playersJoined">Players joined:</p>
         <ul id="lobby-players"></ul>
+        <button id="btn-host-start" class="primary hidden" data-i18n="startGameShort">Start game</button>
       </div>
 
       <div class="lobby-actions" style="margin-top:14px">

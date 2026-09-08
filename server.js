@@ -44,7 +44,8 @@ const LOBBY_IDLE_EVICT_MS = 30 * 60 * 1000; // lobby members inactive this long 
 const GAME_IDLE_EVICT_MS  = 30 * 60 * 1000; // in-progress games with all humans idle this long are evicted
 
 function lobbyEnter(name) {
-  const clean = String(name || '').trim().slice(0, 24) || 'Player';
+  const clean = String(name || '').trim().slice(0, 14);
+  if (clean.length < 4) return { error: 'name must be at least 4 characters' };
   if (clean.toLowerCase() === 'chinchon') return { error: 'name reserved' };
   const taken = new Set([...lobby.members.values()].map((m) => m.name.toLowerCase()));
   let finalName = clean;
