@@ -98,6 +98,58 @@ const I18N = {
     language: 'Language:',
     learnSession: 'Learning session',
     learnSessionDesc: 'Practice with up to 3 players (and bots). No pressure — learn the game.',
+    // Additional UI strings missing from EN
+    rulesTitle: 'How to play',
+    backToCreate: '← Back to create',
+    keepPlayingLong: 'Keep playing (don’t close)',
+    soloVsBots: 'Solo vs bots',
+    playWithFriends: 'Play with friends',
+    subCreate: 'Create a room',
+    subJoin: 'Have a code? Join',
+    learnSessionShort: 'Learning session',
+    learnSessionShortDesc: 'Practice with up to 3 players (and bots). No pressure — learn the game.',
+    waitExtend: 'Wait / extend',
+    continueWithout: 'Continue without them',
+    spectating: 'You are spectating — you rejoin the next match.',
+    closeError: 'Close UI error:',
+    selectLay: 'Select ≥3 cards to lay',
+    cardsCount: 'cards',
+    layLabel: 'Lay:',
+    shedLabel: 'Shed:',
+    tutorialContinue: 'Continue',
+    tutorialTitle: 'Tutorial',
+    createRoomTitle: 'Create a room',
+    joinRoomTitle: 'Have a code? Join',
+    privateDialogueYes: 'Yes',
+    privateDialogueNo: 'No',
+    startGameShort: 'Start game',
+    joinRoomShort: 'Join room',
+    backToCreateShort: '← Back to create',
+    lobbyPlayersLabel: 'Players here',
+    lobbyMatchesLabel: 'Active matches',
+    matchesCount: '({n})',
+    nextMatch: 'Next ▶',
+    send: 'Send',
+    roomChatLabel: 'Room chat',
+    quickNotePlaceholder: 'Quick note to the table…',
+    stockLabel: 'Stock',
+    discardLabel: 'Discard',
+    drawStockLabel: 'Draw from stock',
+    drawDiscardLabel: 'Draw from discard',
+    yourHandLabel: 'Your hand',
+    deadwoodLabel: 'deadwood',
+    yourTurnDraw: 'Your turn — Draw',
+    yourTurnDiscard: 'Your turn — Discard',
+    waitingFor: 'Waiting for {name}…',
+    phaseDraw: 'Draw',
+    phaseDiscard: 'Discard',
+    matchStartsIn: 'Match starts in {s}s…',
+    waitingForMatch: 'Waiting for the match to start…',
+    enterRoomCodeMsg: 'Enter the room code.',
+    createRoomError: 'Could not create the room. Try again.',
+    shareCodeNote: 'Share this code with the other players however you like.',
+    playersJoined: 'Players joined:',
+    joinCodePlaceholder: 'ABCD',
   },
   es: {
     title: 'CHINCHON',
@@ -235,6 +287,18 @@ const I18N = {
     waitingFor: 'Esperando a {name}…',
     phaseDraw: 'Roba',
     phaseDiscard: 'Descarta',
+    matchStartsIn: 'La partida empieza en {s}s…',
+    waitingForMatch: 'Esperando a que empiece la partida…',
+    enterRoomCodeMsg: 'Introduce el código de sala.',
+    createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
+    // EN mirror strings
+    waitingForEn: 'Waiting for {name}…',
+    phaseDrawEn: 'Draw',
+    phaseDiscardEn: 'Discard',
+    matchStartsInEn: 'Match starts in {s}s…',
+    waitingForMatchEn: 'Waiting for the match to start…',
+    enterRoomCodeMsgEn: 'Enter the room code.',
+    createRoomErrorEn: 'Could not create the room. Try again.',
   },
 };
 
@@ -331,42 +395,14 @@ function applyLang() {
   document.documentElement.lang = lang;
   $('title').textContent = t('title');
   document.title = t('title');
-  // (tab-multi / tab-solo / sub-create / sub-join were removed in the lobby rework)
-  const createH = $('create-h'); if (createH) createH.textContent = t('createRoom');
-  const joinH = $('join-h'); if (joinH) joinH.textContent = t('joinRoom');
-  const backToCreate = $('back-to-create'); if (backToCreate) backToCreate.textContent = t('backToCreate');
-  // (host-name / btn-create / btn-start / solo-* were removed in the lobby rework)
-  $('join-code').placeholder = 'ABCD';
-  const joinBtn = $('btn-join'); if (joinBtn) joinBtn.textContent = t('joinRoom');
-  const createPublic = $('btn-create-public'); if (createPublic) createPublic.textContent = t('createPublic');
-  const createPrivate = $('btn-create-private'); if (createPrivate) createPrivate.textContent = t('createPrivate');
-  const pdQ1 = $('pd-q1'); if (pdQ1) pdQ1.textContent = t('playWithBots');
-  const pdQ2 = $('pd-q2'); if (pdQ2) pdQ2.textContent = t('howManyBots');
-  $('btn-rematch').textContent = t('rematch');
-  $('btn-tolobby').textContent = t('toLobby');
-  // In-game static labels (the ones not rebuilt on every render()).
-  const lblStock = $('lbl-stock'); if (lblStock) lblStock.textContent = t('stock');
-  const lblDiscard = $('lbl-discard'); if (lblDiscard) lblDiscard.textContent = t('discard');
-  const yourHandH2 = $('your-hand-h2'); if (yourHandH2) yourHandH2.firstChild.textContent = t('yourHand') + ' ';
-  const btnStock = $('btn-draw-stock'); if (btnStock) btnStock.textContent = t('drawStock');
-  const btnDiscard = $('btn-draw-discard'); if (btnDiscard) btnDiscard.textContent = t('drawDiscard');
-  const roomChat = document.querySelector('#chat .chat-head span'); if (roomChat) roomChat.textContent = t('roomChat');
-  const chatInput = $('chat-input'); if (chatInput) chatInput.placeholder = t('quickNote');
-  const reshuffle = $('reshuffle-note'); if (reshuffle) reshuffle.textContent = t('reshuffle');
-  // Lobby (global landing) strings — previously hardcoded English.
-  const lobbyTitle = $('lobby-title'); if (lobbyTitle) lobbyTitle.textContent = t('lobbyTitle');
-  const playersLabel = $('lobby-players-label'); if (playersLabel) playersLabel.textContent = t('playersHere');
-  const matchesLabel = $('lobby-matches-label'); if (matchesLabel) matchesLabel.textContent = t('activeMatches');
-  const chatLabel = $('lobby-chat-label'); if (chatLabel) chatLabel.textContent = t('generalChat');
-  const langLabel = $('lang-label'); if (langLabel) langLabel.textContent = t('language');
-  const noMatches = $('no-matches'); if (noMatches) noMatches.textContent = t('noMatches');
-  const lobbyChatInput = $('lobby-chat-input'); if (lobbyChatInput) lobbyChatInput.placeholder = t('saySomething');
-  const enterBtn = $('btn-lobby-enter'); if (enterBtn) enterBtn.textContent = t('enterLobby');
-  const leaveBtn = $('btn-leave-lobby'); if (leaveBtn) leaveBtn.textContent = t('leaveLobby');
-  const goCreate = $('btn-go-create'); if (goCreate) goCreate.textContent = t('createRoom');
-  const goJoin = $('btn-go-join'); if (goJoin) goJoin.textContent = t('joinRoom');
-  const backLobby = $('btn-back-lobby'); if (backLobby) backLobby.textContent = t('backToLobby');
-  const leaveMatch = $('btn-leave-match'); if (leaveMatch) leaveMatch.textContent = t('leaveMatch');
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.dataset.i18n;
+    if (key) el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.dataset.i18nPlaceholder;
+    if (key) el.placeholder = t(key);
+  });
   // Re-render game if we're already in it (so labels update live).
   if (state.view) render();
 }
@@ -409,7 +445,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json()).catch(() => null);
-  if (!res || !res.code) { $('pd-summary').textContent = 'Could not create the room. Try again.'; return; }
+  if (!res || !res.code) { $('pd-summary').textContent = t('createRoomError'); return; }
   state.code = res.code;
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
@@ -723,7 +759,7 @@ function render() {
     const avatar = o.botEmoji
       ? `<span class="bot-avatar" style="background:${o.botColor || '#7c4dff'}">${o.botEmoji}</span>`
       : '';
-    el.innerHTML = `<div class="name">${avatar}${o.name}</div><div class="count">${o.handCount} cards${o.out ? ' · ' + t('out') : ''}</div>`;
+    el.innerHTML = `<div class="name">${avatar}${o.name}</div><div class="count">${o.handCount} ${t('cardsCount')}${o.out ? ' · ' + t('out') : ''}</div>`;
     oppWrap.appendChild(el);
   }
 
@@ -904,7 +940,7 @@ function render() {
       const e = document.createElement('div');
       e.className = 'close-prompt';
       e.style.color = '#ff6b6b';
-      e.textContent = 'Close UI error: ' + (err && err.message ? err.message : err);
+      e.textContent = t('closeError') + ' ' + (err && err.message ? err.message : err);
       co.appendChild(e);
       console.error('close-options render error', err);
     }

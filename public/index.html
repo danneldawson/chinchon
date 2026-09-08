@@ -14,18 +14,18 @@
 
       <div id="lobby-enter" class="lobby-enter">
         <div class="lang-row">
-          <span class="dim" id="lang-label">Language:</span>
+          <span class="dim" id="lang-label" data-i18n="language">Language:</span>
           <button class="lang-btn active" data-lang="en">English</button>
           <button class="lang-btn" data-lang="es">Español</button>
         </div>
-        <input id="lobby-name" type="text" placeholder="Your name" maxlength="24" />
-        <button id="btn-lobby-enter" class="primary arrow-btn">Enter lobby →</button>
+        <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" maxlength="24" />
+        <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
         <p id="lobby-msg" class="msg"></p>
       </div>
 
       <div id="lobby-main" class="hidden">
         <div class="lobby-header">
-          <h1 id="lobby-title">LOBBY</h1>
+          <h1 id="lobby-title" data-i18n="lobbyTitle">LOBBY</h1>
           <div class="header-actions">
             <button id="btn-rules-top" class="top-pill" title="How to play">ⓘ Rules</button>
             <button id="btn-leave-lobby" class="top-pill danger-pill" title="Leave the lobby">Leave</button>
@@ -33,30 +33,30 @@
         </div>
 
         <section class="lobby-panel">
-          <h3><span id="lobby-players-label">Players here</span> (<span id="lobby-total">0</span>)</h3>
+          <h3><span id="lobby-players-label" data-i18n="playersHere">Players here</span> (<span id="lobby-total">0</span>)</h3>
           <ul id="lobby-members" class="members"></ul>
           <div class="lobby-actions">
-            <button id="btn-go-create" class="primary">Create room</button>
-            <button id="btn-go-join" class="primary">Join room</button>
-            <button id="btn-gameplay" class="info">Play solo</button>
+            <button id="btn-go-create" class="primary" data-i18n="createRoom">Create room</button>
+            <button id="btn-go-join" class="primary" data-i18n="joinRoom">Join room</button>
+            <button id="btn-gameplay" class="info" data-i18n="soloVsBots">Play solo</button>
           </div>
         </section>
 
         <section class="lobby-panel">
-          <h3><span id="lobby-matches-label">Active matches</span> <span class="dim" id="matches-count"></span></h3>
+          <h3><span id="lobby-matches-label" data-i18n="activeMatches">Active matches</span> <span class="dim" id="matches-count"></span></h3>
           <div id="matches-board" class="matches-board hidden">
             <div id="match-card" class="match-card"></div>
-            <button id="btn-match-next" class="small">Next ▶</button>
+            <button id="btn-match-next" class="small" data-i18n="nextMatch">Next ▶</button>
           </div>
-          <p id="no-matches" class="dim">No matches running yet.</p>
+          <p id="no-matches" class="dim" data-i18n="noMatches">No matches running yet.</p>
         </section>
 
         <section class="lobby-panel">
-          <div class="chat-head"><span id="lobby-chat-label">General chat</span></div>
+          <div class="chat-head"><span id="lobby-chat-label" data-i18n="generalChat">General chat</span></div>
           <div id="lobby-chat-log" class="chat-log"></div>
           <div class="chat-send-row">
-            <input id="lobby-chat-input" type="text" placeholder="Say something…" maxlength="160" />
-            <button id="btn-lobby-chat-send" class="small">Send</button>
+            <input id="lobby-chat-input" type="text" data-i18n-placeholder="saySomething" placeholder="Say something…" maxlength="160" />
+            <button id="btn-lobby-chat-send" class="small" data-i18n="send">Send</button>
           </div>
         </section>
       </div>
@@ -65,42 +65,42 @@
     <!-- GAMEPLAY RULES (black full-screen reference, opens from lobby) -->
     <section id="gameplay" class="panel hidden">
       <div class="gameplay-screen">
-        <button id="btn-gameplay-close" class="small">← Back to lobby</button>
-        <h1 id="gameplay-title">How to play Chinchón</h1>
+        <button id="btn-gameplay-close" class="small" data-i18n="backToLobby">← Back to lobby</button>
+        <h1 id="gameplay-title" data-i18n="rulesTitle">How to play Chinchón</h1>
         <div class="lang-toggle">
           <button id="btn-lang-en" class="lang-btn active" data-lang="en">English</button>
           <button id="btn-lang-es" class="lang-btn" data-lang="es">Español</button>
         </div>
         <div id="gameplay-rules" class="gameplay-rules"></div>
-        <button id="btn-gameplay-tutorial" class="primary gameplay-tutorial-btn">Start tutorial match</button>
+        <button id="btn-gameplay-tutorial" class="primary gameplay-tutorial-btn" data-i18n="startGameShort">Start tutorial match</button>
       </div>
     </section>
 
     <!-- ROOM SETUP (create / join) — reached from the lobby -->
     <section id="lobby" class="panel hidden">
-      <button id="btn-back-lobby" class="small">← Back to lobby</button>
+      <button id="btn-back-lobby" class="small" data-i18n="backToLobby">← Back to lobby</button>
 
       <!-- CREATE -->
       <div id="create-pane" class="pane">
-        <h3 id="create-h">Create a room</h3>
+        <h3 id="create-h" data-i18n="createRoom">Create a room</h3>
 
         <div id="create-choices">
-          <button id="btn-create-public" class="primary">Create public room</button>
-          <button id="btn-create-private" class="primary">Create private room</button>
+          <button id="btn-create-public" class="primary" data-i18n="createPublic">Create public room</button>
+          <button id="btn-create-private" class="primary" data-i18n="createPrivate">Create private room</button>
         </div>
 
         <!-- Private room dialogue (shown after picking Private) -->
         <div id="private-dialogue" class="hidden">
-          <p id="pd-q1" class="dialogue-q">Play with bots?</p>
+          <p id="pd-q1" class="dialogue-q" data-i18n="playWithBots">Play with bots?</p>
           <div class="dialogue-answers">
-            <button class="pd-answer" data-ans="bots-yes">Yes</button>
-            <button class="pd-answer" data-ans="bots-no">No</button>
+            <button class="pd-answer" data-ans="bots-yes" data-i18n="privateDialogueYes">Yes</button>
+            <button class="pd-answer" data-ans="bots-no" data-i18n="privateDialogueNo">No</button>
           </div>
 
           <div id="pd-bots-count" class="hidden">
-            <p id="pd-q2" class="dialogue-q">How many bots? (2–6)</p>
+            <p id="pd-q2" class="dialogue-q" data-i18n="howManyBots">How many bots? (2–6)</p>
             <input id="pd-bots-input" type="number" min="2" max="6" value="2" />
-            <button id="pd-bots-go" class="primary">Start game</button>
+            <button id="pd-bots-go" class="primary" data-i18n="startGameShort">Start game</button>
           </div>
 
           <p id="pd-summary" class="msg"></p>
@@ -109,28 +109,28 @@
 
       <!-- JOIN -->
       <div id="join-pane" class="pane hidden">
-        <h3 id="join-h">Have a code? Join</h3>
+        <h3 id="join-h" data-i18n="joinRoom">Have a code? Join</h3>
         <label>Room code
-          <input id="join-code" type="text" placeholder="ABCD" maxlength="4" />
+          <input id="join-code" type="text" data-i18n-placeholder="joinCodePlaceholder" placeholder="ABCD" maxlength="4" />
         </label>
-        <button id="btn-join" class="primary">Join room</button>
+        <button id="btn-join" class="primary" data-i18n="joinRoomShort">Join room</button>
         <p id="join-msg" class="msg"></p>
-        <button id="back-to-create" class="sub-tab-link">← Back to create</button>
+        <button id="back-to-create" class="sub-tab-link" data-i18n="backToCreate">← Back to create</button>
       </div>
 
       <!-- WAITING VIEW: shown for the host (after create) and any joiner,
            once a room exists. Must be a sibling of the panes (not nested in
            #create-pane) so it's visible regardless of which pane is active. -->
       <div id="room-info" class="hidden">
-        <p>Room code: <span id="room-code" class="code"></span></p>
-        <p class="dim">Share this code with the other players however you like.</p>
+        <p data-i18n="roomCode">Room code: <span id="room-code" class="code"></span></p>
+        <p class="dim" data-i18n="shareCodeNote">Share this code with the other players however you like.</p>
         <p id="room-waiting" class="dim"></p>
-        <p>Players joined:</p>
+        <p data-i18n="playersJoined">Players joined:</p>
         <ul id="lobby-players"></ul>
       </div>
 
       <div class="lobby-actions" style="margin-top:14px">
-        <button id="btn-go-join-2" class="small">Join a room instead</button>
+        <button id="btn-go-join-2" class="small" data-i18n="joinRoomShort">Join a room instead</button>
       </div>
     </section>
 
@@ -139,7 +139,7 @@
       <header id="board-top">
         <div class="board-top-row">
           <div id="room-code-tag" class="dim"></div>
-          <button id="btn-leave-match" class="small danger">Leave match</button>
+          <button id="btn-leave-match" class="small danger" data-i18n="leaveMatch">Leave match</button>
           <div id="phase-pill" class="hidden"></div>
           <div id="scoreboard"></div>
         </div>
@@ -156,16 +156,16 @@
             <div class="card-back"></div>
             <div class="card-back top"></div>
           </div>
-          <div class="pile-label" id="lbl-stock">Stock</div>
+          <div class="pile-label" id="lbl-stock" data-i18n="stock">Stock</div>
           <div id="stock-count" class="stock-count">?</div>
         </div>
         <div id="discard" class="pile pile-discard" title="Tap to take the top discard">
-          <div class="pile-label" id="lbl-discard">Discard</div>
+          <div class="pile-label" id="lbl-discard" data-i18n="discard">Discard</div>
           <div id="discard-top">—</div>
         </div>
       </div>
 
-      <div id="reshuffle-note" class="banner info hidden">Stock reshuffled</div>
+      <div id="reshuffle-note" class="banner info hidden" data-i18n="reshuffle">Stock reshuffled</div>
 
       <div id="status-banner" class="hidden"></div>
 
@@ -173,16 +173,16 @@
       <div id="tutorial-rule" class="tutorial-rule hidden">
         <h3 class="tutorial-rule-title"></h3>
         <p class="tutorial-rule-body"></p>
-        <button id="btn-tutorial-continue" class="primary">Continue</button>
+        <button id="btn-tutorial-continue" class="primary" data-i18n="tutorialContinue">Continue</button>
       </div>
 
       <!-- Close/Continue offer: shown on the human's discard turn when a legal
            close exists (incl. chinchon). No card/meld revealed — pure agency. -->
       <div id="close-offer" class="close-offer hidden">
-        <div id="close-offer-text" class="close-offer-text"></div>
+        <div id="close-offer-text" class="close-offer-text" data-i18n="closeOffer">You can close now — Close, or keep playing?</div>
         <div class="close-offer-actions">
-          <button id="btn-close-accept" class="primary">Close</button>
-          <button id="btn-close-continue" class="ghost">Keep playing</button>
+          <button id="btn-close-accept" class="primary" data-i18n="close">Close</button>
+          <button id="btn-close-continue" class="ghost" data-i18n="keepPlaying">Keep playing</button>
         </div>
       </div>
 
@@ -209,8 +209,8 @@
       </div>
 
       <div id="controls">
-        <button id="btn-draw-stock" class="primary hidden">Draw from stock</button>
-        <button id="btn-draw-discard" class="primary hidden">Draw from discard</button>
+        <button id="btn-draw-stock" class="primary hidden" data-i18n="drawStock">Draw from stock</button>
+        <button id="btn-draw-discard" class="primary hidden" data-i18n="drawDiscard">Draw from discard</button>
         <div id="close-options"></div>
       </div>
 
@@ -219,11 +219,11 @@
       <!-- Per-room chat: short gameplay notes, last 10 messages, cleared on rematch -->
       <div id="chat" class="hidden">
         <div class="chat-head">
-          <span>Room chat</span>
-          <button id="btn-chat-send" class="small primary">Send</button>
+          <span data-i18n="roomChat">Room chat</span>
+          <button id="btn-chat-send" class="small primary" data-i18n="send">Send</button>
         </div>
         <div id="chat-log"></div>
-        <input id="chat-input" type="text" maxlength="160" placeholder="Quick note to the table…" />
+        <input id="chat-input" type="text" maxlength="160" data-i18n-placeholder="quickNote" placeholder="Quick note to the table…" />
       </div>
 
       <!-- Game over (Slice 3): winner + eliminations + play again -->
