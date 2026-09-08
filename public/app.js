@@ -231,6 +231,9 @@ const I18N = {
     language: 'Idioma:',
     learnSession: 'Sesión de aprendizaje',
     learnSessionDesc: 'Practica con hasta 3 jugadores (y bots). Sin presión — aprende el juego.',
+    rules: 'Reglas',
+    leave: 'Salir',
+    createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
     // Additional UI strings missing from ES
     rulesTitle: 'Cómo jugar',
     backToCreate: '← Volver a crear',
