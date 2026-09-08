@@ -544,11 +544,22 @@ function render() {
     })
     .join('');
 
-  // Turn banner
+  // Turn banner: include phase context so players know what to do next.
   if (v.gameOver) {
     $('turn-banner').textContent = `🏆 ${v.winner} ${t('gameOver')}`;
+  } else if (v.isYourTurn) {
+    const phaseLabel = phase === 'draw'
+      ? (lang === 'es' ? '— Roba' : '— Draw')
+      : phase === 'discard'
+        ? (lang === 'es' ? '— Descarta' : '— Discard')
+        : '';
+    $('turn-banner').textContent = `${t('yourTurn')} ${phaseLabel}`.trim();
   } else {
-    $('turn-banner').textContent = v.isYourTurn ? t('yourTurn') : t('waiting');
+    const wattee = v.waiting && v.waiting.name ? v.waiting.name : '';
+    const text = wattee
+      ? (lang === 'es' ? `Esperando a ${wattee}…` : `Waiting for ${wattee}…`)
+      : t('waiting');
+    $('turn-banner').textContent = text;
   }
 
   // Connection / waiting / spectator banner
@@ -625,6 +636,25 @@ function render() {
   } else {
     go.classList.add('hidden');
     _animState.gameover = false;
+  }
+
+  // Phase pill: tiny live indicator for the current turn phase.
+  const pill = $('phase-pill');
+  if (!pill) {
+    _animState.phasePill = null;
+  } else if (v.isYourTurn && !v.gameOver) {
+    const cls = phase === 'discard' ? 'discard' : 'draw';
+    const text = lang === 'es'
+      ? (phase === 'discard' ? 'Descarta' : 'Roba')
+      : phase;
+    pill.textContent = text;
+    pill.className = `phase-pill visible ${cls}`;
+    _animState.phasePill = cls;
+  } else if (!v.isYourTurn || v.gameOver) {
+    if (_animState.phasePill) {
+      pill.className = 'hidden';
+      _animState.phasePill = null;
+    }
   }
 
   // Opponents (face-down counts only)

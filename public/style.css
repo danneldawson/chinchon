@@ -332,12 +332,12 @@ button, .card, .pile, input { touch-action: manipulation; }
   .stock-count { font-size: 1.6em; }
 
   /* Hand: one swipeable row so all 8 cards stay big and tappable (no ugly wrap). */
-  #hand { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  #hand { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; gap: 8px; }
   #hand .card { flex: 0 0 auto; }
-  .card { width: 60px; height: 88px; }
-  .card .rank { font-size: 1.8em; }
-  .card .emblem { width: 28px; height: 28px; }
-  .hand-sep { font-size: 1.3em; }
+  .card { width: 66px; height: 96px; }
+  .card .rank { font-size: 2em; }
+  .card .emblem { width: 32px; height: 32px; }
+  .hand-sep { font-size: 1.4em; padding: 0 1px; }
 
   /* Opponents + scoreboard stack and shrink. */
   #opponents { gap: 8px; }
@@ -462,8 +462,27 @@ button, .card, .pile, input { touch-action: manipulation; }
   #room-info .code { font-weight: 800; letter-spacing: 2px; color: var(--accent); font-size: 1.2em; }
   #room-waiting { margin: 6px 0; color: var(--dim); }
   .lobby-actions .small { margin-top: 0; }
-  /* Room code tiny so it doesn't crowd the top. */
-  #room-code-tag { font-size: 0.78em; }
+  /* Phase pill: small colored indicator of current turn phase. */
+  #phase-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--dim);
+  }
+  #phase-pill.draw { color: var(--accent); border-color: rgba(255,207,77,0.4); }
+  #phase-pill.discard { color: #ff8a8a; border-color: rgba(255,138,138,0.4); }
+  @media (max-width: 640px) {
+    #phase-pill { font-size: 0.72em; padding: 2px 8px; }
+  }
 }
 
 /* Gameplay overlay language toggle (EN / ES). */
