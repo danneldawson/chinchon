@@ -521,6 +521,8 @@ $('btn-join').onclick = async () => {
   if (st && st.started) { enterGame(); return; }
   // Show the room-info waiting view and watch.
   $('room-code').textContent = code;
+  const seatEl = $('room-seatid');
+  if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   $('room-info').classList.remove('hidden');
   // Wire the host start button once — it persists across polls (watchRoom only
   // toggles .hidden each tick).
@@ -673,8 +675,8 @@ function render() {
       // Kick is only offered in all-human games (no bots present), and only
       // to the host. Bots (solo/tutorial) manage themselves — no kick option.
       const anyBots = v.scoreboard.some((p) => p.isBot);
-      const kick = (v.isHost && !anyBots && p.seat && p.seat !== state.seatId)
-        ? ` <button class="kick" data-kick="${p.seat}" title="Kick to lobby">✕</button>`
+      const kick = (v.isHost && !anyBots && p.kickSeatId && p.kickSeatId !== state.seatId)
+        ? ` <button class="kick" data-kick="${p.kickSeatId}" title="Kick to lobby">✕</button>`
         : '';
       return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
     })
