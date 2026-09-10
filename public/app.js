@@ -1359,13 +1359,20 @@ let lobbyTimer = null;
 let lobbyChatSeen = 0;
 let matchIdx = 0;
 
+let enteringLobby = false;
+
 async function enterLobby() {
+  if (enteringLobby) return;
+  enteringLobby = true;
   const name = $('lobby-name').value.trim();
-  if (!name) { $('lobby-name').focus(); return; }
+  if (!name) { $('lobby-name').focus(); enteringLobby = false; return; }
+  $('btn-lobby-enter').disabled = true;
   const res = await fetch('/api/lobby/enter', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   }).then((r) => r.json()).catch(() => null);
+  $('btn-lobby-enter').disabled = false;
+  enteringLobby = false;
   if (!res || res.error) {
     $('lobby-msg').textContent = res && res.error === 'name reserved'
       ? 'That name is reserved — pick another.'
