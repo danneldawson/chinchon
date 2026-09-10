@@ -148,6 +148,13 @@ const I18N = {
     waitingForMatch: 'Waiting for the match to start…',
     enterRoomCodeMsg: 'Enter the room code.',
     createRoomError: 'Could not create the room. Try again.',
+    // Reclaim-flow strings (room code + SeatID rejoin mid-game)
+    rejoinYourSeat: 'Rejoin your seat',
+    rejoinHint: 'Only works while your game is running.',
+    rejoinSuccess: 'Rejoined. Back in your seat.',
+    rejoinFailed: 'Rejoin failed',
+    seatReconnectedMsg: 'This seat was reconnected from another device.',
+    makeANewGame: 'Make a new game',
     shareCodeNote: 'Share this code with the other players however you like.',
     playersJoined: 'Players joined:',
     joinCodePlaceholder: 'ABCD',
@@ -296,6 +303,13 @@ const I18N = {
     waitingForMatch: 'Esperando a que empiece la partida…',
     enterRoomCodeMsg: 'Introduce el código de sala.',
     createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
+    // Reclaim-flow strings
+    rejoinYourSeat: 'Reconectar tu asiento',
+    rejoinHint: 'Solo funciona mientras tu partida está en curso.',
+    rejoinSuccess: 'Reconectado. Vuelves a tu asiento.',
+    rejoinFailed: 'Error al reconectar',
+    seatReconnectedMsg: 'Este asiento se reconectó desde otro dispositivo.',
+    makeANewGame: 'Crear una partida nueva',
     // EN mirror strings
     waitingForEn: 'Waiting for {name}…',
     phaseDrawEn: 'Draw',
@@ -304,6 +318,13 @@ const I18N = {
     waitingForMatchEn: 'Waiting for the match to start…',
     enterRoomCodeMsgEn: 'Enter the room code.',
     createRoomErrorEn: 'Could not create the room. Try again.',
+    // Reclaim-flow strings
+    rejoinYourSeat: 'Rejoin your seat',
+    rejoinHint: 'Only works while your game is running.',
+    rejoinSuccess: 'Rejoined. Back in your seat.',
+    rejoinFailed: 'Rejoin failed',
+    seatReconnectedMsg: 'This seat was reconnected from another device.',
+    makeANewGame: 'Make a new game',
   },
 };
 
@@ -342,15 +363,16 @@ const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key];
 const state = {
   code: null,
   seatId: null,
-  view: null,    // last serialized state
+  view: null,
   pollTimer: null,
-  chosenSplit: null, // index into view.closeOptions when the player picks a meld set
-  selected: new Set(), // card ids selected in the lay-off hand
-  handOrder: [],  // card ids in the player's preferred display order (reorderable)
-  swapPick: null, // card id currently "picked up" for swapping during reorder
-  chatSeen: 0,    // how many chat messages already rendered (append-only)
+  chosenSplit: null,
+  selected: new Set(),
+  handOrder: [],
+  swapPick: null,
+  chatSeen: 0,
   lobbyToken: null,
   lobbyName: null,
+  sessionToken: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -539,6 +561,13 @@ async function poll() {
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
   if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.seat === state.seatId))) {
     goToLobby();
+    return;
+  }
+  // Session-token rotation: if the server returned a different token for this seat,
+  // another device reclaimed it — hard-disconnect this client.
+  if (res.sessionToken && res.sessionToken !== state.sessionToken) {
+    state.sessionToken = res.sessionToken;
+    showDisplaced();
     return;
   }
   state.view = res;
@@ -1488,36 +1517,33 @@ function escapeHtml(s) {
 $('btn-lobby-enter').onclick = enterLobby;
 $('lobby-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') enterLobby(); });
 $('btn-rejoin').onclick = async () => {
+  const codeInput = $('rejoin-code');
   const seatInput = $('rejoin-seatid');
   const msg = $('rejoin-msg');
+  const code = (codeInput && codeInput.value || '').trim().toUpperCase();
   const seatId = (seatInput && seatInput.value || '').trim().slice(0, 64);
-  if (!seatId) { if (msg) msg.textContent = 'Enter a SeatID'; return; }
+  if (!code || !seatId) { if (msg) msg.textContent = t('rejoinFailed'); return; }
   if (msg) msg.textContent = '';
   try {
-    const lookup = await fetch(`/api/room/by-seat?seat=${encodeURIComponent(seatId)}`).then((r) => r.json()).catch(() => null);
-    if (!lookup || !lookup.code) { if (msg) msg.textContent = 'SeatID not found'; return; }
-    const res = await fetch('/api/room/join', {
+    const res = await fetch('/api/room/rejoin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: lookup.code, name: lookup.name || 'Player', seatId: lookup.seatId }),
+      body: JSON.stringify({ code, seatId }),
     }).then((r) => r.json());
-    if (res.error) { if (msg) msg.textContent = res.error; return; }
-    state.code = lookup.code;
-    state.seatId = res.seatId;
-    persistSeat(lookup.code, res.seatId);
+    if (!res || !res.success) { if (msg) msg.textContent = t('rejoinFailed'); return; }
+    state.code = code;
+    state.seatId = seatId;
+    state.sessionToken = res.token;
+    persistSeat(code, seatId);
     clearInterval(lobbyTimer);
-    if (lookup.started) {
-      enterGame();
-    } else {
-      show($('lobby'));
-      showJoinPane();
-      $('room-code').textContent = lookup.code;
-      $('room-info').classList.remove('hidden');
-      watchRoom();
-      state.pollTimer = setInterval(watchRoom, 1500);
-    }
+    show($('globby'));
+    $('lobby-main').classList.add('hidden');
+    $('lobby-enter').classList.add('hidden');
+    show($('game'));
+    $('game').classList.remove('hidden');
+    enterGame();
   } catch (e) {
-    if (msg) msg.textContent = 'Rejoin failed';
+    if (msg) msg.textContent = t('rejoinFailed');
   }
 };
 $('rejoin-seatid').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-rejoin').click(); });
@@ -1564,12 +1590,36 @@ function goToLobby() {
   clearInterval(state.pollTimer);
   state.code = null;
   state.seatId = null;
+  state.sessionToken = null;
   show($('globby'));
   $('lobby-main').classList.remove('hidden');
   $('lobby-enter').classList.add('hidden');
   lobbyPoll();
   clearInterval(lobbyTimer);
   lobbyTimer = setInterval(lobbyPoll, 2000);
+}
+
+// Hard-disconnect: another device reclaimed this seat mid-game. Stop polling
+// the game and show a one-screen displaced view with a "make a new game" action.
+function showDisplaced() {
+  clearInterval(state.pollTimer);
+  state.code = null;
+  state.seatId = null;
+  state.sessionToken = null;
+  show($('displaced-panel'));
+  $('displaced-msg').textContent = t('seatReconnectedMsg');
+  $('displaced-new-game').onclick = () => {
+    hide($('displaced-panel'));
+    clearLobby();
+    $('lobby-name').value = '';
+    $('lobby-name').focus();
+    show($('globby'));
+    $('lobby-main').classList.remove('hidden');
+    $('lobby-enter').classList.remove('hidden');
+    lobbyPoll();
+    clearInterval(lobbyTimer);
+    lobbyTimer = setInterval(lobbyPoll, 2000);
+  };
 }
 $('btn-back-lobby').onclick = goToLobby;
 

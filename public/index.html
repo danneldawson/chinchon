@@ -21,9 +21,11 @@
         <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" minlength="4" maxlength="14" />
         <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
         <div id="rejoin-row" class="rejoin-row">
-          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="3" inputmode="numeric" pattern="\d{3}" />
-          <button id="btn-rejoin" class="primary small">Rejoin</button>
+          <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
+          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="64" />
+          <button id="btn-rejoin" class="primary small">Rejoin your seat</button>
           <p id="rejoin-msg" class="msg"></p>
+          <p id="rejoin-hint" class="dim">Only works while your game is running.</p>
         </div>
         <p id="lobby-msg" class="msg"></p>
       </div>
@@ -241,6 +243,17 @@
             <button id="btn-rematch" class="primary"></button>
             <button id="btn-hold" class="small hidden"></button>
             <button id="btn-tolobby" class="small"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Displaced: another device reclaimed this seat mid-game. -->
+      <div id="displaced-panel" class="hidden">
+        <div class="go-card">
+          <h2 id="displaced-title">Seat reconnected</h2>
+          <p id="displaced-msg" class="go-winner"></p>
+          <div id="displaced-actions" class="go-actions">
+            <button id="displaced-new-game" class="primary" data-i18n="makeANewGame">Make a new game</button>
           </div>
         </div>
       </div>

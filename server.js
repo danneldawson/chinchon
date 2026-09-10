@@ -234,10 +234,10 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   if (mode === 'solo') {
     // Solo = human + exactly 2 random family bots. Always starts immediately.
     const nBots = 2;
-    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null });
+    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSeatId() });
     const fam = pickFamilyBots(nBots);
     fam.forEach((fb, i) => {
-      players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb });
+      players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb, sessionToken: null });
     });
     const host = players[0];
     const match = matchMod.createMatch(players.map((p) => p.name));
@@ -248,7 +248,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   }
 
   // Multi: host only, waits for countdown. Bots are never auto-added here.
-  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null };
+  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSeatId() };
   players.push(host);
 
   let pending = null;
@@ -685,6 +685,7 @@ function serialize(room, seatId) {
     }),
     chat: room.chat || [],
     aloneNotice: !!room.aloneNotice,
+    sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
   };
 }
 
@@ -894,7 +895,7 @@ function handleApi(req, res, url) {
       if (humans >= humanCap) return sendJson(res, 400, { error: `room full (${humanCap} humans)` });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null, sessionToken: newSeatId() });
       return sendJson(res, 200, { seatId: id });
     });
   }
@@ -978,9 +979,9 @@ function handleApi(req, res, url) {
       if (room.players.filter((pl) => !pl.isBot).length >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now() });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), sessionToken: newSeatId() });
       lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`);
-      return sendJson(res, 200, { seatId: id, code: room.code });
+      return sendJson(res, 200, { seatId: id, code: room.code, sessionToken: id });
     });
   }
 
@@ -1024,6 +1025,30 @@ function handleApi(req, res, url) {
     }
     if (room.hostId === leaving.id) room.hostId = room.players[0] ? room.players[0].id : null;
     return { ok: true, remaining: room.players.length };
+  }
+
+  // Reclaim your own seat mid-game by presenting your room code together with
+  // your SeatID. This is the only way to replace a displaced client during a
+  // running game. Returns { success: true, token } on success, { success: false }
+  // on any failure — no other messages (binary contract). Rejoin is allowed only
+  // while the game is running and the seat is an active (non-bot, non-spectator)
+  // player in that exact room. A successful rejoin rotates the seat's sessionToken,
+  // which causes the displaced client's next poll to detect the takeover.
+  if (method === 'POST' && p === '/api/room/rejoin') {
+    return readBody(req).then((body) => {
+      const code = String(body.code || '').trim().toUpperCase();
+      const seatId = String(body.seatId || '').trim().slice(0, 64);
+      if (!code || !seatId) return sendJson(res, 200, { success: false });
+      const room = rooms.get(code);
+      if (!room) return sendJson(res, 200, { success: false });
+      if (!room.started) return sendJson(res, 200, { success: false });
+      const seat = room.players.find((pl) => pl.id === seatId);
+      if (!seat || seat.isBot || seat.spectator) return sendJson(res, 200, { success: false });
+      if (room.match && room.match.gameOver) return sendJson(res, 200, { success: false });
+      // Rotate the session token — the displaced client detects it on the next poll.
+      seat.sessionToken = newSeatId();
+      return sendJson(res, 200, { success: true, token: seat.sessionToken });
+    });
   }
 
   // A player leaves the room. Allowed any time.
