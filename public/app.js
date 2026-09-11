@@ -475,18 +475,20 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   state.code = res.code;
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
-  if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
+  // Always surface the room code and the waiting panel, even if the server
+  // response shape is unexpected — the player must see WHAT was created.
   $('room-code').textContent = res.code;
-  const seatEl = $('room-seatid');
-  if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   $('room-info').classList.remove('hidden');
   $('create-choices').classList.add('hidden');
+  if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
+  const seatEl = $('room-seatid');
+  if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   if (res.pending) {
     const secs = res.pending.secondsLeft;
     $('room-waiting').textContent = secs != null
       ? t('matchStartsIn').replace('{s}', String(secs))
       : t('waitingForMatch');
-    watchRoom();
+    watchRoom().catch(() => null);
     state.pollTimer = setInterval(watchRoom, 1500);
   } else {
     clearInterval(state.pollTimer);
@@ -496,9 +498,14 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
 
 // Polls a pending room (host or joiner) and transitions into the game once it
 // starts. If a private room expires with no humans, bounces back to the lobby.
+// Errors are swallowed intentionally — the surrounding interval + explicit
+// .catch() at each call site keep the watch alive across transient failures.
 async function watchRoom() {
-  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json()).catch(() => null);
-  if (!res) return;
+  let res;
+  try {
+    res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
+  } catch { return; }
+  if (!res || typeof res !== 'object') return;
   if (res.gone) { goToLobby(); return; }
   if (res.started) { clearInterval(state.pollTimer); enterGame(); return; }
   // Still waiting: list who's in and show the countdown.
@@ -515,7 +522,10 @@ async function watchRoom() {
   const startBtn = $('btn-host-start');
   if (startBtn) {
     const humans = (res.lobby || []).filter((p) => !p.isBot).length;
-    const show = res.isHost && humans >= 2;
+    // Private rooms: host can fire the start even before a second human joins
+    // (the server enforces the 2-player minimum on /api/room/start).
+    const isPrivate = res.visibility === 'private';
+    const show = res.isHost && (humans >= 2 || (isPrivate && humans >= 1));
     startBtn.classList.toggle('hidden', !show);
   }
 }
@@ -562,7 +572,7 @@ $('btn-join').onclick = async () => {
       $('room-waiting').textContent = t('matchStarting');
     };
   }
-  watchRoom();
+  watchRoom().catch(() => null);
   state.pollTimer = setInterval(watchRoom, 1500);
 };
 
@@ -1517,7 +1527,7 @@ async function joinPublicOrRematch(code, isFresh) {
     showJoinPane();
     $('room-code').textContent = code;
     $('room-info').classList.remove('hidden');
-    watchRoom();
+    watchRoom().catch(() => null);
     state.pollTimer = setInterval(watchRoom, 1500);
     return;
   }
