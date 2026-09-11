@@ -1421,8 +1421,7 @@ async function lobbyPoll() {
   ul.innerHTML = '';
   for (const m of res.members) {
     const li = document.createElement('li');
-    const seatLabel = m.lobbyCode ? ` · SeatID ${m.lobbyCode}` : '';
-    li.textContent = (m.name === state.lobbyName ? '★ ' : '') + m.name + seatLabel;
+    li.textContent = (m.name === state.lobbyName ? '★ ' : '') + m.name;
     ul.appendChild(li);
   }
   // Active matches.

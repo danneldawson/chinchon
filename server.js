@@ -107,7 +107,7 @@ function lobbyMatches() {
 
 function lobbyState() {
   return {
-    members: [...lobby.members.values()].map((m) => ({ name: m.name, lobbyCode: m.lobbyCode })),
+    members: [...lobby.members.values()].map((m) => ({ name: m.name })),
     total: lobby.members.size,
     chat: lobby.chat,
     matches: lobbyMatches(),
