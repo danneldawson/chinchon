@@ -375,7 +375,11 @@ const state = {
   sessionToken: null,
 };
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) => {
+  const el = document.getElementById(id);
+  if (!el) return { classList: { add() {}, remove() {}, toggle() {} }, textContent: '', onclick: null };
+  return el;
+};
 
 // Resume token: remember each room's seat on this device so a dropped player
 // can rejoin their SAME seat by reopening the (seat-embedded) link or just the
@@ -443,25 +447,40 @@ document.querySelectorAll('.lang-btn').forEach((b) => {
   };
 });
 
-$('btn-create-public').onclick = () => createRoom('public', 0);
-$('btn-create-private').onclick = () => createRoom('private', 0);
+let creatingRoom = false;
+function createRoomLocked(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
+  if (creatingRoom) return;
+  creatingRoom = true;
+  $('btn-create-public').disabled = true;
+  $('btn-create-private').disabled = true;
+  const status = $('create-status');
+  if (status) status.textContent = 'Creating room…';
+  createRoom(visibility, bots, learning, tutorial, mode).finally(() => {
+    creatingRoom = false;
+    $('btn-create-public').disabled = false;
+    $('btn-create-private').disabled = false;
+  });
+}
+$('btn-create-public').onclick = () => createRoomLocked('public', 0);
+$('btn-create-private').onclick = () => createRoomLocked('private', 0);
 
 async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
+  const status = $('create-status');
   const name = state.lobbyName || 'Host';
   const res = await fetch('/api/room/new', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json()).catch(() => null);
-  if (!res || !res.code) { $('pd-summary').textContent = t('createRoomError'); return; }
+  if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
   state.seatId = res.seatId;
   persistSeat(res.code, res.seatId);
+  if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
   $('room-code').textContent = res.code;
   const seatEl = $('room-seatid');
   if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   $('room-info').classList.remove('hidden');
   $('create-choices').classList.add('hidden');
-  $('private-dialogue').classList.add('hidden');
   if (res.pending) {
     const secs = res.pending.secondsLeft;
     $('room-waiting').textContent = secs != null
