@@ -580,6 +580,7 @@ $('btn-join').onclick = async () => {
 
 async function enterGame() {
   show($('game'));
+  $('room-info').classList.add('hidden');
   state.pollTimer = setInterval(poll, 1200);
   await poll();
 }
