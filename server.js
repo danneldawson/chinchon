@@ -911,7 +911,16 @@ function handleApi(req, res, url) {
       if (room.started) return sendJson(res, 400, { error: 'already started' });
       if (body.seat !== room.hostId) return sendJson(res, 403, { error: 'only the host can start' });
       const humans = room.players.filter((pl) => !pl.isBot);
-      if (humans.length < 2) return sendJson(res, 400, { error: 'need at least 2 players' });
+      // Private rooms: host can start solo with just themselves — auto-fill
+      // 2 random family bots so the match can begin. Public rooms already
+      // fill bots on countdown expiry (startFreshMatch); here the host
+      // explicitly opts in by pressing "Start game".
+      if (humans.length < 2) {
+        const fam = pickFamilyBots(2);
+        fam.forEach((fb, i) => {
+          room.players.push({ id: newSeatId(), name: fb.name, seat: room.players.length, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb, sessionToken: null });
+        });
+      }
       room.started = true;
       room.startedAt = Date.now();
       room.pending = null;
