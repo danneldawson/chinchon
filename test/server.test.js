@@ -334,7 +334,7 @@ test('connected flag: present when polling, false when a seat stops polling', as
   const { json: created } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
   const code = created.code;
   let { json: v1 } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
-  const me = v1.scoreboard.find((p) => p.seat === created.seatId);
+  const me = v1.scoreboard.find((p) => p.name === 'You');
   assert.equal(me.connected, true, 'just-polled seat is connected (green)');
   // Simulate the seat going silent (tab closed): no more polls, lastSeen ages out.
   // Read serialize() directly so we don't re-stamp lastSeen via another poll.
@@ -342,7 +342,7 @@ test('connected flag: present when polling, false when a seat stops polling', as
   const pc = room.players.find((x) => x.id === created.seatId);
   pc.lastSeen = Date.now() - 10 * 60 * 1000; // 10 min ago
   const view = _internals.serialize(room, created.seatId);
-  const me2 = view.scoreboard.find((p) => p.seat === created.seatId);
+  const me2 = view.scoreboard.find((p) => p.name === 'You');
   assert.equal(me2.connected, false, 'stale seat is disconnected (red)');
 });
 
