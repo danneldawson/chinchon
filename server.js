@@ -135,7 +135,6 @@ function pendingView(room) {
     secondsLeft: pending.hold ? null : Math.max(0, Math.ceil((pending.until - Date.now()) / 1000)),
     hold: !!pending.hold,
     hostName: pending.hostName,
-    startedBy: pending.startedBy,
   };
 }
 
@@ -640,10 +639,15 @@ function serialize(room, seatId) {
     tutorialPaused,
     started: room.started,
     gameOver: match.gameOver,
-    pending: room.pending ? pendingView(room) : null,
+    pending: room.pending
+      ? {
+          ...pendingView(room),
+          isStarter: !!viewer && viewer.id === room.pending.startedBy,
+        }
+      : null,
     chinchonWin: !!match.chinchonWinner,
     winner: match.winner !== null ? players[match.winner].name : null,
-    hostId: room.hostId,
+    hostId: null, // never broadcast — isHost below is the only signal clients need
     isHost: !!viewer && viewer.id === room.hostId,
     spectator: !!viewer && !!viewer.spectator,
     waiting: room.waiting

@@ -770,7 +770,7 @@ function render() {
       pendingEl.textContent = v.pending.hold
         ? `HELD BY HOST ${v.pending.hostName} — waiting to start`
         : `New game starts in ${v.pending.secondsLeft}s (room ${v.pending.code})`;
-      const isStarter = v.pending.startedBy === state.seatId;
+      const isStarter = v.pending.isStarter;
       holdBtn.classList.toggle('hidden', !isStarter);
       holdBtn.textContent = v.pending.hold ? t('resume') : t('hold');
     } else {
