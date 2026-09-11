@@ -591,7 +591,9 @@ async function poll() {
   if (!state.code) return;
   const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
-  if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.seat === state.seatId))) {
+  // Match on the player id the server returns in scoreboard entries — not on
+  // p.seat, which the server never sends (the old code assumed it did).
+  if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.id === state.seatId))) {
     goToLobby();
     return;
   }

@@ -676,6 +676,7 @@ function serialize(room, seatId) {
       const pc = players[i];
       const connected = pc.isBot ? true : (Date.now() - (pc.lastSeen || 0) < CONNECTED_MS);
       return {
+        id: pc.id, // client uses this to verify it's still in the game (polls)
         name: p.name,
         total: p.total,
         out: p.out,
