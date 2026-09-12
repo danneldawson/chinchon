@@ -235,6 +235,27 @@ test('two wilds may be used across two SEPARATE melds', () => {
   assert.strictEqual(res.score, 2);
 });
 
+// The family CONFIRMED a single 6-card combination + one low leftover is a legal
+// close (in practice players hold out for a chinchón instead). This is deliberate
+// — do not "fix" it into a two-meld-only rule. canClose agrees because a 6-card
+// meld always also splits 3+3, so the >=2-combinations check never blocks it.
+test('a single 6-card meld + one low leftover is a legal close', () => {
+  const { allCloseSplits } = require('../src/scoring');
+  const hand = [
+    c(2, 'Oros'), c(3, 'Oros'), c(4, 'Oros'),
+    c(5, 'Oros'), c(6, 'Oros'), c(7, 'Oros'), // one 6-card run
+    c(1, 'Copas'),                            // leftover worth 1
+  ];
+  const res = canClose(hand);
+  assert.ok(res.ok, 'the close is legal');
+  assert.strictEqual(res.score, 1);
+
+  const single = allCloseSplits(hand).filter((s) => s.melds.length === 1);
+  assert.strictEqual(single.length, 1, 'the single-meld decomposition is offered');
+  assert.strictEqual(single[0].melds[0].length, 6);
+  assert.strictEqual(single[0].kind, 'leftover');
+});
+
 // ---------------------------------------------------------------- scoring
 
 test('a hand with no melds scores full deadwood', () => {

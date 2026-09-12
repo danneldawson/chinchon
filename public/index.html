@@ -147,6 +147,10 @@
       <div id="opponents"></div>
 
       <div id="center">
+        <!-- Big whose-turn marker over the table: YOUR TURN / WAITING FOR <name>.
+             It is pointer-events:none in CSS so it can never swallow a tap
+             meant for the stock or discard pile underneath it. -->
+        <div id="turn-marker" class="hidden"></div>
         <div id="stock" class="pile pile-stock" title="Tap to draw from stock">
           <div class="stock-stack">
             <div class="card-back"></div>
@@ -212,6 +216,9 @@
           <button id="btn-layoff-auto" class="primary"></button>
           <button id="btn-layoff-ready" class="primary"></button>
           <button id="btn-layoff-suggest" class="small"></button>
+          <!-- "Not yet": ends your turn WITHOUT being counted, so you stay in the
+               rotation and can still shed once others have laid their melds. -->
+          <button id="btn-layoff-pass" class="small"></button>
           <span id="layoff-status" class="msg"></span>
         </div>
       </div>

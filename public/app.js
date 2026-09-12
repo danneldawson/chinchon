@@ -64,6 +64,7 @@ const I18N = {
     auto: 'Auto (lay all + shed)',
     ready: 'Ready — count me',
     waitingLayoff: 'Waiting for others to lay off…',
+    pass: 'Not yet',
     suggest: 'Suggest',
     goTitle: 'Match over',
     goWinner: 'Winner',
@@ -206,6 +207,7 @@ const I18N = {
     auto: 'Auto (poner todo + soltar)',
     ready: 'Listo — contadme',
     waitingLayoff: 'Esperando a los demás…',
+    pass: 'Todavía no',
     suggest: 'Sugerir',
     goTitle: 'Partida terminada',
     goWinner: 'Ganador',
@@ -747,6 +749,9 @@ function render() {
     $('turn-banner').textContent = text;
   }
 
+  // Big whose-turn marker over the table (see renderTurnMarker).
+  renderTurnMarker(v);
+
   // Connection / waiting / spectator banner
   renderStatusBanner(v);
 
@@ -1129,6 +1134,37 @@ function renderChat(v) {
   while (log.children.length > 10) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
 }
+// Seat index -> player name, for the whose-turn marker. `lobby` is
+// players.map(...) on the server, so its index IS the seat.
+function seatName(seat) {
+  const l = state.view && state.view.lobby;
+  if (!l || seat == null || !l[seat]) return '';
+  return l[seat].name || '';
+}
+
+// The big whose-turn marker over the table. It has to keep working through the
+// whole lay-off, where the turn comes from the lay-off ROTATION rather than
+// state.turn — and where the wrap-around turn is the entire point.
+function renderTurnMarker(v) {
+  const el = $('turn-marker');
+  if (!el) return;
+  const lo = v.layoff && v.layoff.phase === 'layoff' ? v.layoff : null;
+  const inMatch = !v.gameOver && !!(lo || v.started);
+  el.classList.toggle('hidden', !inMatch);
+  if (!inMatch) return;
+
+  const mine = lo ? !!lo.isYourTurn : !!v.isYourTurn;
+  el.classList.toggle('mine', mine);
+  if (mine) {
+    el.textContent = t('yourTurn');
+    return;
+  }
+  const name = (lo ? seatName(lo.currentSeat) : (v.waiting && v.waiting.name)) || '';
+  el.textContent = name
+    ? (lang === 'es' ? `Esperando a ${name}…` : `Waiting for ${name}…`)
+    : t('waiting');
+}
+
 // Render the lay-off board. `lo` is the serialized layoff view from the server.
 function renderLayoff(lo) {
   $('layoff-title').textContent = lo.done ? t('gameOver') : t('layoffTitle');
@@ -1169,14 +1205,17 @@ function renderLayoff(lo) {
   const autoBtn = $('btn-layoff-auto');
   const readyBtn = $('btn-layoff-ready');
   const sugBtn = $('btn-layoff-suggest');
+  const passBtn = $('btn-layoff-pass');
   layBtn.textContent = t('laySelected');
   autoBtn.textContent = t('auto');
   readyBtn.textContent = t('ready');
   sugBtn.textContent = t('suggest');
+  passBtn.textContent = t('pass');
   layBtn.classList.toggle('hidden', !myTurn);
   autoBtn.classList.toggle('hidden', !myTurn);
   readyBtn.classList.toggle('hidden', !myTurn);
   sugBtn.classList.toggle('hidden', !myTurn);
+  passBtn.classList.toggle('hidden', !myTurn);
 
   if (lo.done) {
     $('layoff-status').textContent = lo.scores
@@ -1308,6 +1347,8 @@ $('btn-layoff-lay').onclick = () => {
 };
 $('btn-layoff-auto').onclick = () => doLayoffAction('auto', {});
 $('btn-layoff-ready').onclick = () => doLayoffAction('ready', {});
+// "Not yet": stay in the lay-off rotation without being counted.
+$('btn-layoff-pass').onclick = () => doLayoffAction('pass', {});
 $('btn-layoff-suggest').onclick = async () => {
   const res = await fetch(`/api/layoff/suggest?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
   if (res.melds) {

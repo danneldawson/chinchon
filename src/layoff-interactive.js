@@ -80,9 +80,11 @@ function beginLayoff(hands, closerIndex, active = null, chosenMelds = null) {
     remaining: hands.map((h) => [...h]),
     // Closer already placed their melds on the table; their leftover waits.
     placed: hands.map((_, i) => (i === closerIndex ? melds.length : 0)),
-    // Closer goes FIRST in the lay-off (they reveal their game, then everyone
-    // else lays off in turn). Closer already placed their melds; their leftover
-    // waits for their turn in the order.
+    // The rotation STARTS at the closer (their game is already face up) and goes
+    // round the table, WRAPPING, until every active player has declared ready.
+    // The wrap is the closer's last word: the leftover that did not fit when
+    // they laid their game may fit once the others have laid theirs — and a card
+    // they shed can open the way for a player later in the order.
     order: [closerIndex, ...layoffOrder(hands.length, closerIndex, active)],
     turnPointer: 0,
     ready: hands.map(() => false),
@@ -94,7 +96,24 @@ function beginLayoff(hands, closerIndex, active = null, chosenMelds = null) {
 
 function currentPlayer(state) {
   if (state.phase !== 'layoff') return null;
-  return state.order[state.turnPointer];
+  const seat = state.order[state.turnPointer];
+  return seat === undefined ? null : seat;
+}
+
+// Move on to the next player who has NOT declared ready, wrapping around the
+// table. The lay-off only ends when every active player is ready, so the order
+// keeps returning to anyone holding their turn open (see passTurn).
+function advance(state) {
+  const n = state.order.length;
+  for (let step = 1; step <= n; step++) {
+    const i = (state.turnPointer + step) % n;
+    if (!state.ready[state.order[i]]) {
+      state.turnPointer = i;
+      return state.order[i];
+    }
+  }
+  state.phase = 'done';
+  return null;
 }
 
 // Initialise a player's working set the first time they act.
@@ -168,12 +187,18 @@ function declareReady(state) {
     state.scores[p] = stuck.reduce((s, c) => s + cardValue(c), 0);
   }
 
-  state.turnPointer += 1;
-  if (state.turnPointer >= state.order.length) {
-    state.phase = 'done';
-  }
+  advance(state);
 
   return { ok: true, scoredPlayer: p, score: state.scores[p], phase: state.phase };
+}
+
+// End your turn WITHOUT being counted. You stay in the rotation, so a card that
+// does not fit yet may still fit once someone else lays theirs down.
+function passTurn(state) {
+  const p = currentPlayer(state);
+  if (p === null) return { ok: false, reason: 'lay-off is over' };
+  advance(state);
+  return { ok: true, passed: p, phase: state.phase };
 }
 
 // Suggest the best play for a player who does not want to sort it themselves.
@@ -195,9 +220,11 @@ function suggest(state, p) {
 module.exports = {
   beginLayoff,
   currentPlayer,
+  advance,
   layMeld,
   attachCard,
   declareReady,
+  passTurn,
   suggest,
   hasCards,
 };

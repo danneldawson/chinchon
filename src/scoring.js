@@ -139,9 +139,13 @@ function allCloseSplits(hand) {
     out.push({ melds: meldsList.map((m) => [...m]), leftovers: [...leftovers], score, kind });
   };
 
-  // One meld (3..5) + the rest is leftover — only closes if exactly 1 leftover ≤5
-  // or (impossible with one meld of ≤5 from 7) — handled generally below.
-  // Two melds of 3+3, 3+4, 4+3, or 4+4 covering 6 or 7 cards.
+  // Every legal close shape, enumerated below and deduped by meld-set:
+  //   - one meld of 6 + 1 leftover worth <= 5. A single 6-card run or set IS a
+  //     combination in its own right — the family confirmed this is a legal
+  //     close (in practice players hold out for a chinchón instead). Only a
+  //     6-card meld can qualify here: from 7 cards, any shorter meld leaves 2+.
+  //   - two melds: 3+3, 3+4, 4+3 or 4+4 covering all 7 (clean, -10) or 6 with one
+  //     leftover worth <= 5.
   for (let i = 0; i < melds.length; i++) {
     const restAfterFirst = without(hand, melds[i]);
     // single meld closing only possible when it leaves 1 card ≤5 (i.e. 6-card meld)

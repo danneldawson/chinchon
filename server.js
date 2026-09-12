@@ -1331,6 +1331,18 @@ function handleApi(req, res, url) {
     });
   }
 
+  // Pass: end your turn WITHOUT being counted. You stay in the lay-off rotation,
+  // so a card that does not fit yet may still fit once someone else lays theirs.
+  if (method === 'POST' && p === '/api/layoff/pass') {
+    return readBody(req).then((body) => {
+      const g = layoffGuard(body);
+      if (g.error) return g.error;
+      const r = layoffInteractive.passTurn(room.layoff);
+      if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      return afterLayoffAction(g.room, body.seat);
+    });
+  }
+
   // Auto: shed everything the engine can, then declare ready. Convenience for
   // players who don't want to place each meld/attach by hand.
   if (method === 'POST' && p === '/api/layoff/auto') {

@@ -69,7 +69,28 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .opp .name { font-weight: 600; }
 .opp .count { color: var(--dim); font-size: 0.85em; }
 
-#center { display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
+#center { position: relative; display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
+
+/* Big whose-turn marker sitting over the table. pointer-events:none is load
+   bearing: it must never intercept a tap meant for a pile beneath it. */
+#turn-marker {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 6; pointer-events: none; text-align: center; white-space: nowrap;
+  padding: 10px 20px; border-radius: 14px;
+  background: rgba(17, 22, 29, 0.88); border: 2px solid var(--border);
+  color: var(--dim); font-weight: 800; font-size: 1.7em;
+  letter-spacing: .04em; text-transform: uppercase;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+}
+/* It is YOUR turn: gold, high contrast, gently pulsing. */
+#turn-marker.mine {
+  color: #1a1d24; background: var(--accent); border-color: #fff3c4;
+  animation: turnPulse 1.6s ease-in-out infinite;
+}
+@keyframes turnPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -50%) scale(1.05); }
+}
 .pile {
   width: 96px; min-height: 140px; border: 1px dashed var(--border); border-radius: 12px;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
@@ -336,6 +357,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #turn-marker.mine,
   .card, button, .hand.deal-anim .card, .card-mini.slide-in,
   .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; }
   /* The run hint must still be readable without motion: show it statically. */

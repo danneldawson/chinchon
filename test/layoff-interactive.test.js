@@ -230,3 +230,65 @@ test('suggest offers valid melds and real attach targets', () => {
   const ranks = advice.attachable.map((a) => a.card.rank);
   assert.ok(ranks.includes(3) || ranks.includes(11));
 });
+
+// ------------------------------------------------- the lay-off ROTATION
+// The family's example, end to end. The closer lays 12,12,12 + 5,6,7 Oros and
+// keeps a 3 de Oros. P2 lays their game and takes the 4 de Oros. P3 holds the
+// OTHER 4 de Oros (now blocked) and a 2 de Oros (blocked until a 3 lands).
+// The rotation must come back to the closer, who sheds the 3 for zero — which
+// in turn opens the way for P3's 2. A single pass gives nobody that chance.
+const { passTurn } = require('../src/layoff-interactive');
+
+test('the lay-off rotates: the closer gets a second turn and can shed into melds laid after theirs', () => {
+  const closer = [
+    c(12, 'Copas'), c(12, 'Espadas'), c(12, 'Bastos'),
+    c(5, 'Oros'), c(6, 'Oros'), c(7, 'Oros'), c(3, 'Oros'),
+  ];
+  const p2 = [
+    c(4, 'Oros', 0), c(10, 'Bastos'), c(11, 'Bastos'), c(12, 'Bastos'),
+    c(2, 'Espadas'), c(7, 'Copas'), c(10, 'Copas'),
+  ];
+  const p3 = [
+    c(2, 'Oros'), c(4, 'Oros', 1), c(2, 'Bastos'), c(3, 'Bastos'),
+    c(7, 'Copas'), c(10, 'Copas'), c(11, 'Espadas'),
+  ];
+
+  const st = beginLayoff([closer, p2, p3], 0);
+  assert.ok(st.valid, 'the close is legal (12,12,12 + 5,6,7 with a 3 leftover)');
+  const run = () => findMeld(st, 5, 'Oros');
+
+  // 1. The closer leads: their game is already down, nothing fits yet.
+  assert.strictEqual(currentPlayer(st), 0, 'closer leads');
+  assert.strictEqual(attachCard(st, c(3, 'Oros'), run()).ok, false, 'the 3 cannot bridge 5,6,7 yet');
+  assert.ok(passTurn(st).ok, 'the closer can hold their turn open without being counted');
+
+  // 2. P2 lays their game and takes the contested 4 de Oros.
+  assert.strictEqual(currentPlayer(st), 1, 'then the next player');
+  assert.ok(layMeld(st, [c(10, 'Bastos'), c(11, 'Bastos'), c(12, 'Bastos')]).ok);
+  assert.ok(attachCard(st, c(4, 'Oros', 0), run()).ok, 'P2 extends 5,6,7 with the 4');
+  passTurn(st);
+
+  // 3. P3 is stuck: the other 4 is a duplicate, and the 2 needs the 3 first.
+  assert.strictEqual(currentPlayer(st), 2);
+  assert.strictEqual(attachCard(st, c(4, 'Oros', 1), run()).ok, false, 'the contested 4 is already taken');
+  assert.strictEqual(attachCard(st, c(2, 'Oros'), run()).ok, false, 'the 2 needs the 3 first');
+  passTurn(st);
+
+  // 4. Back around to the closer — their last word.
+  assert.strictEqual(currentPlayer(st), 0, 'the rotation wraps back to the closer');
+  assert.ok(attachCard(st, c(3, 'Oros'), run()).ok, 'now the 3 fits');
+  declareReady(st);
+  assert.strictEqual(st.scores[0], 0, 'shedding the leftover scores 0, not the leftover value');
+
+  // 5. P2 has nothing left to do.
+  assert.strictEqual(currentPlayer(st), 1, 'P2 gets their turn in the next round');
+  declareReady(st);
+
+  // 6. The closer's 3 opened the door for P3's 2.
+  assert.strictEqual(currentPlayer(st), 2, 'then P3');
+  assert.ok(attachCard(st, c(2, 'Oros'), run()).ok, 'the 3 opened the way for the 2');
+  declareReady(st);
+
+  assert.strictEqual(st.phase, 'done', 'the round settles once everyone has declared ready');
+  assert.strictEqual(st.table[run()].length, 6, 'the table run is 2,3,4,5,6,7 Oros');
+});
