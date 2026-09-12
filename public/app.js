@@ -158,7 +158,7 @@ const I18N = {
     makeANewGame: 'Make a new game',
     shareCodeNote: 'Share this code with the other players however you like.',
     playersJoined: 'Players joined:',
-    joinCodePlaceholder: 'ABCD',
+    joinCodePlaceholder: 'e.g. LUNA',
   },
   es: {
     title: 'CHINCHON',

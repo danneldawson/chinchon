@@ -69,18 +69,19 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .opp .name { font-weight: 600; }
 .opp .count { color: var(--dim); font-size: 0.85em; }
 
-#center { position: relative; display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
+#center { display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
 
-/* Big whose-turn marker sitting over the table. pointer-events:none is load
-   bearing: it must never intercept a tap meant for a pile beneath it. */
+/* Big whose-turn marker. It sits ABOVE the piles in normal flow — deliberately
+   not floated over them — so it can never cover a card, a meld, or a pile you
+   are trying to tap. */
 #turn-marker {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  z-index: 6; pointer-events: none; text-align: center; white-space: nowrap;
-  padding: 10px 20px; border-radius: 14px;
+  margin: 2px auto 12px; width: fit-content; max-width: 94%;
+  text-align: center;
+  padding: 8px 18px; border-radius: 14px;
   background: rgba(17, 22, 29, 0.88); border: 2px solid var(--border);
-  color: var(--dim); font-weight: 800; font-size: 1.7em;
+  color: var(--dim); font-weight: 800; font-size: 1.55em;
   letter-spacing: .04em; text-transform: uppercase;
-  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
 }
 /* It is YOUR turn: gold, high contrast, gently pulsing. */
 #turn-marker.mine {
@@ -88,8 +89,8 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
   animation: turnPulse 1.6s ease-in-out infinite;
 }
 @keyframes turnPulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%      { transform: translate(-50%, -50%) scale(1.05); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
 }
 .pile {
   width: 96px; min-height: 140px; border: 1px dashed var(--border); border-radius: 12px;

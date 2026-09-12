@@ -22,7 +22,7 @@
         <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
         <div id="rejoin-row" class="rejoin-row">
           <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
-          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="64" />
+          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="3" />
           <button id="btn-rejoin" class="primary small">Rejoin your seat</button>
           <p id="rejoin-msg" class="msg"></p>
           <p id="rejoin-hint" class="dim">Only works while your game is running.</p>
@@ -146,11 +146,12 @@
 
       <div id="opponents"></div>
 
+      <!-- Big whose-turn marker: YOUR TURN / WAITING FOR <name>. It sits ABOVE
+           the piles in normal flow — never floated over them — so it cannot
+           cover a card, a meld or a pile you need to tap. -->
+      <div id="turn-marker" class="hidden"></div>
+
       <div id="center">
-        <!-- Big whose-turn marker over the table: YOUR TURN / WAITING FOR <name>.
-             It is pointer-events:none in CSS so it can never swallow a tap
-             meant for the stock or discard pile underneath it. -->
-        <div id="turn-marker" class="hidden"></div>
         <div id="stock" class="pile pile-stock" title="Tap to draw from stock">
           <div class="stock-stack">
             <div class="card-back"></div>

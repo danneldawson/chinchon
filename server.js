@@ -14,6 +14,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { WORDS } = require('./src/room-words');
 
 const turn = require('./src/turn');
 const scoring = require('./src/scoring');
@@ -51,7 +52,7 @@ function lobbyEnter(name) {
   let finalName = clean;
   let n = 2;
   while (taken.has(finalName.toLowerCase())) finalName = `${clean}${n++}`;
-  const token = newSeatId();
+  const token = newSessionToken();
   const lobbyCode = String(Math.floor(100 + Math.random() * 900)); // 3-digit unique-ish code
   lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now(), lobbyCode });
   return { token, name: finalName, lobbyCode };
@@ -185,17 +186,40 @@ const rooms = new Map();
 let roomSeq = 0;
 
 function makeCode() {
-  // Short, unambiguous, human-typeable code (no 0/O/1/I confusion).
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  // A real 4-letter word, English or Spanish, so the code can be read aloud
+  // across a table and typed by hand (list rules live in src/room-words.js).
   let s;
   do {
-    s = '';
-    for (let i = 0; i < 4; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+    s = WORDS[Math.floor(Math.random() * WORDS.length)];
   } while (rooms.has(s));
   return s;
 }
 
+// Every seat id currently in play. /api/room/by-seat looks a seat up WITHOUT a
+// room code, so seat ids must be unique across all live rooms, not just within
+// one.
+function liveSeatIds() {
+  const ids = new Set();
+  for (const room of rooms.values()) for (const pl of room.players) ids.add(pl.id);
+  return ids;
+}
+
+// A seat id is what a player reads out or types to rejoin, so it is a short
+// 3-digit number (100-999). Re-roll on the rare collision.
 function newSeatId() {
+  const taken = liveSeatIds();
+  let id;
+  let guard = 0;
+  do {
+    id = String(Math.floor(100 + Math.random() * 900));
+  } while (taken.has(id) && ++guard < 5000);
+  return id;
+}
+
+// Internal secrets — a seat's reclaim token and a lobby member's identity — are
+// never shown to players, so they stay long and unguessable. A 3-digit secret
+// would fall to a few hundred guesses.
+function newSessionToken() {
   return Math.random().toString(36).slice(2, 10);
 }
 
@@ -234,7 +258,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   if (mode === 'solo') {
     // Solo = human + exactly 2 random family bots. Always starts immediately.
     const nBots = 2;
-    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSeatId() });
+    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() });
     const fam = pickFamilyBots(nBots);
     fam.forEach((fb, i) => {
       players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb, sessionToken: null });
@@ -248,7 +272,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   }
 
   // Multi: host only, waits for countdown. Bots are never auto-added here.
-  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSeatId() };
+  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() };
   players.push(host);
 
   let pending = null;
@@ -981,7 +1005,7 @@ function handleApi(req, res, url) {
       if (humans >= humanCap) return sendJson(res, 400, { error: `room full (${humanCap} humans)` });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null, sessionToken: newSeatId() });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null, sessionToken: newSessionToken() });
       return sendJson(res, 200, { seatId: id });
     });
   }
@@ -1074,9 +1098,10 @@ function handleApi(req, res, url) {
       if (room.players.filter((pl) => !pl.isBot).length >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), sessionToken: newSeatId() });
+      const reclaim = newSessionToken();
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), sessionToken: reclaim });
       lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`);
-      return sendJson(res, 200, { seatId: id, code: room.code, sessionToken: id });
+      return sendJson(res, 200, { seatId: id, code: room.code, sessionToken: reclaim });
     });
   }
 
@@ -1141,7 +1166,7 @@ function handleApi(req, res, url) {
       if (!seat || seat.isBot || seat.spectator) return sendJson(res, 200, { success: false });
       if (room.match && room.match.gameOver) return sendJson(res, 200, { success: false });
       // Rotate the session token — the displaced client detects it on the next poll.
-      seat.sessionToken = newSeatId();
+      seat.sessionToken = newSessionToken();
       return sendJson(res, 200, { success: true, token: seat.sessionToken });
     });
   }
