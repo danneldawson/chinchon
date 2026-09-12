@@ -465,3 +465,58 @@ test('public countdown expiry starts the match with a real hand for the host', a
   assert.ok(view.scoreboard && view.scoreboard.some((p) => p.id === created.seatId), 'host id is on the scoreboard');
   assert.equal(view.pending, null, 'pending is cleared');
 });
+
+// --- Pile UI assets ---------------------------------------------------------
+// Guards the three things the discard/stock piles must always satisfy:
+//   1. the discard shows a FACE-UP card (no card-back divs stacked behind it)
+//   2. both piles are the same size (66x96)
+//   3. the card back is the card-back.jpg image, served as image/jpeg
+function rawGet(path) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(base + path);
+    require('http').get(
+      { hostname: url.hostname, port: url.port, path: url.pathname + url.search },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode,
+            type: res.headers['content-type'],
+            buf: Buffer.concat(chunks),
+          })
+        );
+      }
+    ).on('error', reject);
+  });
+}
+
+test('discard pile renders one face-up card, not a stack of card backs', async () => {
+  const { status, buf } = await rawGet('/index.html');
+  assert.equal(status, 200);
+  const html = buf.toString();
+  const stack = html.slice(html.indexOf('class="discard-stack"'), html.indexOf('class="pile-label" id="lbl-discard"'));
+  assert.ok(/discard-top/.test(stack), 'discard stack has the face-up card');
+  assert.ok(!/discard-back/.test(stack), 'no card backs stacked behind the discard');
+});
+
+test('stock and discard piles are the same size', async () => {
+  const { buf } = await rawGet('/style.css');
+  const css = buf.toString();
+  const stock = css.match(/\.pile-stock \.stock-stack \{[^}]*\}/)[0];
+  const discard = css.match(/\.discard-stack \{[^}]*\}/)[0];
+  const size = (rule) => rule.match(/(\d+)px; height: (\d+)px/).slice(1, 3).join('x');
+  assert.equal(size(stock), '66x96', `stock stack sized ${size(stock)}`);
+  assert.equal(size(discard), '66x96', `discard stack sized ${size(discard)}`);
+  assert.equal(size(stock), size(discard), 'both piles are the same size');
+});
+
+test('card back is the photo asset, served as image/jpeg (not text/plain)', async () => {
+  const css = (await rawGet('/style.css')).buf.toString();
+  assert.ok(/url\("card-back\.jpg"\)/.test(css), 'card-back.jpg is the card back');
+  const { status, type, buf } = await rawGet('/card-back.jpg');
+  assert.equal(status, 200, 'card back asset is served');
+  assert.equal(type, 'image/jpeg', `card back served as ${type}`);
+  assert.equal(buf[0], 0xff, 'payload is a real JPEG');
+  assert.equal(buf[1], 0xd8, 'payload is a real JPEG');
+});
