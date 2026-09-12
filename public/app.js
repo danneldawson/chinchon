@@ -1749,3 +1749,4 @@ $('btn-leave-lobby').onclick = async () => {
 window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
 window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);
 applyLang();
+
