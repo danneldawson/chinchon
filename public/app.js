@@ -423,6 +423,16 @@ function showCreatePane() {
   // Drop any pending learning-session intent when returning to a normal create.
   const lm = $('lobby-msg'); if (lm) lm.textContent = '';
 }
+// The waiting-for-the-match screen: the room code, the players and the countdown
+// — and nothing else. The create/join panes come down with it, otherwise the join
+// form (its code box and Join room button) sits on top of the room you just
+// created and the screen reads as two half-screens at once.
+function showWaitingView() {
+  $('create-pane').classList.add('hidden');
+  $('join-pane').classList.add('hidden');
+  $('room-info').classList.remove('hidden');
+}
+
 function showJoinPane() {
   $('join-pane').classList.remove('hidden');
   $('create-pane').classList.add('hidden');
@@ -484,7 +494,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   // Always surface the room code and the waiting panel, even if the server
   // response shape is unexpected — the player must see WHAT was created.
   $('room-code').textContent = res.code;
-  $('room-info').classList.remove('hidden');
+  showWaitingView();
   $('create-choices').classList.add('hidden');
   if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
   const seatEl = $('room-seatid');
@@ -558,7 +568,7 @@ $('btn-join').onclick = async () => {
   $('room-code').textContent = code;
   const seatEl = $('room-seatid');
   if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
-  $('room-info').classList.remove('hidden');
+  showWaitingView();
   // Wire the host start button once — it persists across polls (watchRoom only
   // toggles .hidden each tick).
   const startBtn = $('btn-host-start');
@@ -1585,7 +1595,7 @@ async function joinPublicOrRematch(code, isFresh) {
     show($('lobby'));
     showJoinPane();
     $('room-code').textContent = code;
-    $('room-info').classList.remove('hidden');
+    showWaitingView();
     watchRoom().catch(() => null);
     state.pollTimer = setInterval(watchRoom, 1500);
     return;
@@ -1676,9 +1686,6 @@ if (goLearn) goLearn.onclick = () => {
 $('btn-go-join').onclick = () => {
   clearInterval(lobbyTimer);
   show($('lobby'));
-  showJoinPane();
-};
-$('btn-go-join-2').onclick = () => {
   showJoinPane();
 };
 $('back-to-create').onclick = showCreatePane;
