@@ -641,8 +641,14 @@ function suitEmblem(suit) {
       return '<svg viewBox="0 0 24 24" class="emblem"><path d="M6 4 h12 v5 a6 6 0 0 1 -12 0 z" fill="currentColor"/><line x1="12" y1="15" x2="12" y2="20" stroke="currentColor" stroke-width="2"/><line x1="8" y1="20" x2="16" y2="20" stroke="currentColor" stroke-width="2"/></svg>';
     case 'Espadas':
       return '<svg viewBox="0 0 24 24" class="emblem"><path d="M12 2 L13.6 13 L12 15 L10.4 13 Z" fill="currentColor"/><line x1="8.5" y1="15" x2="15.5" y2="15" stroke="currentColor" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="21" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="21.5" r="1.4" fill="currentColor"/></svg>';
-    default: // Bastos
+    case 'Bastos':
       return '<svg viewBox="0 0 24 24" class="emblem"><rect x="10.5" y="3" width="3" height="18" rx="1.5" fill="currentColor"/><path d="M12 6 q6 -2 8 2 q-5 1 -8 -2 z" fill="currentColor"/><path d="M12 9 q-6 -2 -8 2 q5 1 8 -2 z" fill="currentColor"/></svg>';
+    default:
+      // Every suit the engine knows gets its own case above. An unknown suit
+      // used to fall through to `default:` and silently draw a bastos club;
+      // now it warns and draws nothing, so a bad suit is noticed, not trusted.
+      console.warn(`[suitEmblem] unknown suit: ${suit}`);
+      return '';
   }
 }
 
@@ -1755,7 +1761,5 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-name').focus();
 })();
 
-window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
-window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);
 applyLang();
 
