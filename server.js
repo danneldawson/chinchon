@@ -174,6 +174,7 @@ function startPendingMatch(room) {
   room.layoff = null;
   room.pending = null;
   room.startedAt = Date.now();
+  room.started = true;
   // Chat is kept across rematches (same room, same players) — no clearing.
   lobbySystem(`Room ${room.code} started a new match.`);
   runBotTurns(room);
@@ -571,19 +572,19 @@ function serialize(room, seatId) {
       const viewer = players.find((p) => p.id === seatId);
       const viewerSeat = viewer ? viewer.seat : 0;
       const opponents = players.map((p, i) => ({
-        seat: i,
-        name: p.name,
-        isBot: p.isBot,
-        botEmoji: p.bot ? p.bot.emoji : (/\\.Bot$/i.test(p.name || '') ? '🤖' : ''),
-        botColor: p.bot ? p.bot.color : (/\\.Bot$/i.test(p.name || '') ? '#7c4dff' : ''),
-        out: false,
-        spectator: !!p.spectator,
-        away: isAway(p),
-        total: 0,
-        handCount: 0,
-        reveal: false,
-        isYou: p.id === seatId,
-      }));
+              seat: p.seat,
+              name: p.name,
+              isBot: p.isBot,
+              botEmoji: p.bot ? p.bot.emoji : (/\\.Bot$/i.test(p.name || '') ? '🤖' : ''),
+              botColor: p.bot ? p.bot.color : (/\\.Bot$/i.test(p.name || '') ? '#7c4dff' : ''),
+              out: false,
+              spectator: !!p.spectator,
+              away: false,
+              total: 0,
+              handCount: 0,
+              reveal: false,
+              isYou: p.id === seatId,
+            }));
       const scoreboard = players.map((p, i) => {
         const pc = players[i];
         const connected = pc.isBot ? true : (Date.now() - (pc.lastSeen || 0) < CONNECTED_MS);
