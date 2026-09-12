@@ -2,10 +2,11 @@
 
 // Simple bot policy. Draws sensibly, discards its worst card, closes when it can.
 // Behavior is tuned by the bot's `skill`, passed in from the room (default 'balanced'):
-//   - 'aggressive': closes on ANY legal close; grabs the discard pile whenever it
+//   - 'aggressive': dumps ANY legal close; grabs the discard pile whenever it
 //                   builds toward a set/run (even if deadwood stays flat).
-//   - 'balanced'  : closes on any legal close; draws discard only if it lowers deadwood.
-//   - 'cautious'  : only closes on a chinchon or a clean -10; otherwise keeps playing.
+//   - 'balanced'  : dumps leftover 0-2 / clean / chinchon; holds leftover 3-5.
+//                   Draws discard only if it lowers deadwood.
+//   - 'cautious'  : only dumps chinchon or a clean -10; otherwise holds.
 
 const { cardValue, rankIndex, RANKS } = require('./cards');
 const { bestSplit, canClose } = require('./scoring');
@@ -74,23 +75,36 @@ function chooseDiscard(state) {
   return best ? best.card : hand[0];
 }
 
+// Best close among opts, preferring chinchon then clean -10 then lowest leftover.
+function pickBest(opts) {
+  const chinchon = opts.find((o) => o.reason === 'chinchon');
+  if (chinchon) return chinchon;
+  const clean = opts.find((o) => o.score === -10);
+  if (clean) return clean;
+  return opts.reduce((a, b) => (a.score <= b.score ? a : b));
+}
+
 // Should this bot close, given its skill?
+// Hold vs dump:
+//   aggressive — dump any legal close (round ends now).
+//   balanced   — dump leftover 0-2 / clean / chinchon; hold leftover 3-5.
+//   cautious   — only dump chinchon or clean -10; otherwise hold.
+// Matches still end because aggressive/balanced (and the human) dump.
 function shouldClose(state, skill, opts) {
   skill = normSkill(skill);
   if (opts.length === 0) return null;
-  const chinchon = opts.find((o) => o.reason === 'chinchon');
-  const clean = opts.find((o) => o.score === -10);
   if (skill === 'cautious') {
-    // Cautious still closes whenever a legal close exists — it just never
-    // refuses one (no need to hold the match up). Prefers chinchon, then clean.
+    const chinchon = opts.find((o) => o.reason === 'chinchon');
     if (chinchon) return chinchon;
-    if (clean) return clean;
-    return opts.reduce((a, b) => (a.score <= b.score ? a : b));
+    const clean = opts.find((o) => o.score === -10);
+    return clean || null;
   }
-  // aggressive + balanced: close on anything, preferring chinchon then clean.
-  if (chinchon) return chinchon;
-  if (clean) return clean;
-  return opts.reduce((a, b) => (a.score <= b.score ? a : b));
+  if (skill === 'balanced') {
+    const dumpable = opts.filter((o) => o.reason === 'chinchon' || o.score <= 2);
+    if (dumpable.length === 0) return null;
+    return pickBest(dumpable);
+  }
+  return pickBest(opts);
 }
 
 // Full turn decision. Returns { close: bool, card }.
