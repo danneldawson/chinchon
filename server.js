@@ -556,9 +556,10 @@ function closeOptionsFor(hand) {
 }
 
 function serialize(room, seatId) {
-  const { state, match, players } = room;
   // Auto-start a pending room once its window elapses (no hold). Handles both
   // rematch pending and a freshly created room's countdown.
+  // MUST run before reading room.state — otherwise the first poll after the
+  // timer still serializes the pre-start empty view (started:true, no cards).
   if (room.pending && !room.pending.hold && Date.now() >= room.pending.until) {
     if (room.pending.type === 'fresh') {
       const ok = startFreshMatch(room);
@@ -567,6 +568,7 @@ function serialize(room, seatId) {
       startPendingMatch(room);
     }
   }
+  const { state, match, players } = room;
   if (room.gone) return { gone: true, code: room.code };
   if (!state) {
       const viewer = players.find((p) => p.id === seatId);

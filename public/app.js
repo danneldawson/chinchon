@@ -401,6 +401,10 @@ function show(panel) {
   $('lobby').classList.add('hidden');
   $('game').classList.add('hidden');
   $('gameplay').classList.add('hidden'); // rules overlay is an overlay too
+  if (panel && panel.id === 'displaced-panel') {
+    // displaced-panel lives inside #game; hiding #game made it a black screen.
+    $('game').classList.remove('hidden');
+  }
   panel.classList.remove('hidden');
 }
 
@@ -599,10 +603,15 @@ async function poll() {
   }
   // Session-token rotation: if the server returned a different token for this seat,
   // another device reclaimed it — hard-disconnect this client.
+  // First poll after create/join has no local token yet — adopt it, don't displace
+  // (that hid #game and left a black screen when the countdown expired).
   if (res.sessionToken && res.sessionToken !== state.sessionToken) {
-    state.sessionToken = res.sessionToken;
-    showDisplaced();
-    return;
+    if (!state.sessionToken) {
+      state.sessionToken = res.sessionToken;
+    } else {
+      showDisplaced();
+      return;
+    }
   }
   state.view = res;
   render();
@@ -1649,7 +1658,7 @@ function showDisplaced() {
   show($('displaced-panel'));
   $('displaced-msg').textContent = t('seatReconnectedMsg');
   $('displaced-new-game').onclick = () => {
-    hide($('displaced-panel'));
+    $('displaced-panel').classList.add('hidden');
     clearLobby();
     $('lobby-name').value = '';
     $('lobby-name').focus();

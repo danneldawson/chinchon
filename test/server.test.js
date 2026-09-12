@@ -442,3 +442,26 @@ test('host-start clears pending so the countdown does not restart the match', as
   assert.equal(room.match.round, before, 'match was not restarted by stale pending');
   assert.ok(!view.gone, 'room is not gone');
 });
+
+test('public countdown expiry starts the match with a real hand for the host', async () => {
+  // Host + 2nd human in a public room. Expire the countdown and poll once.
+  // The first /api/state after expiry must be a started match with cards —
+  // not started:true + empty yourHand (that blanks #game for the host).
+  const { json: created } = await api('POST', '/api/room/new', {
+    mode: 'multi', name: 'Host', visibility: 'public', countdownMs: 50, lobbyToken: 'h-tok',
+  });
+  const code = created.code;
+  await api('POST', '/api/room/join', { code, name: 'P2', lobbyToken: 'p2-tok' });
+  const room = rooms.get(code);
+  assert.ok(room.pending, 'public room is waiting on the countdown');
+  assert.equal(room.started, false, 'not started yet');
+
+  room.pending.until = Date.now() - 1;
+  const { json: view, status } = await api('GET', `/api/state?code=${code}&seat=${created.seatId}`);
+  assert.equal(status, 200, 'state after expiry is 200');
+  assert.equal(view.started, true, 'match started when the timer elapsed');
+  assert.ok(view.yourHand && view.yourHand.length >= 7, `host has a dealt hand, got ${view.yourHand && view.yourHand.length}`);
+  assert.ok(view.phase, 'phase is set (draw/discard), not null');
+  assert.ok(view.scoreboard && view.scoreboard.some((p) => p.id === created.seatId), 'host id is on the scoreboard');
+  assert.equal(view.pending, null, 'pending is cleared');
+});
