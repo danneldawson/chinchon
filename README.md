@@ -51,3 +51,4 @@ that runs 24/7. Pushing to `main` redeploys automatically.
 - Multi rooms **never** contain bots (hard requirement).
 - Claimed melds/attaches are always re-validated against the engine.
 - The 1 de Oros is the only wild; at most one wild per meld.
+# Trigger redeploy
