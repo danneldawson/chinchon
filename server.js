@@ -568,8 +568,82 @@ function serialize(room, seatId) {
   }
   if (room.gone) return { gone: true, code: room.code };
   if (!state) {
-    return { code: room.code, mode: room.mode, started: room.started, pending: room.pending ? pendingView(room) : null, lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })), chat: room.chat || [] };
-  }
+      const viewer = players.find((p) => p.id === seatId);
+      const viewerSeat = viewer ? viewer.seat : 0;
+      const opponents = players.map((p, i) => ({
+        seat: i,
+        name: p.name,
+        isBot: p.isBot,
+        botEmoji: p.bot ? p.bot.emoji : (/\\.Bot$/i.test(p.name || '') ? '🤖' : ''),
+        botColor: p.bot ? p.bot.color : (/\\.Bot$/i.test(p.name || '') ? '#7c4dff' : ''),
+        out: false,
+        spectator: !!p.spectator,
+        away: isAway(p),
+        total: 0,
+        handCount: 0,
+        reveal: false,
+        isYou: p.id === seatId,
+      }));
+      const scoreboard = players.map((p, i) => {
+        const pc = players[i];
+        const connected = pc.isBot ? true : (Date.now() - (pc.lastSeen || 0) < CONNECTED_MS);
+        return {
+          id: pc.id,
+          name: p.name,
+          total: 0,
+          out: false,
+          isBot: pc.isBot,
+          kickSeatId: (!!viewer && viewer.id === room.hostId && pc.id !== seatId) ? pc.id : null,
+          eliminatedRank: 0,
+          away: isAway(pc),
+          connected,
+          spectator: !!pc.spectator,
+        };
+      });
+      return {
+        code: room.code,
+        mode: room.mode,
+        learning: !!room.learning,
+        tutorial: !!room.tutorial,
+        tutorialRuleIndex: room.tutorialRuleIndex,
+        tutorialPaused: false,
+        started: room.started,
+        gameOver: false,
+        pending: room.pending ? pendingView(room) : null,
+        chinchonWin: false,
+        winner: null,
+        hostId: null,
+        isHost: !!viewer && viewer.id === room.hostId,
+        spectator: !!viewer && !!viewer.spectator,
+        waiting: room.waiting
+          ? {
+              seat: room.waiting.seat,
+              name: players[room.waiting.seat].name,
+              canContinue: canContinue(room),
+              secondsLeft: Math.max(0, Math.ceil((CONTINUE_WAIT_MS - (Date.now() - room.waiting.since)) / 1000)),
+            }
+          : null,
+        phase: null,
+        turnSeat: null,
+        isYourTurn: false,
+        layoff: null,
+        stockCount: 0,
+        lastReshuffle: 0,
+        discardTop: null,
+        yourHand: [],
+        lastDrawnId: null,
+        yourMelds: [],
+        yourDeadwood: [],
+        closeOptions: [],
+        canClose: false,
+        opponents,
+        scoreboard,
+        chat: room.chat || [],
+        lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })),
+        aloneNotice: !!room.aloneNotice,
+        sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
+      };
+    }
   const viewer = players.find((p) => p.id === seatId);
   const viewerSeat = viewer ? viewer.seat : 0;
   const hand = state.hands[viewerSeat] || [];
