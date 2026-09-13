@@ -704,7 +704,7 @@ function meldsText(split) {
 
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
-const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null };
+const _animState = { roundKey: null, discardId: null, close: false, layoff: false, gameover: false, reshuffleSeen: 0, reshuffleTimer: null, runHintKey: '', runHintTimer: null, pendingThrow: false };
 function onceAnimate(el, cls) {
   if (!el) return;
   el.classList.remove(cls);
@@ -898,7 +898,14 @@ function render() {
   const dtKey = v.discardTop ? `${v.discardTop.suit}-${v.discardTop.rank}` : null;
   if (dtKey !== _animState.discardId) {
     _animState.discardId = dtKey;
-    if (v.discardTop) onceAnimate(dt, 'slide-in');
+    if (v.discardTop) {
+      // Edge-triggered: YOUR own discard (pendingThrow set in doDiscard) pops
+      // with a throw; anyone else's new top just slides in. Keyed on dtKey, so
+      // it never replays on the 1.2s poll. The flag is one-shot.
+      const cls = _animState.pendingThrow ? 'thrown' : 'slide-in';
+      _animState.pendingThrow = false;
+      onceAnimate(dt, cls);
+    }
   }
   if (v.discardTop) {
     const isWild = window.__isWild(v.discardTop);
@@ -1309,11 +1316,16 @@ if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('co
 async function doDiscard(card, close = false, splitIdx = null) {
   const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
   if (close && splitIdx != null) body.splitIdx = splitIdx;
+  // Mark this as OUR discard so the next render plays the throw-pop on the new
+  // discard top (see render's discard block). One-shot; cleared when it fires.
+  _animState.pendingThrow = true;
   const res = await fetch('/api/discard', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).then((r) => r.json());
-  if (res.error) $('status').textContent = res.error;
+  // On a rejected discard the top never changes, so clear the flag now — else it
+  // would leak and mis-fire the throw on the next player's (opponent's) discard.
+  if (res.error) { $('status').textContent = res.error; _animState.pendingThrow = false; }
   await poll();
 }
 

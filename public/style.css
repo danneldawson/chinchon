@@ -306,6 +306,27 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 
 @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 .card-mini.slide-in { animation: slideIn .22s ease both; }
+/* Discard top: any NEW top slides in (this selector was missing, so opponent
+   discards animated nothing); YOUR OWN discard gets a throw-pop instead. Both
+   are transform/opacity only and edge-triggered from render() via onceAnimate. */
+.discard-top.slide-in { animation: slideIn .22s ease both; }
+@keyframes throwToDiscard {
+  from { opacity: 0; transform: translateY(-18px) scale(1.06) rotate(-3deg); }
+  to   { opacity: 1; transform: none; }
+}
+.discard-top.thrown { animation: throwToDiscard .24s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+/* Promote to a composited GPU layer ONLY while animating (transient classes),
+   never on idle .card nodes — a permanent will-change would leak layers across
+   7-8 cards x every seat. The layer is created on class-add and dropped on
+   animationend (onceAnimate removes the class). */
+.hand.deal-anim .card,
+.card-mini.slide-in,
+.discard-top.slide-in,
+.discard-top.thrown,
+.close-options.appear,
+#layoff-area.appear,
+#gameover.appear { will-change: transform, opacity; }
 
 @keyframes panelIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
 .close-options.appear, #layoff-area.appear, #gameover.appear { animation: panelIn .25s ease both; }
@@ -360,7 +381,8 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) {
   #turn-marker.mine,
   .card, button, .hand.deal-anim .card, .card-mini.slide-in,
-  .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; }
+  .discard-top.slide-in, .discard-top.thrown,
+  .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; will-change: auto; }
   /* The run hint must still be readable without motion: show it statically. */
   .run-hint.show { animation: none !important; opacity: 1 !important; }
 }
