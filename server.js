@@ -143,22 +143,14 @@ function pendingView(room) {
 
 function startFreshMatch(room) {
   const humans = humanSeats(room);
-  if (room.visibility === 'public') {
-    // Public room: start with whoever joined. If only the host, fill 2 bots.
-    if (humans.length < 2) {
-      for (let i = 0; i < 2; i++) {
-        room.players.push({ id: newSeatId(), name: `Bot ${i + 1}`, seat: room.players.length, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null });
-      }
-    }
-  } else {
-    // Private + humans: only start if at least 2 humans joined; otherwise the
-    // host explicitly didn't want bots, so bounce them back to the lobby.
-    if (humans.length < 2) {
-      room.gone = true;
-      rooms.delete(room.code);
-      return false;
-    }
+  // Multi mode requires at least 2 humans and no bots.
+  if (room.mode === 'multi' && humans.length < 2) {
+    // Not enough humans for a multi player game. Delete the room.
+    room.gone = true;
+    rooms.delete(room.code);
+    return false;
   }
+  // Solo mode rooms are started immediately in createRoom, so we should never get here.
   room.match = matchMod.createMatch(room.players.map((p) => p.name));
   room.state = turn.startRound(room.players.length, dealRng);
   room.pending = null;

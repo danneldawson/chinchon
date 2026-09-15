@@ -1636,11 +1636,12 @@ $('btn-lobby-enter').onclick = enterLobby;
 $('lobby-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') enterLobby(); });
 $('btn-rejoin').onclick = async () => {
   const codeInput = $('rejoin-code');
-  const seatInput = $('rejoin-seatid');
   const msg = $('rejoin-msg');
   const code = (codeInput && codeInput.value || '').trim().toUpperCase();
-  const seatId = (seatInput && seatInput.value || '').trim().slice(0, 64);
-  if (!code || !seatId) { if (msg) msg.textContent = t('rejoinFailed'); return; }
+  if (!code) { if (msg) msg.textContent = t('rejoinFailed'); return; }
+  // Try to load the seatId from localStorage for this code
+  const seatId = loadSeat(code);
+  if (!seatId) { if (msg) msg.textContent = t('rejoinFailed'); return; }
   if (msg) msg.textContent = '';
   try {
     const res = await fetch('/api/room/rejoin', {
@@ -1820,6 +1821,13 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-name').value = '';
   $('lobby-name').focus();
 })();
+
+// Landing page button handlers
+$('btn-solo-play').onclick = async () => {
+  await enterLobby();
+  $('btn-gameplay').click();
+};
+$('btn-go-lobby').onclick = enterLobby;
 
 applyLang();
 

@@ -13,22 +13,24 @@
       <h1 id="title">CHINCHON</h1>
 
       <div id="lobby-enter" class="lobby-enter">
-        <div class="lang-row">
-          <span class="dim" id="lang-label" data-i18n="language">Language:</span>
-          <button class="lang-btn active" data-lang="en">English</button>
-          <button class="lang-btn" data-lang="es">Español</button>
-        </div>
-        <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" minlength="4" maxlength="14" />
-        <button id="btn-lobby-enter" class="primary arrow-btn" data-i18n="enterLobby">Enter lobby →</button>
-        <div id="rejoin-row" class="rejoin-row">
-          <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
-          <input id="rejoin-seatid" type="text" placeholder="SeatID" maxlength="3" />
-          <button id="btn-rejoin" class="primary small">Rejoin your seat</button>
-          <p id="rejoin-msg" class="msg"></p>
-          <p id="rejoin-hint" class="dim">Only works while your game is running.</p>
-        </div>
-        <p id="lobby-msg" class="msg"></p>
-      </div>
+                <div class="lang-row">
+                  <span class="dim" id="lang-label" data-i18n="language">Language:</span>
+                  <button class="lang-btn active" data-lang="en">English</button>
+                  <button class="lang-btn" data-lang="es">Español</button>
+                </div>
+                <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" minlength="2" maxlength="14" />
+                <div class="landing-buttons">
+                  <button id="btn-solo-play" class="primary big" data-i18n="tabSolo"></button>
+                  <button id="btn-go-lobby" class="primary" data-i18n="tabMulti"></button>
+                </div>
+                <div id="rejoin-row" class="rejoin-row">
+                  <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
+                  <button id="btn-rejoin" class="primary small">Rejoin</button>
+                  <p id="rejoin-msg" class="msg"></p>
+                  <p id="rejoin-hint" class="dim">Only works while your game is running.</p>
+                </div>
+                <p id="lobby-msg" class="msg"></p>
+              </div>
 
       <div id="lobby-main" class="hidden">
         <div class="lobby-header">
@@ -119,7 +121,10 @@
            #create-pane) so it's visible regardless of which pane is active. -->
       <div id="room-info" class="hidden">
         <p><span data-i18n="roomCode">Room code:</span> <span id="room-code" class="code"></span></p>
-        <p id="room-seatid" class="dim"></p>
+        <div class="share-buttons">
+            <button id="btn-copy-code" class="small" data-i18n="copy">Copy</button>
+            <button id="btn-share-wa" class="small" data-i18n="shareWhatsApp">WhatsApp</button>
+        </div>
         <p class="dim" data-i18n="shareCodeNote">Share this code with the other players however you like.</p>
         <p id="room-waiting" class="dim"></p>
         <p data-i18n="playersJoined">Players joined:</p>
