@@ -1,6 +1,11 @@
-# Status Check
+# Deal Me In (hosting status)
 
-**Cue:** say exactly **Status Check** (to Chinchón Forge or via Chief of Staff).
+Filename kept as `STATUS-CHECK.md` for continuity.
+
+
+**Cue:** say exactly **Deal Me In** (to Chinchón Forge or via Chief of Staff).
+
+> Retired cue: **Status Check** — no longer triggers this report.
 
 That refreshes the three hosting upgrade markers below and returns real numbers plus a plain-English read on whether anything is approaching upgrade territory. Do not invent usage — if a dashboard or login blocks a number, say so.
 
@@ -76,12 +81,12 @@ Standing skill: **Hosting upgrade status check**.
 
 ## How to refresh
 
-1. Say **Status Check** to Chinchón Forge.
+1. Say **Deal Me In** to Chinchón Forge.
 2. Forge runs all three checks (skill: Hosting upgrade status check).
 3. Numbers land in chat (and this file is updated when a run completes).
 
 ## Notes
 
-- Read-only: Status Check never changes billing or upgrades a plan unless you explicitly ask.
+- Read-only: Deal Me In never changes billing or upgrades a plan unless you explicitly ask.
 - Local source of truth for the game remains `~/Desktop/chinchon` on Skinny Macintosh.
 - Last doc scaffold: 2026-09-19 PT.
