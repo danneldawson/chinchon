@@ -379,7 +379,7 @@ const state = {
 
 const $ = (id) => {
   const el = document.getElementById(id);
-  if (!el) return { classList: { add() {}, remove() {}, toggle() {} }, textContent: '', onclick: null };
+  if (!el) return { classList: { add() {}, remove() {}, toggle() {} }, textContent: '', onclick: null, addEventListener() {} };
   return el;
 };
 
@@ -1665,7 +1665,7 @@ $('btn-rejoin').onclick = async () => {
     if (msg) msg.textContent = t('rejoinFailed');
   }
 };
-$('rejoin-seatid').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-rejoin').click(); });
+$('rejoin-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-rejoin').click(); });
 $('btn-lobby-chat-send').onclick = async () => {
   const input = $('lobby-chat-input');
   const text = input.value.trim();
