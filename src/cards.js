@@ -3,7 +3,8 @@
 // Chinchón — card model
 // Two Spanish decks of 40 shuffled together = 80 cards. Every card exists twice.
 // The 1 de Oros is the wild card (comodín). There are exactly 2 of them.
-// 8 and 9 do not exist. Runs treat 7 -> 10 -> 11 -> 12 as consecutive.
+// 8 and 9 do not exist. Runs treat 7 -> 10 -> 11 -> 12 as consecutive, and
+// wrap from 12 round to 1 (house rule R37), so 11-12-1 is consecutive too.
 
 const SUITS = ['Oros', 'Copas', 'Espadas', 'Bastos'];
 
@@ -18,7 +19,10 @@ function isWild(card) {
 }
 
 // Deadwood value: 1-7 face value, 10/11/12 are worth 10 each.
+// The wild (1 de Oros) is worth 0: it can always sit with some meld on the
+// table, so a stranded wild never costs points (house rule R38, Oct 2, 2026).
 function cardValue(card) {
+  if (isWild(card)) return 0;
   return card.rank <= 7 ? card.rank : 10;
 }
 

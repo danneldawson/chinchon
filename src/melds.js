@@ -1,10 +1,11 @@
 'use strict';
 
-const { isWild, rankIndex, cardValue } = require('./cards');
+const { isWild, rankIndex, cardValue, RANKS } = require('./cards');
 
 // A meld is a valid combination of 3 or more cards.
 //   SET  = same rank (duplicate suits allowed, since two decks are in play)
-//   RUN  = same suit, consecutive by rank index (7 -> 10 -> 11 -> 12 counts)
+//   RUN  = same suit, consecutive by rank index (7 -> 10 -> 11 -> 12 counts,
+//          and the order wraps 12 -> 1, so 11-12-1 is a run too)
 // At most ONE wild (1 de Oros) may be used per meld. Never two.
 
 const MAX_WILDS_PER_MELD = 1;
@@ -28,9 +29,16 @@ function isValidSet(cards) {
   return natural.every((c) => c.rank === rank);
 }
 
-// Is this a valid run? Same suit, consecutive, <=1 wild filling exactly one gap.
+// Is this a valid run? Same suit, consecutive, <=1 wild filling a gap or
+// extending an end.
+//
+// Rank order is circular (house rule R37, Oct 2, 2026): ... 7 -> 10 -> 11 ->
+// 12 -> 1 -> 2 ..., so 11-12-1 and 12-1-2 are runs. A suit only has 10 ranks,
+// so a run can never be longer than 10 cards and can never contain the same
+// rank twice (which also rules out going "full circle" back past its start).
 function isValidRun(cards) {
   if (cards.length < 3) return false;
+  if (cards.length > RANKS.length) return false;
 
   const wilds = countWilds(cards);
   if (wilds > MAX_WILDS_PER_MELD) return false;
@@ -43,16 +51,18 @@ function isValidRun(cards) {
   if (!natural.every((c) => c.suit === suit)) return false;
 
   // No duplicate ranks inside a run, even from the second deck.
-  const idxs = natural.map((c) => rankIndex(c.rank)).sort((a, b) => a - b);
+  const idxs = natural.map((c) => rankIndex(c.rank));
   if (new Set(idxs).size !== idxs.length) return false;
 
-  // Total span must fit the card count, and gaps must be coverable by wilds.
-  const span = idxs[idxs.length - 1] - idxs[0] + 1;
-  if (span > cards.length) return false;
-
-  const gaps = span - natural.length;
-  // Leftover wilds may extend the run at either end, which is fine.
-  return gaps <= wilds;
+  // The run occupies cards.length consecutive slots on the circular rank
+  // order. It is valid if some window of that length, starting anywhere,
+  // holds every natural; the wilds fill the remaining slots (inner gaps or
+  // an end).
+  const n = RANKS.length;
+  for (let start = 0; start < n; start++) {
+    if (idxs.every((i) => (i - start + n) % n < cards.length)) return true;
+  }
+  return false;
 }
 
 function isValidMeld(cards) {

@@ -53,6 +53,16 @@ function isChinchon(hand) {
   return hand.length === HAND_SIZE && isValidMeld(hand);
 }
 
+// Is split `a` a better organisation than split `b`? Lower deadwood wins; on
+// equal deadwood, fewer leftover cards (more cards melded) wins. The tie-break
+// matters because the wild scores 0 (R38): without it, "3+3 with the wild left
+// over" (deadwood 0) would tie with "4+3 using the wild" (clean, -10) and the
+// clean close could be missed.
+function better(a, b) {
+  if (a.deadwood !== b.deadwood) return a.deadwood < b.deadwood;
+  return a.leftovers.length < b.leftovers.length;
+}
+
 // Best way to organise a hand: maximise melded cards, minimise deadwood.
 // Returns { melds, leftovers, deadwood, chinchon }.
 function bestSplit(hand) {
@@ -73,7 +83,7 @@ function bestSplit(hand) {
       deadwood: deadwoodValue(restAfterFirst),
       chinchon: false,
     };
-    if (single.deadwood < best.deadwood) best = single;
+    if (better(single, best)) best = single;
 
     for (const second of allMelds(restAfterFirst)) {
       const leftovers = without(restAfterFirst, second);
@@ -83,7 +93,7 @@ function bestSplit(hand) {
         deadwood: deadwoodValue(leftovers),
         chinchon: false,
       };
-      if (pair.deadwood < best.deadwood) best = pair;
+      if (better(pair, best)) best = pair;
     }
   }
 
