@@ -20,14 +20,13 @@
  * reusable part. Rules authority: rules/house-rules.md in this knowledge pack
  * (originally Hermes' references/chinchon-ruleset.md).
  *
- * Note (Oct 2, 2026): two checks below still encode the engine's OLD behaviour:
- * 'run does not wrap at the ends (12,1,2)' and 'wild scores 1'. Dannel has since
- * ruled that runs DO wrap from 12 to 1 (house-rules.md R37) and that the wild
- * scores 0 (R38). The engine hasn't been changed yet; flip both checks in the same
- * change that updates src/melds.js and src/cards.js.
+ * Oct 2, 2026: the 'run does not wrap' and 'wild scores 1' checks were flipped
+ * to Dannel's rulings, in the same change that updated src/melds.js and
+ * src/cards.js: runs wrap from 12 to 1 (house-rules.md R37) and the wild scores
+ * 0 (R38).
  *
  * Source: Hermes Agent skill game-rules-engine-first/scripts/cards-audit.js
- * (Sep 12, 2026). Behaviour unchanged; only this header was edited.
+ * (Sep 12, 2026).
  */
 const fs = require('fs');
 const os = require('os');
@@ -87,18 +86,23 @@ check('the other 1s are NOT wild',
   deck.filter((c) => c.rank === 1 && c.suit !== 'Oros').every((c) => !cards.isWild(c)),
   'the wild is one EXISTING card, not an extra one');
 
-const valueBad = deck.filter((c) => cards.cardValue(c) !== (c.rank <= 7 ? c.rank : 10));
-check('deadwood values: 1-7 face, 10/11/12 = 10', valueBad.length === 0,
+const valueBad = deck.filter((c) => cards.cardValue(c) !== (cards.isWild(c) ? 0 : c.rank <= 7 ? c.rank : 10));
+check('deadwood values: 1-7 face, 10/11/12 = 10, wild = 0', valueBad.length === 0,
   valueBad.map(cards.cardName).join(', '));
-check('wild scores 1', cards.cardValue({ rank: 1, suit: 'Oros' }) === 1);
+check('wild scores 0 (R38)', cards.cardValue({ rank: 1, suit: 'Oros' }) === 0);
 
 // --------------------------------------------------------------- B. meld rules
 const C = (rank, suit, deckId = 0) => ({ rank, suit, deckId, id: `${rank}-${suit}-${deckId}` });
 const WILD = C(1, 'Oros');
 check('run bridges the 8/9 gap (7,10,11,12 same suit)',
   melds.isValidRun([C(7, 'Copas'), C(10, 'Copas'), C(11, 'Copas'), C(12, 'Copas')]));
-check('run does not wrap at the ends (12,1,2 same suit)',
-  !melds.isValidRun([C(12, 'Oros'), C(1, 'Oros'), C(2, 'Oros')]));
+check('run wraps 12 -> 1 (11,12,1 and 12,1,2 same suit) (R37)',
+  melds.isValidRun([C(11, 'Copas'), C(12, 'Copas'), C(1, 'Copas')]) &&
+  melds.isValidRun([C(12, 'Copas'), C(1, 'Copas'), C(2, 'Copas')]));
+check('run wraps through the wild (12, 1 de Oros, 2 de Oros) (R37)',
+  melds.isValidRun([C(12, 'Oros'), C(1, 'Oros'), C(2, 'Oros')]));
+check('run rejects a gap across the wrap (11,12,2)',
+  !melds.isValidRun([C(11, 'Copas'), C(12, 'Copas'), C(2, 'Copas')]));
 check('run rejects a missing interior card (7,10,12)',
   !melds.isValidRun([C(7, 'Oros'), C(10, 'Oros'), C(12, 'Oros')]));
 check('run rejects duplicate ranks from the 2nd deck',
