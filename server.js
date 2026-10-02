@@ -34,8 +34,10 @@ const dealRng = Math.random;
 
 const LOBBY_CHAT_CAP = 25;
 const REMATCH_COUNTDOWN_MS = 90000;
+// Pre-start countdown for a new multi room: 60s, public or private (house
+// rule R40, Oct 2, 2026). The rematch window above is a separate timer.
 const PUBLIC_COUNTDOWN_MS = 60000;
-const PRIVATE_HUMAN_COUNTDOWN_MS = 90000;
+const PRIVATE_HUMAN_COUNTDOWN_MS = 60000;
 const lobby = {
   members: new Map(), // token -> { token, name, at, lastSeen, lobbyCode }
   chat: [],
