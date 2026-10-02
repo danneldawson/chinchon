@@ -1451,9 +1451,9 @@ $('btn-tolobby').onclick = async () => {
 
 // Inject isWild / cardValue from the server's cards module via a tiny endpoint
 // is overkill; we replicate the simple rules: wild = rank 1 suit Oros; value
-// 1-7 face, 10/11/12 worth 10.
+// 1-7 face, 10/11/12 worth 10, the wild worth 0 (R38).
 window.__isWild = (c) => c.suit === 'Oros' && c.rank === 1;
-window.__cardVal = (c) => (c.rank <= 7 ? c.rank : 10);
+window.__cardVal = (c) => (c.suit === 'Oros' && c.rank === 1 ? 0 : c.rank <= 7 ? c.rank : 10);
 
 // ----------------------------------------------------------- global lobby
 // The new landing screen. Anyone enters with a name, sees who's present, the

@@ -47,15 +47,15 @@ test("the client's wild rule matches the engine for all 80 cards", () => {
   }
 });
 
-test("the client's card values match the engine for every rank", () => {
+test("the client's card values match the engine for all 80 cards (incl. the wild)", () => {
   const fn = clientFn('__cardVal');
-  for (const rank of RANKS) {
-    assert.strictEqual(
-      fn({ rank, suit: 'Copas' }),
-      cardValue({ rank, suit: 'Copas' }),
-      `rank ${rank}`
-    );
+  for (const card of buildDeck()) {
+    assert.strictEqual(fn(card), cardValue(card), `${card.rank} de ${card.suit} (deck ${card.deckId})`);
   }
+});
+
+test("R38: the client values the wild at 0", () => {
+  assert.strictEqual(clientFn('__cardVal')({ rank: 1, suit: 'Oros' }), 0);
 });
 
 test('every suit has its own emblem case (no silent default fallback)', () => {
