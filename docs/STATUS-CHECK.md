@@ -107,3 +107,6 @@ node scripts/safe-to-deploy.js --wait                       # re-check every 45s
 - If anyone is playing, **hold**. Do not push "anyway" after a timeout; report that the deploy is still waiting.
 - `/api/lobby/state` `matches` is not enough. It lists started games of every visibility (solo too, until they are swept after 30 min idle, even when nobody is there), but it hides private rooms that are still in their countdown. The script falls back to it only on a server that predates `/api/activity`.
 - Rooms also survive restarts when `CHINCHON_STATE_FILE` is set (Railway volume, e.g. `/data/rooms.json`). Saves happen on SIGTERM, about 2s after any POST, and every 15s while anything is touched. This is a safety net, not a reason to skip the check.
+
+**Log**
+- 2026-10-04 11:02 PT: `6be8855` (room persistence, host Start fix, `/api/activity`) live at 10:59:14 PT. This docs-only commit redeploys on purpose to prove that rooms created before a deploy survive it.
