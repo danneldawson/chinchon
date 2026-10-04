@@ -148,10 +148,7 @@ const I18N = {
     waitingForMatch: 'Waiting for the match to start…',
     enterRoomCodeMsg: 'Enter the room code.',
     createRoomError: 'Could not create the room. Try again.',
-    // Reclaim-flow strings (room code + SeatID rejoin mid-game)
-    rejoinYourSeat: 'Rejoin your seat',
-    rejoinSuccess: 'Rejoined. Back in your seat.',
-    rejoinFailed: 'Rejoin failed',
+    // Reclaim-flow strings
     seatReconnectedMsg: 'This seat was reconnected from another device.',
     makeANewGame: 'Make a new game',
     shareCodeNote: 'Share this code with the other players however you like.',
@@ -304,9 +301,6 @@ const I18N = {
     enterRoomCodeMsg: 'Introduce el código de sala.',
     createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
     // Reclaim-flow strings
-    rejoinYourSeat: 'Reconectar tu asiento',
-    rejoinSuccess: 'Reconectado. Vuelves a tu asiento.',
-    rejoinFailed: 'Error al reconectar',
     seatReconnectedMsg: 'Este asiento se reconectó desde otro dispositivo.',
     makeANewGame: 'Crear una partida nueva',
     // EN mirror strings
@@ -318,9 +312,6 @@ const I18N = {
     enterRoomCodeMsgEn: 'Enter the room code.',
     createRoomErrorEn: 'Could not create the room. Try again.',
     // Reclaim-flow strings
-    rejoinYourSeat: 'Rejoin your seat',
-    rejoinSuccess: 'Rejoined. Back in your seat.',
-    rejoinFailed: 'Rejoin failed',
     seatReconnectedMsg: 'This seat was reconnected from another device.',
     makeANewGame: 'Make a new game',
   },
@@ -1620,38 +1611,6 @@ function escapeHtml(s) {
 
 $('btn-lobby-enter').onclick = enterLobby;
 $('lobby-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') enterLobby(); });
-$('btn-rejoin').onclick = async () => {
-  const codeInput = $('rejoin-code');
-  const msg = $('rejoin-msg');
-  const code = (codeInput && codeInput.value || '').trim().toUpperCase();
-  if (!code) { if (msg) msg.textContent = t('rejoinFailed'); return; }
-  // Try to load the seatId from localStorage for this code
-  const seatId = loadSeat(code);
-  if (!seatId) { if (msg) msg.textContent = t('rejoinFailed'); return; }
-  if (msg) msg.textContent = '';
-  try {
-    const res = await fetch('/api/room/rejoin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, seatId }),
-    }).then((r) => r.json());
-    if (!res || !res.success) { if (msg) msg.textContent = t('rejoinFailed'); return; }
-    state.code = code;
-    state.seatId = seatId;
-    state.sessionToken = res.token;
-    persistSeat(code, seatId);
-    clearInterval(lobbyTimer);
-    show($('globby'));
-    $('lobby-main').classList.add('hidden');
-    $('lobby-enter').classList.add('hidden');
-    show($('game'));
-    $('game').classList.remove('hidden');
-    enterGame();
-  } catch (e) {
-    if (msg) msg.textContent = t('rejoinFailed');
-  }
-};
-$('rejoin-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-rejoin').click(); });
 $('btn-lobby-chat-send').onclick = async () => {
   const input = $('lobby-chat-input');
   const text = input.value.trim();
