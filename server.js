@@ -48,7 +48,7 @@ const GAME_IDLE_EVICT_MS  = 30 * 60 * 1000; // in-progress games with all humans
 
 function lobbyEnter(name) {
   const clean = String(name || '').trim().slice(0, 14);
-  if (clean.length < 4) return { error: 'name must be at least 4 characters' };
+  if (clean.length < 3) return { error: 'name must be at least 3 characters' };
   if (clean.toLowerCase() === 'chinchon') return { error: 'name reserved' };
   const taken = new Set([...lobby.members.values()].map((m) => m.name.toLowerCase()));
   let finalName = clean;

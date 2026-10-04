@@ -303,6 +303,15 @@ test('lobby: name CHINCHON is reserved', async () => {
   assert.equal(ok.status, 200, 'normal name accepted');
 });
 
+test('lobby: 3-character names are accepted, 2 are rejected', async () => {
+  const three = await api('POST', '/api/lobby/enter', { name: 'Dan' });
+  assert.equal(three.status, 200, '3-character name accepted');
+  assert.equal(three.json.name, 'Dan');
+  const two = await api('POST', '/api/lobby/enter', { name: 'Al' });
+  assert.equal(two.status, 400, '2-character name rejected');
+  assert.equal(two.json.error, 'name must be at least 3 characters');
+});
+
 // ---------------------------------------------------------------- dedupe
 test('one seat per human: reopening the same room reuses the seat (no duplicate)', async () => {
   // A same-device player (same lobbyToken) re-entering must get back their

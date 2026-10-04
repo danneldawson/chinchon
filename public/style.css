@@ -29,6 +29,10 @@ html, body {
 }
 
 h1 { margin: 0; letter-spacing: 2px; color: var(--accent); }
+/* Landing title: 2x the default h1 (32px -> 64px); shrinks with the viewport on narrow phones so it never overflows. */
+#title { font-size: min(64px, 14vw); }
+/* Landing tagline under the CHINCHON title: same yellow, smaller. Spanish in both languages (not translated). */
+.tagline { margin: 4px 0 12px; color: var(--accent); font-size: 0.85em; font-weight: 600; }
 .sub { color: var(--dim); margin: 4px 0 18px; }
 
 label { display: block; margin: 12px 0 6px; color: var(--dim); font-size: 0.85em; }
@@ -36,6 +40,9 @@ input {
   width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
   background: #11141a; color: var(--ink); font-size: 1em; margin-top: 4px;
 }
+/* Landing name field: no need for the full card width. Keeps 1em text (no
+   iOS zoom-on-focus) and ~36px height so it stays easy to tap. */
+#lobby-name { max-width: 260px; padding: 8px 10px; }
 button {
   cursor: pointer; border: none; border-radius: 8px; padding: 10px 16px;
   background: #2a2f3a; color: var(--ink); font-size: 1em; margin: 12px 8px 0 0;
