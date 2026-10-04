@@ -19,8 +19,8 @@ const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 const I18N = {
   en: {
     title: 'CHINCHON',
-    tabMulti: 'Play with friends',
-    tabSolo: 'Solo vs bots',
+    tabMulti: 'Multiplayer',
+    tabSolo: 'Solo',
     subCreate: 'Create a room',
     subJoin: 'Have a code? Join',
     backToCreate: '← Back to create',
@@ -151,7 +151,6 @@ const I18N = {
     createRoomError: 'Could not create the room. Try again.',
     // Reclaim-flow strings (room code + SeatID rejoin mid-game)
     rejoinYourSeat: 'Rejoin your seat',
-    rejoinHint: 'Only works while your game is running.',
     rejoinSuccess: 'Rejoined. Back in your seat.',
     rejoinFailed: 'Rejoin failed',
     seatReconnectedMsg: 'This seat was reconnected from another device.',
@@ -162,8 +161,8 @@ const I18N = {
   },
   es: {
     title: 'CHINCHON',
-    tabMulti: 'Jugar con amigos',
-    tabSolo: 'Solo vs bots',
+    tabMulti: 'Multijugador',
+    tabSolo: 'Solo',
     subCreate: 'Crear una sala',
     subJoin: '¿Tienes un código? Únete',
     backToCreate: '← Volver a crear',
@@ -307,7 +306,6 @@ const I18N = {
     createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
     // Reclaim-flow strings
     rejoinYourSeat: 'Reconectar tu asiento',
-    rejoinHint: 'Solo funciona mientras tu partida está en curso.',
     rejoinSuccess: 'Reconectado. Vuelves a tu asiento.',
     rejoinFailed: 'Error al reconectar',
     seatReconnectedMsg: 'Este asiento se reconectó desde otro dispositivo.',
@@ -322,7 +320,6 @@ const I18N = {
     createRoomErrorEn: 'Could not create the room. Try again.',
     // Reclaim-flow strings
     rejoinYourSeat: 'Rejoin your seat',
-    rejoinHint: 'Only works while your game is running.',
     rejoinSuccess: 'Rejoined. Back in your seat.',
     rejoinFailed: 'Rejoin failed',
     seatReconnectedMsg: 'This seat was reconnected from another device.',
