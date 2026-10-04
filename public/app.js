@@ -999,12 +999,6 @@ function render() {
   // per legal close: discard that card AND close). No separate banner — the
   // player sees every option up front and picks the discard they want.
 
-  // Controls
-  $('btn-draw-stock').textContent = t('drawStock');
-  $('btn-draw-discard').textContent = t('drawDiscard');
-  $('btn-draw-stock').classList.toggle('hidden', !(canAct && phase === 'draw'));
-  $('btn-draw-discard').classList.toggle('hidden', !(canAct && phase === 'draw'));
-
   // Tutorial gating: while a rule is pending, the human cannot act. Show the
   // current rule (text) with a Continue button that acknowledges it server-side.
   // Voice is added later (the user approved text-only first).
@@ -1014,8 +1008,6 @@ function render() {
     tutEl.querySelector('.tutorial-rule-title').textContent = rule.title;
     tutEl.querySelector('.tutorial-rule-body').textContent = rule.body;
     tutEl.classList.remove('hidden');
-    $('btn-draw-stock').classList.add('hidden');
-    $('btn-draw-discard').classList.add('hidden');
   } else {
     tutEl.classList.add('hidden');
   }
@@ -1329,8 +1321,6 @@ async function doDiscard(card, close = false, splitIdx = null) {
   await poll();
 }
 
-$('btn-draw-stock').onclick = () => doDraw('stock');
-$('btn-draw-discard').onclick = () => doDraw('discard');
 // Tutorial: acknowledge the current rule so the game may proceed. Calls the
 // server to advance the rule queue and unpause; render() will hide the prompt.
 $('btn-tutorial-continue').onclick = async () => {
