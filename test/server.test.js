@@ -529,3 +529,17 @@ test('card back is the photo asset, served as image/jpeg (not text/plain)', asyn
   assert.equal(buf[0], 0xff, 'payload is a real JPEG');
   assert.equal(buf[1], 0xd8, 'payload is a real JPEG');
 });
+
+test('text assets declare UTF-8 (header + meta) and the UI has no accented o', async () => {
+  for (const [p, base] of [['/index.html', 'text/html'], ['/app.js', 'text/javascript'], ['/style.css', 'text/css']]) {
+    const { status, type, buf } = await rawGet(p);
+    assert.equal(status, 200, `${p} served`);
+    assert.equal(type, `${base}; charset=utf-8`, `${p} content-type is ${type}`);
+    assert.ok(!/[óÓ]|&oacute;|&Oacute;/.test(buf.toString('utf8')), `${p} has no accented o`);
+  }
+  const html = (await rawGet('/index.html')).buf.toString();
+  assert.match(html, /<head>\s*<meta charset="utf-8"/i, 'meta charset is the first thing in <head>');
+  const { json, status } = await api('GET', '/api/state?code=NOPE&seat=x');
+  assert.equal(status, 404);
+  assert.ok(json.error, 'JSON error body still parses');
+});

@@ -159,19 +159,19 @@ const I18N = {
     title: 'CHINCHON',
     joinLobby: 'Entrar al lobby',
     subCreate: 'Crear una sala',
-    subJoin: '¿Tienes un código? Únete',
+    subJoin: '¿Tienes un codigo? Únete',
     backToCreate: '← Volver a crear',
     yourName: 'Tu nombre',
     createRoom: 'Crear sala',
     createRoomBtn: 'Sala multijugador',
-    roomCode: 'Código de sala:',
+    roomCode: 'Codigo de sala:',
     shareLink: 'Enlace para compartir:',
     copy: 'Copiar',
     playersJoined: 'Jugadores unidos:',
     startGame: 'Empezar partida',
-    roomCodeLabel: 'Código de sala',
+    roomCodeLabel: 'Codigo de sala',
     joinRoom: 'Unirse a sala',
-    host: 'Anfitrión',
+    host: 'Anfitrion',
     player: 'Jugador',
     gameOver: '¡gana!',
     yourTurn: 'Tu turno',
@@ -233,36 +233,36 @@ const I18N = {
     backToLobby: '← Volver al lobby',
     createPublic: 'Crear sala pública',
     createPrivate: 'Crear sala privada',
-    learnSession: 'Sesión de aprendizaje',
-    learnSessionDesc: 'Practica con hasta 3 jugadores (y bots). Sin presión — aprende el juego.',
+    learnSession: 'Sesion de aprendizaje',
+    learnSessionDesc: 'Practica con hasta 3 jugadores (y bots). Sin presion — aprende el juego.',
     rules: 'Reglas',
     leave: 'Salir',
     createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
     // Additional UI strings missing from ES
-    rulesTitle: 'Cómo jugar',
+    rulesTitle: 'Como jugar',
     backToCreate: '← Volver a crear',
     yourName: 'Tu nombre',
     createRoom: 'Crear sala',
     createRoomBtn: 'Sala multijugador',
-    roomCode: 'Código de sala:',
+    roomCode: 'Codigo de sala:',
     shareLink: 'Enlace para compartir:',
     copy: 'Copiar',
     playersJoined: 'Jugadores unidos:',
     startGame: 'Empezar partida',
-    roomCodeLabel: 'Código de sala',
+    roomCodeLabel: 'Codigo de sala',
     joinRoom: 'Unirse a sala',
-    host: 'Anfitrión',
+    host: 'Anfitrion',
     player: 'Jugador',
     keepPlayingLong: 'Seguir jugando (no cerrar)',
     soloVsBots: 'Jugar solo',
     playWithFriends: 'Jugar con amigos',
     subCreate: 'Crear una sala',
-    subJoin: '¿Tienes un código? Únete',
-    learnSessionShort: 'Sesión de aprendizaje',
-    learnSessionShortDesc: 'Practica con hasta 3 jugadores (y bots). Sin presión — aprende el juego.',
+    subJoin: '¿Tienes un codigo? Únete',
+    learnSessionShort: 'Sesion de aprendizaje',
+    learnSessionShortDesc: 'Practica con hasta 3 jugadores (y bots). Sin presion — aprende el juego.',
     waitExtend: 'Esperar más',
     continueWithout: 'Continuar sin él',
-    spectating: 'Estás como espectador; vuelves en la próxima partida.',
+    spectating: 'Estás como espectador; vuelves en la proxima partida.',
     closeError: 'Error en Close UI:',
     selectLay: 'Selecciona ≥3 cartas para poner',
     cardsCount: 'cartas',
@@ -298,10 +298,10 @@ const I18N = {
     phaseDiscard: 'Descarta',
     matchStartsIn: 'La partida empieza en {s}s…',
     waitingForMatch: 'Esperando a que empiece la partida…',
-    enterRoomCodeMsg: 'Introduce el código de sala.',
+    enterRoomCodeMsg: 'Introduce el codigo de sala.',
     createRoomError: 'No se pudo crear la sala. Inténtalo de nuevo.',
     // Reclaim-flow strings
-    seatReconnectedMsg: 'Este asiento se reconectó desde otro dispositivo.',
+    seatReconnectedMsg: 'Este asiento se reconecto desde otro dispositivo.',
     makeANewGame: 'Crear una partida nueva',
     // EN mirror strings
     waitingForEn: 'Waiting for {name}…',
@@ -334,7 +334,7 @@ const RULES_EN = [
 
 // Spanish mirror of the locked EN rules (same order, no numbers, bold titles).
 const RULES_ES = [
-  { title: 'Cómo ganar', body: 'Ganas el Chinchon dejando las 7 cartas en melés, sin nada de sobrante — eso es un chinchon, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.' },
+  { title: 'Como ganar', body: 'Ganas el Chinchon dejando las 7 cartas en melés, sin nada de sobrante — eso es un chinchon, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.' },
   { title: 'La baraja', body: 'Jugamos con 80 cartas: dos barajas españolas de 40. Cada palo — Oros, Copas, Espadas, Bastos — tiene los números del 1 al 7, más el 10, el 11 y el 12. El 1 de Oros es comodín: puede ocupar el lugar de cualquier carta en un melé (solo un comodín por melé), pero también puede usarse como un 1 natural.' },
   { title: 'Tu mano', body: 'Siempre tendrás siete cartas. En tu turno, robas una carta del mazo o de la pila de descarte, y luego debes descartar una — así siempre tienes siete cartas en la mano.' },
   { title: 'Escaleras', body: 'Una escalera es tres o más cartas del mismo palo, en orden. Como la baraja salta el 8 y el 9, la secuencia pasa del 7 al 10 — así que 6-7-10 es una escalera válida, y también lo es 11-12-1. El comodín 1 de Oros puede llenar cualquier hueco. Dos límites: no puede usarse como segundo comodín en un chinchon — pero si hay dos 1 de Oros en un trío, uno debe ser el 1 de Oros real. Fuera de eso, puede ser cualquiera, en cualquier lugar.' },
@@ -1008,7 +1008,7 @@ function render() {
       // Prompt: choose how to close (each option is a distinct meld decomposition).
       const prompt = document.createElement('div');
       prompt.className = 'close-prompt';
-      prompt.textContent = lang === 'es' ? '¿Cómo quieres cerrar?' : 'How do you want to close?';
+      prompt.textContent = lang === 'es' ? '¿Como quieres cerrar?' : 'How do you want to close?';
       co.appendChild(prompt);
 
       v.closeOptions.forEach((o, idx) => {
@@ -1076,7 +1076,7 @@ function renderStatusBanner(v) {
   if (v.spectator) {
     el.classList.remove('hidden');
     el.className = 'banner spectator';
-    el.textContent = (lang === 'es') ? 'Estás como espectador; vuelves en la próxima partida.' : 'You are spectating — you rejoin the next match.';
+    el.textContent = (lang === 'es') ? 'Estás como espectador; vuelves en la proxima partida.' : 'You are spectating — you rejoin the next match.';
     return;
   }
   if (v.waiting) {

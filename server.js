@@ -830,14 +830,15 @@ function publicBase(req) {
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MIME = {
-  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  // Text types declare UTF-8 so accented Spanish never renders as mojibake.
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
   '.svg': 'image/svg+xml', '.webp': 'image/webp', '.ico': 'image/x-icon',
 };
 
 function sendJson(res, code, obj) {
   const body = JSON.stringify(obj);
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
   res.end(body);
 }
 
@@ -1427,7 +1428,7 @@ function createServer() {
         let html = data.toString();
         html = html.replace('/app.js"', `/app.js?v=${ver}"`);
         html = html.replace('/style.css"', `/style.css?v=${ver}"`);
-        res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
         return res.end(html);
       }
       // JS/CSS (and other assets): never let the browser cache them, so a
@@ -1435,7 +1436,7 @@ function createServer() {
       // (The ?v=mtime bust helps, but without no-cache some browsers/proxies
       // still serve a stale copy by URL.)
       res.writeHead(200, {
-        'Content-Type': MIME[path.extname(filePath)] || 'text/plain',
+        'Content-Type': MIME[path.extname(filePath)] || 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
