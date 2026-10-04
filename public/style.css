@@ -65,18 +65,91 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 #scoreboard { font-size: 0.9em; }
 #scoreboard .row { margin: 2px 0; }
 #scoreboard .out { color: var(--dim); text-decoration: line-through; }
+#scoreboard .kick { margin: 0 0 0 4px; padding: 0 6px; font-size: 0.8em; line-height: 1.5; vertical-align: middle; }
 #turn-banner { color: var(--accent); font-weight: 700; }
 
-#opponents { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
-.opp {
-  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-  padding: 8px 12px; min-width: 90px;
+/* ---- The table: an oval felt with a wooden rim ---- */
+#table {
+  position: relative; width: 100%; max-width: 780px; height: 430px; margin: 12px auto 22px;
+  border-radius: 50% / 50%;
+  background: radial-gradient(ellipse at 50% 42%, #2e7a4d 0%, #23633d 55%, #194a2d 100%);
+  box-shadow:
+    inset 0 0 0 9px #6e4524, inset 0 0 0 12px #3f2713,
+    inset 0 0 46px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.45);
 }
-.opp.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,207,77,0.25); }
-.opp .name { font-weight: 600; }
-.opp .count { color: var(--dim); font-size: 0.85em; }
+#opponents { position: absolute; inset: 0; pointer-events: none; }
+.seat {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 5px 9px 4px; border-radius: 16px; min-width: 74px; max-width: 120px;
+  background: rgba(8, 22, 14, 0.42); color: #f3efe2; text-align: center;
+}
+.seat-fan { position: relative; width: 70px; height: 34px; }
+.mini-back {
+  position: absolute; bottom: 0; width: 20px; height: 30px; border-radius: 3px;
+  background: #f7f3e9 url("card-back.jpg") center/cover no-repeat;
+  border: 1px solid #d8cfb8; box-shadow: 0 1px 2px rgba(0,0,0,.45);
+  transform-origin: 50% 130%;
+}
+.seat-name {
+  font-weight: 700; font-size: 0.82em; line-height: 1.15; max-width: 108px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.seat-count { font-size: 0.7em; color: #c9d6cc; }
+.seat.out { opacity: .55; }
+.seat .bot-avatar { margin-right: 3px; }
+/* You, at the near rim (your full hand is below the table). */
+.me-seat {
+  left: 50%; top: 100%; min-width: 0; padding: 4px 14px;
+  background: #1c2a20; border: 1px solid #3f2713;
+}
 
-#center { display: flex; gap: 60px; justify-content: center; margin: 18px 0; align-items: flex-start; }
+/* Turn ring: a bright arc that orbits the active seat; faster + pulsing while
+   that player is mid-move (drawn, not yet discarded). */
+@property --orbit { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.seat.turn { box-shadow: 0 0 0 1px rgba(255,207,77,.45), 0 0 14px rgba(255,207,77,.28); }
+.seat.turn::before {
+  content: ''; position: absolute; inset: -5px; border-radius: 20px; padding: 3px;
+  background: conic-gradient(from var(--orbit), rgba(255,207,77,0) 0deg, rgba(255,207,77,.18) 180deg, #ffcf4d 290deg, #fff3c4 320deg, rgba(255,207,77,0) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: seatOrbit 2.8s linear infinite; pointer-events: none;
+}
+.seat.turn.mid-move { animation: seatPulse 1.1s ease-in-out infinite; }
+.seat.turn.mid-move::before { animation-duration: 1.3s; }
+@keyframes seatOrbit { to { --orbit: 360deg; } }
+@keyframes seatPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255,207,77,.45), 0 0 10px rgba(255,207,77,.25); }
+  50%      { box-shadow: 0 0 0 2px rgba(255,207,77,.9), 0 0 26px rgba(255,207,77,.6); }
+}
+#your-area.my-turn #hand { border-radius: 12px; box-shadow: 0 0 0 2px rgba(255,207,77,.35); }
+
+#center {
+  position: absolute; left: 50%; top: 60%; transform: translate(-50%, -50%);
+  display: flex; gap: 44px; justify-content: center; align-items: flex-start; margin: 0;
+}
+#table .pile { border-color: rgba(255,255,255,.22); background: rgba(0,0,0,.12); }
+#table .pile-label { color: #f3efe2; }
+
+/* Discard tray: the last few discards, face up, overlapping like coins. */
+.discard-zone { display: flex; align-items: flex-start; }
+.discard-tray { display: flex; align-items: flex-start; padding-top: 14px; margin-right: -14px; }
+.discard-tray.empty { display: none; }
+.tray-card {
+  position: relative; width: 48px; height: 70px; margin-left: -24px; border-radius: 7px;
+  background: #f7f3e9; border: 1px solid #d8cfb8; box-shadow: 0 1px 4px rgba(0,0,0,.45);
+  transform: rotate(var(--tilt, 0deg)); color: #1a1d24; pointer-events: none;
+  display: flex; flex-direction: column; align-items: flex-start; padding: 3px 4px;
+}
+.tray-card:first-child { margin-left: 0; }
+.tray-card .tc-rank { font-weight: 800; font-size: 1em; line-height: 1; }
+.tray-card .tc-emblem .emblem { width: 14px; height: 14px; }
+.tray-card.oros { color: #c9971b; }
+.tray-card.copas { color: #d23b3b; }
+.tray-card.espadas { color: #2f6fd0; }
+.tray-card.bastos { color: #2f9e54; }
+.tray-card.has-wild { border-color: #c9971b; }
+.discard-zone #discard { position: relative; z-index: 1; }
 
 /* Big whose-turn marker. It sits ABOVE the piles in normal flow — deliberately
    not floated over them — so it can never cover a card, a meld, or a pile you
@@ -388,7 +461,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) {
   #turn-marker.mine,
   .card, button, .hand.deal-anim .card, .card-mini.slide-in,
-  .discard-top.slide-in, .discard-top.thrown,
+  .discard-top.slide-in, .discard-top.thrown, .seat.turn, .seat.turn::before,
   .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; will-change: auto; }
   /* The run hint must still be readable without motion: show it statically. */
   .run-hint.show { animation: none !important; opacity: 1 !important; }
@@ -404,8 +477,18 @@ button, .card, .pile, input { touch-action: manipulation; }
   #app { padding: 10px; }
   .panel { padding: 14px; border-radius: 12px; }
 
-  /* Tighten the two piles so they sit side by side comfortably. */
-  #center { gap: 26px; margin: 12px 0; }
+  /* Table: taller than wide-ish oval on a phone; piles sit lower so the far
+     rim (opponents) stays clear. */
+  #table { height: 420px; border-radius: 48% / 50%; margin: 10px auto 24px; }
+  #center { gap: 16px; top: 67%; }
+  .seat { min-width: 58px; max-width: 74px; padding: 3px 5px; }
+  .seat-fan { width: 54px; height: 26px; }
+  .mini-back { width: 15px; height: 23px; }
+  .seat-name { font-size: 0.72em; max-width: 66px; }
+  .seat-count { font-size: 0.62em; }
+  .tray-card { width: 40px; height: 60px; margin-left: -22px; }
+  .discard-tray .tray-card:nth-last-child(4) { display: none; }
+  .discard-tray .tray-card:nth-last-child(3) { margin-left: 0; }
   .pile { width: 84px; min-height: 118px; }
   .stock-count { font-size: 1.6em; }
 
@@ -418,9 +501,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   .hand-sep { font-size: 1.4em; padding: 0 1px; }
 
   /* Opponents + scoreboard stack and shrink. */
-  #opponents { gap: 8px; }
-  .opp { min-width: 76px; padding: 6px 8px; }
-  #scoreboard { font-size: 0.82em; }
+  #scoreboard { font-size: 0.82em; display: flex; flex-wrap: wrap; gap: 0 12px; }
 
   /* Close-choice buttons go full width and stack. */
   #close-options { display: flex; flex-direction: column; gap: 8px; }
@@ -589,4 +670,11 @@ button, .card, .pile, input { touch-action: manipulation; }
   width: 1.5em; height: 1.5em; border-radius: 50%;
   margin-right: 6px; font-size: 0.85em; vertical-align: middle;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+}
+
+/* Reduced motion: the turn ring becomes a static, full highlight. */
+@media (prefers-reduced-motion: reduce) {
+  .seat.turn::before { background: #ffcf4d; animation: none !important; }
+  .seat.turn, .seat.turn.mid-move { animation: none !important; }
+  .seat.turn.mid-move { box-shadow: 0 0 0 2px rgba(255,207,77,.9), 0 0 18px rgba(255,207,77,.5); }
 }

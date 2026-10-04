@@ -543,3 +543,34 @@ test('text assets declare UTF-8 (header + meta) and the UI has no accented o', a
   assert.equal(status, 404);
   assert.ok(json.error, 'JSON error body still parses');
 });
+
+test('state exposes a read-only discardHistory (last 5, newest last) in both serialize branches', async () => {
+  // Pre-start branch (no state yet): an empty array, never undefined.
+  const { json: pend } = await api('POST', '/api/room/new', { mode: 'multi', name: 'Hal', visibility: 'private' });
+  const { json: pv } = await api('GET', `/api/state?code=${pend.code}&seat=${pend.seatId}`);
+  assert.deepStrictEqual(pv.discardHistory, [], 'pre-start view has an empty discardHistory');
+
+  // In-game branch: starts with just the upcard, grows with discards, capped at 5.
+  const { json: solo } = await api('POST', '/api/room/new', { mode: 'solo', name: 'You', bots: 2 });
+  const { code, seatId: seat } = solo;
+  let { json: v } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
+  assert.ok(Array.isArray(v.discardHistory), 'discardHistory is an array');
+  assert.ok(v.discardHistory.length >= 1, 'has at least the upcard');
+  assert.deepStrictEqual(v.discardHistory[v.discardHistory.length - 1], v.discardTop, 'last entry is the top discard');
+  for (let i = 0; i < 6 && !v.gameOver; i++) {
+    ({ json: v } = await api('GET', `/api/state?code=${code}&seat=${seat}`));
+    if (!v.isYourTurn) continue;
+    if (v.phase === 'draw') await api('POST', '/api/draw', { code, seat, from: 'stock' });
+    ({ json: v } = await api('GET', `/api/state?code=${code}&seat=${seat}`));
+    if (v.phase === 'discard') {
+      const card = v.yourHand.find((c) => c.id !== v.lastDrawnId);
+      await api('POST', '/api/discard', { code, seat, cardId: card.id, close: false });
+    }
+  }
+  ({ json: v } = await api('GET', `/api/state?code=${code}&seat=${seat}`));
+  assert.ok(v.discardHistory.length >= 2 && v.discardHistory.length <= 5, `history length ${v.discardHistory.length}`);
+  assert.deepStrictEqual(v.discardHistory[v.discardHistory.length - 1], v.discardTop, 'still ends with the top discard');
+  const ids = v.discardHistory.map((c) => c.id);
+  assert.strictEqual(new Set(ids).size, ids.length, 'no duplicate cards');
+  for (const c of v.discardHistory) assert.ok(!v.yourHand.some((h) => h.id === c.id), 'history never contains a card in your hand');
+});

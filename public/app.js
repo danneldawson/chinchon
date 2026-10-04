@@ -850,19 +850,9 @@ function render() {
     }
   }
 
-  // Opponents (face-down counts only)
-  const oppWrap = $('opponents');
-  oppWrap.innerHTML = '';
-  for (const o of v.opponents) {
-    if (o.isYou) continue;
-    const el = document.createElement('div');
-    el.className = 'opp' + (v.turnSeat === o.seat ? ' active' : '');
-    const avatar = o.botEmoji
-      ? `<span class="bot-avatar" style="background:${o.botColor || '#7c4dff'}">${o.botEmoji}</span>`
-      : '';
-    el.innerHTML = `<div class="name">${avatar}${o.name}</div><div class="count">${o.handCount} ${t('cardsCount')}${o.out ? ' · ' + t('out') : ''}</div>`;
-    oppWrap.appendChild(el);
-  }
+  // Table seats: opponents around the rim (face-down fans + name, counts only,
+  // never their cards), you at the near rim. The turn ring orbits the active seat.
+  renderTableSeats(v);
 
   // Center piles
   $('stock-count').textContent = v.stockCount;
@@ -881,6 +871,7 @@ function render() {
     clearTimeout(_animState.reshuffleTimer);
     _animState.reshuffleTimer = setTimeout(() => rn.classList.add('hidden'), 3000);
   }
+  renderDiscardTray(v);
   const dt = $('discard-top');
   const dtKey = v.discardTop ? `${v.discardTop.suit}-${v.discardTop.rank}` : null;
   if (dtKey !== _animState.discardId) {
@@ -1136,6 +1127,94 @@ function seatName(seat) {
   const l = state.view && state.view.lobby;
   if (!l || seat == null || !l[seat]) return '';
   return l[seat].name || '';
+}
+
+// ---- Table layout (seats around an oval felt) ----
+// Seat angle (degrees, 0 = right, 90 = near/bottom, 270 = far/top) for opponent
+// i of n. Opponents fill the far half of the rim, clockwise from your left, so
+// the next player to act sits on your left. The spread widens with the count
+// so 1-6 opponents (2-7 players) never crowd each other.
+function seatAngle(i, n, maxSpan = 160) {
+  if (n <= 1) return 270;
+  const span = Math.min(maxSpan, 50 * (n - 1));
+  return 270 - span / 2 + (span * i) / (n - 1);
+}
+
+function renderTableSeats(v) {
+  const wrap = $('opponents');
+  if (!wrap || !Array.isArray(v.opponents)) return;
+  const N = v.opponents.length;
+  const me = v.opponents.find((o) => o.isYou);
+  const mySeat = me ? me.seat : 0;
+  const others = v.opponents
+    .filter((o) => !o.isYou)
+    .sort((a, b) => ((a.seat - mySeat + N) % N) - ((b.seat - mySeat + N) % N));
+  const lo = v.layoff && v.layoff.phase === 'layoff' ? v.layoff : null;
+  const activeSeat = v.gameOver ? null : (lo ? lo.currentSeat : v.turnSeat);
+  // Mid-move: the active player has drawn and still has to discard.
+  const midMove = !lo && v.phase === 'discard';
+  const narrow = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  const rx = narrow ? 44 : 42;
+  const ry = 39;
+  wrap.innerHTML = '';
+  others.forEach((o, i) => {
+    // Phones: a slightly narrower arc keeps the end seats above the piles.
+    const rad = (seatAngle(i, others.length, narrow ? 140 : 160) * Math.PI) / 180;
+    const el = document.createElement('div');
+    const turn = activeSeat != null && activeSeat === o.seat;
+    el.className = 'seat opp' + (turn ? ' turn active' : '') + (turn && midMove ? ' mid-move' : '') + (o.out ? ' out' : '');
+    el.dataset.seat = String(o.seat);
+    el.style.left = `${(50 + rx * Math.cos(rad)).toFixed(2)}%`;
+    el.style.top = `${(50 + ry * Math.sin(rad)).toFixed(2)}%`;
+    const shown = Math.min(o.handCount || 0, 8);
+    let fan = '';
+    for (let k = 0; k < shown; k++) {
+      const off = k - (shown - 1) / 2;
+      fan += `<span class="mini-back" style="left:calc(50% + ${(off * 6).toFixed(1)}px);transform:translateX(-50%) rotate(${(off * 8).toFixed(1)}deg)"></span>`;
+    }
+    const avatar = o.botEmoji
+      ? `<span class="bot-avatar" style="background:${o.botColor || '#7c4dff'}">${o.botEmoji}</span>`
+      : '';
+    el.innerHTML =
+      `<div class="seat-fan">${fan}</div>` +
+      `<div class="seat-name">${avatar}${escapeHtml(o.name)}</div>` +
+      `<div class="seat-count">${o.handCount} ${t('cardsCount')}${o.out ? ' · ' + t('out') : ''}</div>`;
+    wrap.appendChild(el);
+  });
+  // You, at the near rim. Your own hand stays big and tappable below the table.
+  const meEl = $('me-seat');
+  if (meEl && meEl.classList) {
+    const myTurn = activeSeat != null && activeSeat === mySeat;
+    meEl.classList.toggle('turn', myTurn);
+    meEl.classList.toggle('mid-move', myTurn && midMove);
+    const nm = $('me-seat-name');
+    if (nm) nm.textContent = me ? `★ ${me.name}` : '';
+    const area = $('your-area');
+    if (area && area.classList) area.classList.toggle('my-turn', myTurn);
+  }
+}
+
+// Discard tray: the few discards under the top card, face up and overlapping
+// like coins on a table (oldest left, newest right, next to the top card).
+// Purely visual; only the top card (#discard) is drawable.
+const TRAY_MAX = 4;
+function renderDiscardTray(v) {
+  const tray = $('discard-tray');
+  if (!tray || !('innerHTML' in tray)) return;
+  const hist = Array.isArray(v.discardHistory) ? v.discardHistory : [];
+  const older = hist.slice(0, -1).slice(-TRAY_MAX);
+  const key = older.map((c) => c.id).join(',');
+  if (tray.dataset.key === key) return; // unchanged since the last poll
+  tray.dataset.key = key;
+  tray.innerHTML = older.map((c) => {
+    let h = 0;
+    for (const ch of String(c.id)) h = (h * 31 + ch.charCodeAt(0)) % 997;
+    const tilt = (h % 13) - 6; // a little natural tilt, stable per card
+    const wild = window.__isWild ? window.__isWild(c) : false;
+    return `<div class="tray-card ${String(c.suit).toLowerCase()}${wild ? ' has-wild' : ''}" style="--tilt:${tilt}deg">` +
+      `<span class="tc-rank">${c.rank}</span><span class="tc-emblem">${suitEmblem(c.suit)}</span></div>`;
+  }).join('');
+  tray.classList.toggle('empty', older.length === 0);
 }
 
 // The big whose-turn marker over the table. It has to keep working through the

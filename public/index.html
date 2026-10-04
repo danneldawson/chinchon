@@ -139,13 +139,16 @@
         <div id="turn-banner"></div>
       </header>
 
-      <div id="opponents"></div>
-
       <!-- Big whose-turn marker: YOUR TURN / WAITING FOR <name>. It sits ABOVE
            the piles in normal flow — never floated over them — so it cannot
            cover a card, a meld or a pile you need to tap. -->
       <div id="turn-marker" class="hidden"></div>
 
+      <!-- The table: an oval felt. Opponents sit around the rim (face-down fans
+           + name), the stock and the discard tray in the open centre, and you at
+           the near rim (your big hand stays below the table). -->
+      <div id="table" class="table">
+      <div id="opponents" class="table-seats"></div>
       <div id="center">
         <div id="stock" class="pile pile-stock" title="Tap to draw from stock">
           <div class="stock-stack">
@@ -157,12 +160,18 @@
           <div class="pile-label" id="lbl-stock" data-i18n="stock">Stock</div>
           <div id="stock-count" class="stock-count">?</div>
         </div>
-        <div id="discard" class="pile pile-discard" title="Tap to take the top discard">
-          <div class="discard-stack">
-            <div id="discard-top" class="discard-top"></div>
+        <div id="discard-zone" class="discard-zone">
+          <!-- Recent discards, face up and overlapping (read-only, not tappable). -->
+          <div id="discard-tray" class="discard-tray" aria-hidden="true"></div>
+          <div id="discard" class="pile pile-discard" title="Tap to take the top discard">
+            <div class="discard-stack">
+              <div id="discard-top" class="discard-top"></div>
+            </div>
+            <div class="pile-label" id="lbl-discard" data-i18n="discard">Discard</div>
           </div>
-          <div class="pile-label" id="lbl-discard" data-i18n="discard">Discard</div>
         </div>
+      </div>
+      <div id="me-seat" class="seat me-seat"><span id="me-seat-name" class="seat-name"></span></div>
       </div>
 
       <div id="reshuffle-note" class="banner info hidden" data-i18n="reshuffle">Stock reshuffled</div>

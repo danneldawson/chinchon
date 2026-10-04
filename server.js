@@ -38,6 +38,7 @@ const REMATCH_COUNTDOWN_MS = 90000;
 // rule R40, Oct 2, 2026). The rematch window above is a separate timer.
 const PUBLIC_COUNTDOWN_MS = 60000;
 const PRIVATE_HUMAN_COUNTDOWN_MS = 60000;
+const DISCARD_HISTORY_N = 5; // discards exposed to clients for the table's discard tray
 const lobby = {
   members: new Map(), // token -> { token, name, at, lastSeen, lobbyCode }
   chat: [],
@@ -651,6 +652,7 @@ function serialize(room, seatId) {
         stockCount: 0,
         lastReshuffle: 0,
         discardTop: null,
+        discardHistory: [],
         yourHand: [],
         lastDrawnId: null,
         yourMelds: [],
@@ -760,6 +762,9 @@ function serialize(room, seatId) {
     stockCount: state.stock.length,
     lastReshuffle: room.lastReshuffle || 0,
     discardTop: turn.topOfDiscard(state),
+    // Read-only: the last few face-up discards (oldest -> newest; the last one
+    // is discardTop). Public information — every discard is thrown face up.
+    discardHistory: state.discard.slice(-DISCARD_HISTORY_N),
     yourHand: hand,
     lastDrawnId: state.lastDrawn ? state.lastDrawn.id : null,
     yourMelds: split.melds,
