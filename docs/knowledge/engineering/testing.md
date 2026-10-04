@@ -178,7 +178,7 @@ Dannel sometimes plays a live 2-human game against an agent-driven seat. Use
 3. `curl -s -D - -o /dev/null <url>/app.js | grep -i cache-control`: should be
    `no-cache, no-store, must-revalidate` (`5fd037d`).
 4. Ask Dannel to close the tab and reopen the link, or use a private window.
-   Chinchón's state is in localStorage, not cookies.
+   Chinchon's state is in localStorage, not cookies.
 5. Only then touch client logic. If the data is right and the code shipped, add a
    **temporary** `DIAG co=… canAct=… phase=…` line to `#status`, wrap the block in
    try/catch, have Dannel read it back, and **remove it** afterwards.

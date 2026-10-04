@@ -1,7 +1,7 @@
-# Chinchón knowledge pack
+# Chinchon knowledge pack
 
 This is everything a coding agent (or a person) needs to keep working on **Dannel
-Dawson's Chinchón card game**:
+Dawson's Chinchon card game**:
 - a Spanish-deck card game with the family's house rules;
 - engine-first, built in vanilla Node and vanilla JS;
 - the code lives at `~/Desktop/chinchon` on his Mac
@@ -11,8 +11,8 @@ Dawson's Chinchón card game**:
 **Provenance.** Distilled from the backup of **Hermes Agent**, the AI assistant that
 worked with Dannel on the game from **Aug 2 to Sep 14, 2026**. The sources were:
 - Hermes' memory files and pending memory notes;
-- its Chinchón skills, with their references and scripts;
-- its chat history (51 sessions, of which 25 are about Chinchón).
+- its Chinchon skills, with their references and scripts;
+- its chat history (51 sessions, of which 25 are about Chinchon).
 
 Everything was rewritten into clean documents. Where sources disagreed, the newest
 statement from Dannel wins, and the disagreement is recorded. Four rulings Dannel made
@@ -31,7 +31,7 @@ personal working-style notes are **kept in a separate private repo
 >    check with Dannel.** Don't silently "fix" either side. Open questions are listed in
 >    `rules/house-rules.md` and `rules/lobby-and-session.md`. The exception is the
 >    Oct 2, 2026 rulings below: those are decided, and the code is what needs to change.
-> 3. **The house rules are the family's, not "standard" Chinchón.** Never fill gaps
+> 3. **The house rules are the family's, not "standard" Chinchon.** Never fill gaps
 >    from Rummy or Gin.
 
 ## Repo state when Hermes stopped (Sep 14, 2026); verify before doing anything
@@ -120,6 +120,6 @@ kept in a separate private repo (danneldawson/chinchon-transcripts).
   duplicates.
 - **Hermes bookkeeping:** curator backups, logs, caches, `SOUL.md` (the persona) and
   `README.md` of the backup.
-- **Non-Chinchón material:** other projects, assistant setup and personal notes, and
-  the generic or non-Chinchón parts of skills.
+- **Non-Chinchon material:** other projects, assistant setup and personal notes, and
+  the generic or non-Chinchon parts of skills.
 - **Secrets** (tokens and the like) are replaced with `[REDACTED]` everywhere.

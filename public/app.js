@@ -69,7 +69,7 @@ const I18N = {
     goTitle: 'Match over',
     goWinner: 'Winner',
     eliminated: 'Eliminated',
-    chinchon: 'Chinchón',
+    chinchon: 'Chinchon',
     rematch: 'Play again (same players)',
     toLobby: 'Leave',
     leave: 'Leave',
@@ -188,7 +188,7 @@ const I18N = {
     keepPlaying: 'Seguir jugando (no cerrar)',
     closeOffer: 'Puedes cerrar ahora — ¿Cerrar o seguir jugando?',
     closeOfferContinue: 'Seguir jugando',
-    chinchon: 'CHINCHÓN — ¡ganas!',
+    chinchon: 'CHINCHON — ¡ganas!',
     close: 'Cerrar',
     discard: 'descartar',
     out: 'FUERA',
@@ -207,7 +207,7 @@ const I18N = {
     goTitle: 'Partida terminada',
     goWinner: 'Ganador',
     eliminated: 'Eliminados',
-    chinchon: 'Chinchón',
+    chinchon: 'Chinchon',
     rematch: 'Jugar otra (mismos jugadores)',
     toLobby: 'Salir',
     leave: 'Salir de la sala',
@@ -322,10 +322,10 @@ const I18N = {
 // Order = reading order the user approved (win -> deck -> hand -> runs -> sets
 // -> closing -> scoring -> out/match).
 const RULES_EN = [
-  { title: 'How to win', body: 'You win Chinchón by getting all 7 of your cards into melds, with nothing left over — that\'s a chinchón, and you win the hand outright. If you can\'t make a perfect hand, you win by having the lowest leftover points when the match ends.' },
+  { title: 'How to win', body: 'You win Chinchon by getting all 7 of your cards into melds, with nothing left over — that\'s a chinchon, and you win the hand outright. If you can\'t make a perfect hand, you win by having the lowest leftover points when the match ends.' },
   { title: 'The deck', body: 'We play with 80 cards: two Spanish decks of 40. Each suit — Oros (coins), Copas (cups), Espadas (swords), Bastos (clubs) — has ranks 1 through 7, plus 10, 11, and 12. The 1 of Oros is wild: it can stand in for any card in a meld (only one wild per meld), but it can also be used as a natural 1.' },
   { title: 'Your hand', body: 'You will always hold seven cards. On your turn, draw one card from the stockpile or the discard pile, then you must discard one — so you always have seven cards in your hand.' },
-  { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchón win — but if two 1-of-Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be anyone, anywhere.' },
+  { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchon win — but if two 1-of-Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be anyone, anywhere.' },
   { title: 'Sets', body: 'A set is three or more cards of the same rank, any suits — like three 10s.' },
   { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. Or two 3-card melds with one leftover card worth 5 or less.' },
   { title: 'Scoring', body: 'The computer keeps the score — you never do. After everyone reveals their hands, the computer counts each player\'s leftover cards. Face cards 10, 11, 12 count as 10 each; the 1 of Oros counts as 0 (it\'s wild); other cards count their number. A clean close by the closer scores −10. The floor is −50 — but you don\'t win automatically at −50; it just means you\'re the farthest from the 101-out line.' },
@@ -334,10 +334,10 @@ const RULES_EN = [
 
 // Spanish mirror of the locked EN rules (same order, no numbers, bold titles).
 const RULES_ES = [
-  { title: 'Cómo ganar', body: 'Ganas el Chinchón dejando las 7 cartas en melés, sin nada de sobrante — eso es un chinchón, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.' },
+  { title: 'Cómo ganar', body: 'Ganas el Chinchon dejando las 7 cartas en melés, sin nada de sobrante — eso es un chinchon, y ganas la mano directamente. Si no puedes armar la mano perfecta, ganas teniendo los puntos sobrantes más bajos cuando termina la partida.' },
   { title: 'La baraja', body: 'Jugamos con 80 cartas: dos barajas españolas de 40. Cada palo — Oros, Copas, Espadas, Bastos — tiene los números del 1 al 7, más el 10, el 11 y el 12. El 1 de Oros es comodín: puede ocupar el lugar de cualquier carta en un melé (solo un comodín por melé), pero también puede usarse como un 1 natural.' },
   { title: 'Tu mano', body: 'Siempre tendrás siete cartas. En tu turno, robas una carta del mazo o de la pila de descarte, y luego debes descartar una — así siempre tienes siete cartas en la mano.' },
-  { title: 'Escaleras', body: 'Una escalera es tres o más cartas del mismo palo, en orden. Como la baraja salta el 8 y el 9, la secuencia pasa del 7 al 10 — así que 6-7-10 es una escalera válida, y también lo es 11-12-1. El comodín 1 de Oros puede llenar cualquier hueco. Dos límites: no puede usarse como segundo comodín en un chinchón — pero si hay dos 1 de Oros en un trío, uno debe ser el 1 de Oros real. Fuera de eso, puede ser cualquiera, en cualquier lugar.' },
+  { title: 'Escaleras', body: 'Una escalera es tres o más cartas del mismo palo, en orden. Como la baraja salta el 8 y el 9, la secuencia pasa del 7 al 10 — así que 6-7-10 es una escalera válida, y también lo es 11-12-1. El comodín 1 de Oros puede llenar cualquier hueco. Dos límites: no puede usarse como segundo comodín en un chinchon — pero si hay dos 1 de Oros en un trío, uno debe ser el 1 de Oros real. Fuera de eso, puede ser cualquiera, en cualquier lugar.' },
   { title: 'Grupos', body: 'Un grupo es tres o más cartas del mismo número, de cualquier palo — como tres 10.' },
   { title: 'Cerrar', body: 'Cuando tus 7 cartas forman melés con un pequeño sobrante, puedes cerrar. Un cierre limpio es un melé de 4 más un melé de 3 sin nada de sobrante — eso suma −10. O dos melés de 3 con una carta sobrante que valga 5 o menos.' },
   { title: 'Puntaje', body: 'La computadora lleva el puntaje — tú nunca. Cuando todos muestran sus manos, la computadora cuenta las cartas sobrantes de cada jugador. Las figuras 10, 11, 12 valen 10 cada una; el 1 de Oros vale 0 (es comodín); las demás cartas valen su número. Un cierre limpio del que cierra suma −10. El piso es −50 — pero no ganas automáticamente con −50; solo significa que estás más lejos de la línea de salida en 101.' },
@@ -797,7 +797,7 @@ function render() {
       name.textContent = (p.name === v.winner ? '🏆 ' : '') + p.name;
       const score = document.createElement('span');
       score.className = 'go-score';
-      // Chinchón winner: no points shown (already in the header). Others: their total.
+      // Chinchon winner: no points shown (already in the header). Others: their total.
       score.textContent = (p.name === v.winner && v.chinchonWin) ? '' : p.total;
       row.appendChild(name);
       row.appendChild(score);

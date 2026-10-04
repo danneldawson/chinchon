@@ -1,4 +1,4 @@
-# CHINCHÓN — Cheat Sheet
+# CHINCHON — Cheat Sheet
 
 Keep this open while you play.
 
@@ -102,7 +102,7 @@ You must have **two combinations**, and then either:
 
 ---
 
-## CHINCHÓN — winning outright
+## CHINCHON — winning outright
 
 All **seven** cards in **one single** combination:
 

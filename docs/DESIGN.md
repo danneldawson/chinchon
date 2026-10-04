@@ -1,4 +1,4 @@
-# Chinchón — design notes
+# Chinchon — design notes
 
 Engine-first browser game: Spanish deck, family house rules. Zero runtime dependencies (`node server.js` + vanilla UI).
 
@@ -8,7 +8,7 @@ Engine-first browser game: Spanish deck, family house rules. Zero runtime depend
 - **Wild:** 1 de Oros only; at most one wild per meld; also counts as a natural 1.
 - **Runs:** same suit, including 7-10-11-12 (ranks skip 8/9).
 - **Close:** 4+3 clean (−10 to closer only) or 3+3 with leftover (sobrante) ≤ 5.
-- **Chinchón:** wins the match immediately.
+- **Chinchon:** wins the match immediately.
 - **Match:** scores accumulate; out at ≥ 101; score floor −50; 2–7 players.
 
 ## Modes

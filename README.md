@@ -1,8 +1,8 @@
-# Chinchón
+# Chinchon
 
-A browser-based **Chinchón** card game implementing one family's house rules
+A browser-based **Chinchon** card game implementing one family's house rules
 (Spanish 40-card deck × 2, every card duplicated; the 1 de Oros is wild; close
-with 4+3 clean or 3+3 with leftover ≤ 5; chinchón wins the match; out at 101+).
+with 4+3 clean or 3+3 with leftover ≤ 5; chinchon wins the match; out at 101+).
 
 - **Zero runtime dependencies.** The server is plain Node (`node server.js`); the
   UI is vanilla HTML/CSS/JS. No framework, no build step.

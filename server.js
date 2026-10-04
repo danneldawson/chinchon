@@ -7,7 +7,7 @@
 //
 // RULES ENFORCED HERE (from BROWSER-PLAN.md):
 //   - MULTI mode: 2-7 humans, bots ALWAYS 0 (rejected at the API).
-//   - SOLO mode: 1 human + bots (1-6). Bots auto-play their turns. Chinchón
+//   - SOLO mode: 1 human + bots (1-6). Bots auto-play their turns. Chinchon
 //     needs at least 2 players, so a solo game is forced to have >= 1 bot.
 //   - bot.js is only ever called for seats flagged isBot === true.
 
@@ -75,7 +75,7 @@ function lobbyChatPush(name, text) {
 }
 
 function lobbySystem(text) {
-  lobby.chat.push({ name: 'CHINCHÓN', text, at: Date.now(), system: true });
+  lobby.chat.push({ name: 'CHINCHON', text, at: Date.now(), system: true });
   if (lobby.chat.length > LOBBY_CHAT_CAP) lobby.chat = lobby.chat.slice(-LOBBY_CHAT_CAP);
 }
 

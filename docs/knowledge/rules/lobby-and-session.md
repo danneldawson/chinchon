@@ -22,7 +22,7 @@ noted alongside.
    - Exceptions Dannel asked for on Sep 11 ("only one human → 2 random bots" and
      "private host taps Start alone → 2 random bots") were later reversed by Hermes'
      Sep 14 audit. See [open](#9-open-questions).
-2. **"CHINCHON" / "CHINCHÓN" is a reserved name**, because the system posts its
+2. **"CHINCHON" / "CHINCHON" is a reserved name**, because the system posts its
    automatic chat messages under that name. `/api/lobby/enter` rejects it with a 400.
 3. In code and UI strings, **spell CHINCHON without the accent** (encoding safety). The
    word appears on the landing screen only, not repeated in the lobby.

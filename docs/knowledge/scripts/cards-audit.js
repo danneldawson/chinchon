@@ -2,7 +2,7 @@
 'use strict';
 /* Read-only deck + card-face audit for an engine-first card game.
  *
- * Written for the Chinchón project layout: pure engine modules in src/ that can
+ * Written for the Chinchon project layout: pure engine modules in src/ that can
  * be require()d (buildDeck / isWild / cardValue in cards.js, the validators in
  * melds.js, startRound in turn.js) and a browser client in public/.
  *
@@ -14,7 +14,7 @@
  *
  * Exit code 0 = all checks passed, 1 = at least one failed, 2 = wrong project.
  *
- * The composition/discard expectations below are the Chinchón house ruleset
+ * The composition/discard expectations below are the Chinchon house ruleset
  * (80 cards = two 40-card Spanish decks, no 8s/9s, wild = the 1 de Oros, max one
  * wild per meld). Change these counts for a different game; the METHOD is the
  * reusable part. Rules authority: rules/house-rules.md in this knowledge pack

@@ -236,7 +236,7 @@ test('two wilds may be used across two SEPARATE melds', () => {
 });
 
 // The family CONFIRMED a single 6-card combination + one low leftover is a legal
-// close (in practice players hold out for a chinchón instead). This is deliberate
+// close (in practice players hold out for a chinchon instead). This is deliberate
 // — do not "fix" it into a two-meld-only rule. canClose agrees because a 6-card
 // meld always also splits 3+3, so the >=2-combinations check never blocks it.
 test('a single 6-card meld + one low leftover is a legal close', () => {

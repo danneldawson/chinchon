@@ -37,7 +37,7 @@ function clear() {
 
 function showTable(state, match) {
   console.log(R.rule('═'));
-  console.log(R.title('  CHINCHÓN'));
+  console.log(R.title('  CHINCHON'));
   console.log(R.rule('═'));
   console.log(R.scoreboard(match));
   console.log(R.rule());
@@ -210,7 +210,7 @@ async function runLayoff(state, match) {
   }
 
   if (lay.chinchon) {
-    console.log(`\n  ${R.BOLD}¡CHINCHÓN!${R.RESET}  ${R.cards(lay.table[0])}`);
+    console.log(`\n  ${R.BOLD}¡CHINCHON!${R.RESET}  ${R.cards(lay.table[0])}`);
     console.log(`  ${match.players[lay.winner].name} wins the entire game.\n`);
     await pause();
     return lay;
@@ -326,7 +326,7 @@ async function main() {
 
   clear();
   console.log(R.rule('═'));
-  console.log(R.title('  CHINCHÓN'));
+  console.log(R.title('  CHINCHON'));
   console.log(R.rule('═'));
   console.log(`  ${playerCount} players. First to 101 is out. Last one standing wins.`);
   console.log(`  ${R.DIM}Wild card: 1 de Oros (marked *)${R.RESET}`);

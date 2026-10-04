@@ -90,7 +90,7 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
   - It lists **every** legal decomposition with its score, phrased like "You can close —
     discard X (ends round, score Y). Or continue?"
   - **"Keep playing"** dismisses it.
-  - It especially helps with the easy-to-miss 3+3+≤5 and chinchón cases.
+  - It especially helps with the easy-to-miss 3+3+≤5 and chinchon cases.
 - **A mis-discard is allowed.** If the player throws the wrong card, the hand just
   continues.
 - **Lay-off panel.**
@@ -101,10 +101,10 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
     confirmed Oct 2, 2026).
   - [decided, Sep 14, unbuilt] Show **Auto + Ready** up front, and put Lay / Suggest /
     Not yet behind a **More** menu.
-- **[decided, Sep 14, unbuilt] Chinchón moment:** a 7-card chinchón pops a
-  **CHINCHÓN** full-screen celebration once.
+- **[decided, Sep 14, unbuilt] Chinchon moment:** a 7-card chinchon pops a
+  **CHINCHON** full-screen celebration once.
 - **Game over:**
-  - The leaderboard shows the 🏆 winner with their points, or the word "Chinchón" alone.
+  - The leaderboard shows the 🏆 winner with their points, or the word "Chinchon" alone.
   - Everyone else is listed in elimination order.
   - Chat stays usable on top of the overlay.
   - Buttons: Rematch / Leave.
@@ -178,8 +178,8 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
   | Skill | Closes when |
   |---|---|
   | aggressive | it has any legal close |
-  | balanced | the leftover is worth 0–2, or it's a clean close or a chinchón; holds on 3–5 |
-  | cautious | only a chinchón or a clean −10 |
+  | balanced | the leftover is worth 0–2, or it's a clean close or a chinchon; holds on 3–5 |
+  | cautious | only a chinchon or a clean −10 |
 
 - **Status dots:**
   - green = active;
@@ -205,7 +205,7 @@ Dannel dictated this at 15:10 PT on Sep 14:
    the piles.
 5. **Bots stay.** If a bot is still seated, the "only player, game will close" sheet
    doesn't show.
-6. **Chinchón.** A 7-card run pops **CHINCHÓN** full-screen, once.
+6. **Chinchon.** A 7-card run pops **CHINCHON** full-screen, once.
 7. **Quiet empty.** No "no matches yet". The chat waits for two people. The stock "?"
    is blank.
 8. **Lay-off.** Auto + Ready, with Lay / Suggest / Not yet behind **More**.

@@ -1,7 +1,7 @@
-# Chinchón: Dannel's family house rules (authoritative)
+# Chinchon: Dannel's family house rules (authoritative)
 
 This is the **family's own variant**. It differs from the rules you'll find online, so
-**do not fill gaps from "standard" Chinchón, Gin Rummy or Rummy**. One earlier build
+**do not fill gaps from "standard" Chinchon, Gin Rummy or Rummy**. One earlier build
 did that (it imported a Gin Rummy discard restriction) and it shipped with a passing
 test that asserted the wrong behaviour.
 
@@ -46,12 +46,12 @@ what needs changing.)
 | Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10** |
 | Close: leftover | 3+3 (or one 6-card meld) + one leftover card worth **≤5** → closer scores that card's value |
 | Can't close | leftover worth 6+, or more than one leftover |
-| Chinchón | all 7 cards in **one** meld → **wins the whole match on the spot**, no lay-off |
+| Chinchon | all 7 cards in **one** meld → **wins the whole match on the spot**, no lay-off |
 | False close | nobody scores, round doesn't advance, closer's hand is exposed, play continues |
 | Lay-off | rotation that starts with the closer and wraps; explicit **Ready**, optional **Not yet**; **no timer**, nudge or timeout (R39) |
 | Elimination | **≥101 is out for good** (100 survives); no buy-back |
 | Score floor | totals never go below **−50** |
-| Winner | last player standing (or a chinchón); exactly one winner |
+| Winner | last player standing (or a chinchon); exactly one winner |
 | Pre-start countdown | **60 s** before a game starts (R40; server currently runs ~90 s, change pending) |
 
 ---
@@ -78,8 +78,8 @@ deck.
 also be played as itself, a natural 1 de Oros (for example in 1‑2‑3 de Oros).
 
 **R5. One wild per meld.**
-- A meld may contain **at most one wild**. Never two, not even to win with a chinchón
-  (the one exception for chinchón is in R23).
+- A meld may contain **at most one wild**. Never two, not even to win with a chinchon
+  (the one exception for chinchon is in R23).
 - Both wilds can still be used in the same hand if they sit in **separate** melds.
 - The cap is enforced during the lay-off too, so you can't attach a wild to a meld that
   already has one.
@@ -176,7 +176,7 @@ over** (a 4 and a 3), you score **−10** for the round.
 - **6-card meld:** a single 6-card meld plus one leftover worth 5 or less is also
   legal. Dannel confirmed this on Sep 12, and a test pins it. In the family's words:
   "6 card meld is a legal close but normally people don't close but wait for the needed
-  card to Chinchón and win the game."
+  card to Chinchon and win the game."
 - Don't "tidy" this into a two-melds-only rule.
 
 **R20. When you can't close.** A leftover worth **6 or more**, or **more than one**
@@ -195,7 +195,7 @@ leftover card, blocks the close completely.
   players may not even notice.
 - Dannel wants players to have this agency.
 
-**R23. Chinchón.**
+**R23. Chinchon.**
 - All **7 cards in a single meld**: either a 7-card run in one suit, or 7 cards of the
   same rank.
 - It **wins the entire match immediately**, whatever the scores. A player sitting on
@@ -281,12 +281,12 @@ was explicit: "I need the computer keeping the score for them."
 - The scoreboard still shows their final score.
 
 **R35. Winning.**
-- The **last player standing** wins, or whoever makes a chinchón.
+- The **last player standing** wins, or whoever makes a chinchon.
 - There is **exactly one winner**; second place is not "a winner".
 
 **R36. Leaderboard at match end.**
 - The winner is shown at the top with a 🏆 and their points.
-- If they won with a chinchón, the word **"Chinchón"** is shown **instead of points**.
+- If they won with a chinchon, the word **"Chinchon"** is shown **instead of points**.
 - Everyone else is ranked by **elimination order**: the last player eliminated sits just
   below the winner, and the first player eliminated is at the bottom.
 
@@ -340,7 +340,7 @@ The hard invariants the engine must never break:
 - 2–7 players.
 - One wild per meld.
 - 101 means out.
-- A chinchón wins outright.
+- A chinchon wins outright.
 - Eliminated seats get no cards and no turns.
 
 ---
@@ -351,9 +351,9 @@ Check every **Open** item with Dannel before you change behaviour.
 
 ### Open
 
-**Q3. Chinchón with a natural 1 de Oros plus a wild.** Dannel's exception (R23) allows
-two 1 de Oros in a chinchón if one of them plays as the natural card. Check that the
-engine's chinchón test accepts that hand. The early tests only say "chinchón with two
+**Q3. Chinchon with a natural 1 de Oros plus a wild.** Dannel's exception (R23) allows
+two 1 de Oros in a chinchon if one of them plays as the natural card. Check that the
+engine's chinchon test accepts that hand. The early tests only say "chinchon with two
 wilds is rejected".
 
 (Q1, Q2 and Q4 were resolved by Dannel on Oct 2, 2026; see C12–C14 below. The

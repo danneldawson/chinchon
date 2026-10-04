@@ -1,6 +1,6 @@
 'use strict';
 
-// Chinchón — card model
+// Chinchon — card model
 // Two Spanish decks of 40 shuffled together = 80 cards. Every card exists twice.
 // The 1 de Oros is the wild card (comodín). There are exactly 2 of them.
 // 8 and 9 do not exist. Runs treat 7 -> 10 -> 11 -> 12 as consecutive, and

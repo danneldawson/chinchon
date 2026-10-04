@@ -3,7 +3,7 @@
 const { isWild, cardValue } = require('./cards');
 const { isValidMeld, deadwoodValue } = require('./melds');
 
-// Chinchón close-scoring: bestSplit (auto) plus allCloseSplits (player choice).
+// Chinchon close-scoring: bestSplit (auto) plus allCloseSplits (player choice).
 // A "split" = { melds: [...], leftovers: [...], score, kind } where kind is one
 // of 'chinchon' | 'clean' | 'leftover'. All returned splits are LEGAL closes.
 
@@ -47,7 +47,7 @@ function allMelds(cards) {
   return melds;
 }
 
-// A chinchón is all 7 cards in ONE single meld. Wins the entire game outright.
+// A chinchon is all 7 cards in ONE single meld. Wins the entire game outright.
 // Only one wild may be used, which the meld validator already enforces.
 function isChinchon(hand) {
   return hand.length === HAND_SIZE && isValidMeld(hand);
@@ -152,7 +152,7 @@ function allCloseSplits(hand) {
   // Every legal close shape, enumerated below and deduped by meld-set:
   //   - one meld of 6 + 1 leftover worth <= 5. A single 6-card run or set IS a
   //     combination in its own right — the family confirmed this is a legal
-  //     close (in practice players hold out for a chinchón instead). Only a
+  //     close (in practice players hold out for a chinchon instead). Only a
   //     6-card meld can qualify here: from 7 cards, any shorter meld leaves 2+.
   //   - two melds: 3+3, 3+4, 4+3 or 4+4 covering all 7 (clean, -10) or 6 with one
   //     leftover worth <= 5.

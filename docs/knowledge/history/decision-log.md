@@ -1,6 +1,6 @@
 # Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings)
 
-This was distilled from the 25 Chinchón sessions in Hermes Agent's chat history (the
+This was distilled from the 25 Chinchon sessions in Hermes Agent's chat history (the
 transcripts are kept in a separate private repo, danneldawson/chinchon-transcripts),
 cross-checked against Hermes' memory, skill notes and context
 summaries.
@@ -27,7 +27,7 @@ summaries.
   - runs bridge 7→10;
   - 4+3 = −10;
   - 3+3 plus a leftover ≤5;
-  - chinchón wins the match;
+  - chinchon wins the match;
   - 101 is out;
   - 2–7 players.
 - **Engine and tests grew in layers:** 35 → 61 → 75 → 99 → 105.
@@ -87,10 +87,10 @@ summaries.
   - automatic `?v=` cache-bust.
 
 ### Sun Aug 16: scoring edge cases
-- D: a **second 1 de Oros is allowed in a chinchón only when played as the natural
+- D: a **second 1 de Oros is allowed in a chinchon only when played as the natural
   card**.
 - D: the score **floor is −50**, and "−15" was a misunderstanding. Exactly one winner;
-  everyone else is ranked by elimination order; a chinchón win shows the word instead
+  everyone else is ranked by elimination order; a chinchon win shows the word instead
   of points.
 
 ### Mon Aug 17 – Tue Aug 18: lobby redesign, agency, tutorial, family bots
@@ -122,7 +122,7 @@ summaries.
 
 ### Thu Aug 20: tutorial optional, close offer, stock rule, away rule
 - The tutorial is optional. The close/continue offer fires for **all** legal closes,
-  including chinchón; **a mis-discard just continues**.
+  including chinchon; **a mis-discard just continues**.
 - **D: "when stock pile ends reshuffle the same pile and continue, that's the rule."**
 - D: cautious bots should close whenever a legal close exists (`8d24f6e`). *Reason:*
   matches must terminate. This was superseded on Sep 12.
@@ -215,7 +215,7 @@ summaries.
   invisible; Railway sleep wipes rooms; bots hold vs dump; delete the stray
   `app.js.public`. **D: "push 4 and 5".**
 - `1b5b41c` (160): **hold vs dump.** Aggressive dumps any legal close; balanced dumps a
-  leftover of 0–2, clean or chinchón, and holds 3–5; cautious dumps only chinchón or
+  leftover of 0–2, clean or chinchon, and holds 3–5; cautious dumps only chinchon or
   clean.
 - `fc60210` (163): D: "cards are flipped, we are supposed to see the card". Now a
   **face-up discard, equal pile sizes, and D's photo as the card back**
@@ -245,7 +245,7 @@ summaries.
   rooms with fewer than 2 humans are deleted and never get bots (179 tests). That
   contradicts the Sep 11 decision, and an audit should have been read-only. **Open.**
 - 15:10: D dictated an **8-point redesign spec**: Play first, SeatID gone, share links
-  plus WhatsApp, green felt, bots-stay sheet, CHINCHÓN pop, quiet empty states,
+  plus WhatsApp, green felt, bots-stay sheet, CHINCHON pop, quiet empty states,
   Auto + Ready lay-off. H made partial edits with no reply and left `.backup` files.
 - 19:10: D said "push". H committed locally as `80bbfe7` "feat: multi mode — no bots,
   requires 2+ humans". **The push failed** (GitHub HTTPS password rejected). H offered

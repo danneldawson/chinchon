@@ -98,7 +98,7 @@ test('R37: a hand that only melds via the wrap can close clean', () => {
   assert.ok(allCloseSplits(hand).some((s) => s.kind === 'clean'));
 });
 
-test('R37: a 7-card wrapped run is a chinchón', () => {
+test('R37: a 7-card wrapped run is a chinchon', () => {
   const hand = [10, 11, 12, 1, 2, 3, 4].map((r) => c(r, 'Espadas'));
   assert.ok(isChinchon(hand));
   assert.strictEqual(canClose(hand).reason, 'chinchon');

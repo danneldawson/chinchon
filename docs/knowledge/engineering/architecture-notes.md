@@ -82,7 +82,7 @@ create ──► pending (countdown; code shown in lobby if public) ──► st
 - **Strict two-phase state machine,** `'draw'` → `'discard'`. Out-of-phase calls are
   rejected.
 - **Closes are judged on the 7 kept cards.**
-  - `closeOptions` and `allCloseSplits` enumerate every legal decomposition (chinchón,
+  - `closeOptions` and `allCloseSplits` enumerate every legal decomposition (chinchon,
     clean, leftover), deduplicated, each with `cardId`, `splitIdx` and `score`.
   - They're serialized only on your own discard turn.
   - The chosen melds are threaded into the lay-off as the closer's table.

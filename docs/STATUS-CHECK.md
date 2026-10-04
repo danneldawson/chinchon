@@ -3,7 +3,7 @@
 Filename kept as `STATUS-CHECK.md` for continuity.
 
 
-**Cue:** say exactly **Deal Me In** (to Chinchón Forge or via Chief of Staff).
+**Cue:** say exactly **Deal Me In** (to Chinchon Forge or via Chief of Staff).
 
 > Retired cue: **Status Check** — no longer triggers this report.
 
@@ -81,7 +81,7 @@ Standing skill: **Hosting upgrade status check**.
 
 ## How to refresh
 
-1. Say **Deal Me In** to Chinchón Forge.
+1. Say **Deal Me In** to Chinchon Forge.
 2. Forge runs all three checks (skill: Hosting upgrade status check).
 3. Numbers land in chat (and this file is updated when a run completes).
 

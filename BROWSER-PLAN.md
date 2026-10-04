@@ -1,4 +1,4 @@
-# CHINCHÓN — BROWSER UI PLAN (v2, decisions locked)
+# CHINCHON — BROWSER UI PLAN (v2, decisions locked)
 
 Reuses the existing engine EXACTLY as-is (zero new game logic, zero dependencies:
 a Node `http` server + static files). Verified engine: 111 tests pass, 500-match
