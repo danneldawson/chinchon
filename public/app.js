@@ -157,6 +157,23 @@ const I18N = {
     shareCodeNote: 'Share this code with the other players however you like.',
     playersJoined: 'Players joined:',
     joinCodePlaceholder: 'e.g. LUNA',
+    // Lobby-flow strings (previously hardcoded English)
+    rejoin: 'Rejoin',
+    leaveLobbyTitle: 'Leave the lobby',
+    leaveLobbyConfirm: 'Leave the lobby? You will return to the landing page.',
+    nameReservedMsg: 'That name is reserved — pick another.',
+    enterLobbyError: 'Could not enter the lobby. Try again.',
+    creatingRoom: 'Creating room…',
+    roomWaitingPlayers: 'Room {code} — waiting for players…',
+    mcRoom: 'Room',
+    mcVsBots: 'vs bots',
+    mcPublic: 'public',
+    mcPrivate: 'private',
+    heldByHost: 'HELD BY HOST',
+    newGameIn: 'New game in {s}s',
+    playtime: 'Playtime',
+    outShort: 'out',
+    joinRematch: 'Join rematch',
   },
   es: {
     title: 'CHINCHON',
@@ -317,12 +334,25 @@ const I18N = {
     waitingForMatchEn: 'Waiting for the match to start…',
     enterRoomCodeMsgEn: 'Enter the room code.',
     createRoomErrorEn: 'Could not create the room. Try again.',
-    // Reclaim-flow strings
-    rejoinYourSeat: 'Rejoin your seat',
-    rejoinSuccess: 'Rejoined. Back in your seat.',
-    rejoinFailed: 'Rejoin failed',
-    seatReconnectedMsg: 'This seat was reconnected from another device.',
-    makeANewGame: 'Make a new game',
+    // Lobby-flow strings (previously hardcoded English)
+    rejoin: 'Reconectar',
+    leaveLobbyTitle: 'Salir del lobby',
+    leaveLobbyConfirm: '¿Salir del lobby? Volverás a la página de inicio.',
+    nameReservedMsg: 'Ese nombre está reservado — elige otro.',
+    enterLobbyError: 'No se pudo entrar al lobby. Inténtalo de nuevo.',
+    creatingRoom: 'Creando sala…',
+    roomWaitingPlayers: 'Sala {code} — esperando jugadores…',
+    mcRoom: 'Sala',
+    mcVsBots: 'contra bots',
+    mcPublic: 'pública',
+    mcPrivate: 'privada',
+    heldByHost: 'RESERVADA POR EL ANFITRIÓN',
+    newGameIn: 'Nueva partida en {s}s',
+    playtime: 'Tiempo de juego',
+    outShort: 'fuera',
+    joinRematch: 'Unirse a la revancha',
+    joinCodePlaceholder: 'p. ej. LUNA',
+    shareCodeNote: 'Comparte este código con los demás jugadores como prefieras.',
   },
 };
 
@@ -446,6 +476,10 @@ function applyLang() {
     const key = el.dataset.i18nPlaceholder;
     if (key) el.placeholder = t(key);
   });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.dataset.i18nTitle;
+    if (key) el.title = t(key);
+  });
   // Re-render game if we're already in it (so labels update live).
   if (state.view) render();
 }
@@ -466,7 +500,7 @@ function createRoomLocked(visibility, bots, learning = false, tutorial = false, 
   $('btn-create-public').disabled = true;
   $('btn-create-private').disabled = true;
   const status = $('create-status');
-  if (status) status.textContent = 'Creating room…';
+  if (status) status.textContent = t('creatingRoom');
   createRoom(visibility, bots, learning, tutorial, mode).finally(() => {
     creatingRoom = false;
     $('btn-create-public').disabled = false;
@@ -492,7 +526,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   $('room-code').textContent = res.code;
   showWaitingView();
   $('create-choices').classList.add('hidden');
-  if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
+  if (status) status.textContent = t('roomWaitingPlayers').replace('{code}', res.code);
   const seatEl = $('room-seatid');
   if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   if (res.pending) {
@@ -529,7 +563,7 @@ async function watchRoom() {
     ul.appendChild(li);
   }
   const secs = res.pending ? res.pending.secondsLeft : null;
-  $('room-waiting').textContent = secs != null ? `Match starts in ${secs}s…` : 'Waiting for the match to start…';
+  $('room-waiting').textContent = secs != null ? t('matchStartsIn').replace('{s}', String(secs)) : t('waitingForMatch');
   // Show/hide the host start button each poll; the handler itself is wired once.
   const startBtn = $('btn-host-start');
   if (startBtn) {
@@ -544,7 +578,7 @@ async function watchRoom() {
 
 $('btn-join').onclick = async () => {
   const code = $('join-code').value.trim().toUpperCase();
-  if (!code) { $('join-msg').textContent = 'Enter the room code.'; return; }
+  if (!code) { $('join-msg').textContent = t('enterRoomCodeMsg'); return; }
   const name = state.lobbyName || $('lobby-name').value.trim() || t('player');
   const res = await fetch('/api/room/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1473,8 +1507,8 @@ async function enterLobby() {
   enteringLobby = false;
   if (!res || res.error) {
     $('lobby-msg').textContent = res && res.error === 'name reserved'
-      ? 'That name is reserved — pick another.'
-      : 'Could not enter the lobby. Try again.';
+      ? t('nameReservedMsg')
+      : t('enterLobbyError');
     return;
   }
   state.lobbyToken = res.token;
@@ -1553,21 +1587,21 @@ function renderLobbyMatches(matches) {
   const elapsed = Math.floor((m.elapsedMs || 0) / 1000);
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
-  let html = `<div class="mc-code">Room ${m.visibility === 'private' ? m.code.slice(0, 2) + '••' : m.code} · ${m.mode === 'solo' ? 'vs bots' : (m.visibility === 'public' ? 'public' : 'private')}</div>`;
+  let html = `<div class="mc-code">${t('mcRoom')} ${m.visibility === 'private' ? m.code.slice(0, 2) + '••' : m.code} · ${m.mode === 'solo' ? t('mcVsBots') : (m.visibility === 'public' ? t('mcPublic') : t('mcPrivate'))}</div>`;
   if (m.pending) {
     if (m.pending.hold) {
-      html += `<div class="mc-pending">HELD BY HOST ${m.pending.hostName}</div>`;
+      html += `<div class="mc-pending">${t('heldByHost')} ${m.pending.hostName}</div>`;
     } else if (m.pending.type === 'fresh') {
       html += `<div class="mc-pending">${t('pendingMatch')} · ${m.pending.secondsLeft}s</div>`;
     } else {
-      html += `<div class="mc-pending">New game in ${m.pending.secondsLeft}s</div>`;
+      html += `<div class="mc-pending">${t('newGameIn').replace('{s}', String(m.pending.secondsLeft))}</div>`;
     }
   } else {
-    html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
+    html += `<div class="mc-timer">⏱ ${t('playtime')} ${mm}:${ss}</div>`;
   }
-  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' (out)' : ''}</span><span>${p.total}</span></div>`).join('');
+  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ` (${t('outShort')})` : ''}</span><span>${p.total}</span></div>`).join('');
   if (m.pending && m.visibility !== 'private') {
-    const label = m.pending.type === 'fresh' ? t('joinThis') : 'Join rematch';
+    const label = m.pending.type === 'fresh' ? t('joinThis') : t('joinRematch');
     html += `<button class="small" data-joinmatch="${m.code}">${label}</button>`;
   }
   $('match-card').innerHTML = html;
@@ -1780,7 +1814,7 @@ $('btn-gameplay-tutorial').onclick = () => {
 // Leave the global lobby entirely: drop the name + token on the server, clear
 // localStorage, stop polling, and return to the landing (name-entry) screen.
 $('btn-leave-lobby').onclick = async () => {
-  if (!window.confirm('Leave the lobby? You will return to the landing page.')) return;
+  if (!window.confirm(t('leaveLobbyConfirm'))) return;
   await fetch('/api/lobby/leave', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: state.lobbyToken }),

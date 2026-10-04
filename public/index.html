@@ -29,8 +29,8 @@
         <div class="lobby-header">
           <h1 id="lobby-title" data-i18n="lobbyTitle">LOBBY</h1>
           <div class="header-actions">
-            <button id="btn-rules-top" class="top-pill" title="How to play">ⓘ <span data-i18n="rules">Rules</span></button>
-            <button id="btn-leave-lobby" class="top-pill danger-pill" title="Leave the lobby"><span data-i18n="leave">Leave</span></button>
+            <button id="btn-rules-top" class="top-pill" title="How to play" data-i18n-title="rulesTitle">ⓘ <span data-i18n="rules">Rules</span></button>
+            <button id="btn-leave-lobby" class="top-pill danger-pill" title="Leave the lobby" data-i18n-title="leaveLobbyTitle"><span data-i18n="leave">Leave</span></button>
           </div>
         </div>
 
@@ -44,8 +44,8 @@
           </div>
           <!-- Rejoin your own seat in a running game (moved here from the landing page). -->
           <div id="rejoin-row" class="rejoin-row">
-            <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
-            <button id="btn-rejoin" class="primary small">Rejoin</button>
+            <input id="rejoin-code" type="text" data-i18n-placeholder="roomCodeLabel" placeholder="Room code" maxlength="4" />
+            <button id="btn-rejoin" class="primary small" data-i18n="rejoin">Rejoin</button>
             <p id="rejoin-msg" class="msg"></p>
           </div>
         </section>
@@ -107,7 +107,7 @@
       <!-- JOIN -->
       <div id="join-pane" class="pane hidden">
         <h3 id="join-h" data-i18n="joinRoom">Have a code? Join</h3>
-        <label>Room code
+        <label><span data-i18n="roomCodeLabel">Room code</span>
           <input id="join-code" type="text" data-i18n-placeholder="joinCodePlaceholder" placeholder="ABCD" maxlength="4" />
         </label>
         <button id="btn-join" class="primary" data-i18n="joinRoomShort">Join room</button>
