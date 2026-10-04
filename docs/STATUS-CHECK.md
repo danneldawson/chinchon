@@ -90,3 +90,20 @@ Standing skill: **Hosting upgrade status check**.
 - Read-only: Deal Me In never changes billing or upgrades a plan unless you explicitly ask.
 - Local source of truth for the game remains `~/Desktop/chinchon` on Skinny Macintosh.
 - Last doc scaffold: 2026-09-19 PT.
+
+---
+
+## Deploy safety check (run before EVERY push to main)
+
+A push to `main` redeploys Railway, which restarts the server. **A deploy must never kick players out of a match.**
+
+```
+node scripts/safe-to-deploy.js && git push origin main     # one check
+node scripts/safe-to-deploy.js --wait                       # re-check every 45s, give up after 30 min
+```
+
+- Signal: `GET /api/activity` returns `{ activeRooms, activeHumans, rooms:[{code, mode, visibility, phase, humans}] }`. A room counts as active when its game has started (including the results/rematch screen) or its countdown is running, and a human was seen in the last 60s. Every visibility counts: public, private and solo.
+- The endpoint is read-only and anonymous. It never returns seat ids, tokens, names or cards. `code` is `null` for private and solo rooms.
+- If anyone is playing, **hold**. Do not push "anyway" after a timeout; report that the deploy is still waiting.
+- `/api/lobby/state` `matches` is not enough. It lists started games of every visibility (solo too, until they are swept after 30 min idle, even when nobody is there), but it hides private rooms that are still in their countdown. The script falls back to it only on a server that predates `/api/activity`.
+- Rooms also survive restarts when `CHINCHON_STATE_FILE` is set (Railway volume, e.g. `/data/rooms.json`). Saves happen on SIGTERM, about 2s after any POST, and every 15s while anything is touched. This is a safety net, not a reason to skip the check.

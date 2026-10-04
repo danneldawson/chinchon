@@ -124,6 +124,7 @@ const I18N = {
     privateDialogueNo: 'No',
     startGameShort: 'Start game',
     matchStarting: 'Match starting…',
+    startFailed: 'Could not start the match. Try again.',
     joinRoomShort: 'Join room',
     backToCreateShort: '← Back to create',
     lobbyPlayersLabel: 'Players here',
@@ -276,6 +277,7 @@ const I18N = {
     privateDialogueNo: 'No',
     startGameShort: 'Empezar partida',
     matchStarting: 'Partida comenzando…',
+    startFailed: 'No se pudo empezar la partida. Inténtalo de nuevo.',
     joinRoomShort: 'Unirse a sala',
     backToCreateShort: '← Volver a crear',
     lobbyPlayersLabel: 'Jugadores aquí',
@@ -477,6 +479,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
   state.seatId = res.seatId;
+  state.sessionToken = null; // a new seat adopts its own token on the first poll
   persistSeat(res.code, res.seatId);
   // Always surface the room code and the waiting panel, even if the server
   // response shape is unexpected — the player must see WHAT was created.
@@ -491,12 +494,39 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
     $('room-waiting').textContent = secs != null
       ? t('matchStartsIn').replace('{s}', String(secs))
       : t('waitingForMatch');
+    wireHostStart();
     watchRoom().catch(() => null);
     state.pollTimer = setInterval(watchRoom, 1500);
   } else {
     clearInterval(state.pollTimer);
     enterGame();
   }
+}
+
+// Wire the host's Start game button. It persists across polls (watchRoom only
+// toggles .hidden each tick). Called from BOTH the create and join paths: it
+// used to be wired only after a join, so the creator of a room clicked "Start
+// game" and nothing happened until the 60s countdown ran out.
+function wireHostStart() {
+  const startBtn = $('btn-host-start');
+  if (!startBtn) return;
+  startBtn.disabled = false; // a previous room may have left it disabled
+  startBtn.onclick = async () => {
+    startBtn.disabled = true;
+    const res2 = await fetch('/api/room/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: state.code, seat: state.seatId }),
+    }).then((r) => r.json()).catch(() => ({ error: t('startFailed') }));
+    if (res2.error) {
+      $('room-waiting').textContent = res2.error;
+      startBtn.disabled = false;
+      return;
+    }
+    $('room-waiting').textContent = t('matchStarting');
+    // Go straight in rather than waiting for the next 1.5s watch tick.
+    watchRoom().catch(() => null);
+  };
 }
 
 // Polls a pending room (host or joiner) and transitions into the game once it
@@ -544,6 +574,7 @@ $('btn-join').onclick = async () => {
   if (res.error) { $('join-msg').textContent = res.error; return; }
   state.code = code;
   state.seatId = res.seatId;
+  state.sessionToken = null; // a new seat adopts its own token on the first poll
   persistSeat(code, res.seatId);
   // Make sure the lobby panel (which holds the waiting view) is visible.
   show($('lobby'));
@@ -556,25 +587,7 @@ $('btn-join').onclick = async () => {
   const seatEl = $('room-seatid');
   if (seatEl && res.seatId) seatEl.textContent = 'SeatID: ' + res.seatId.slice(-3);
   showWaitingView();
-  // Wire the host start button once — it persists across polls (watchRoom only
-  // toggles .hidden each tick).
-  const startBtn = $('btn-host-start');
-  if (startBtn) {
-    startBtn.onclick = async () => {
-      startBtn.disabled = true;
-      const res2 = await fetch('/api/room/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: state.code, seat: state.seatId }),
-      }).then((r) => r.json());
-      if (res2.error) {
-        $('room-waiting').textContent = res2.error;
-        startBtn.disabled = false;
-        return;
-      }
-      $('room-waiting').textContent = t('matchStarting');
-    };
-  }
+  wireHostStart();
   watchRoom().catch(() => null);
   state.pollTimer = setInterval(watchRoom, 1500);
 };
@@ -584,6 +597,9 @@ $('btn-join').onclick = async () => {
 async function enterGame() {
   show($('game'));
   $('room-info').classList.add('hidden');
+  // Replace (never stack) the timer: watchRoom's interval, or a second
+  // enterGame() from an overlapping watch tick, must not leave a poller behind.
+  clearInterval(state.pollTimer);
   state.pollTimer = setInterval(poll, 1200);
   await poll();
 }
@@ -604,6 +620,10 @@ async function poll() {
   // another device reclaimed it — hard-disconnect this client.
   // First poll after create/join has no local token yet — adopt it, don't displace
   // (that hid #game and left a black screen when the countdown expired).
+  // The stored token must belong to THIS seat: a token left over from a match
+  // you already left would otherwise look like a takeover and "displace" you
+  // from your next game the moment it starts.
+  if (state.sessionSeat !== state.seatId) { state.sessionToken = null; state.sessionSeat = state.seatId; }
   if (res.sessionToken && res.sessionToken !== state.sessionToken) {
     if (!state.sessionToken) {
       state.sessionToken = res.sessionToken;
@@ -1406,6 +1426,7 @@ $('btn-alone-ok').onclick = async () => {
   clearSeat(state.code);
   state.code = null;
   state.seatId = null;
+  state.sessionToken = null;
   state.view = null;
   state.selected.clear();
   show($('lobby'));
@@ -1485,6 +1506,7 @@ $('btn-leave-match').onclick = async () => {
   clearSeat(state.code);
   state.code = null;
   state.seatId = null;
+  state.sessionToken = null;
   state.view = null;
   state.selected.clear();
   show($('lobby'));
@@ -1500,6 +1522,7 @@ $('btn-tolobby').onclick = async () => {
   clearSeat(state.code);
   state.code = null;
   state.seatId = null;
+  state.sessionToken = null;
   state.view = null;
   state.selected.clear();
   show($('lobby'));
@@ -1657,6 +1680,7 @@ async function joinPublicOrRematch(code, isFresh) {
     if (res.error) { alert(res.error); return; }
     state.code = code;
     state.seatId = res.seatId;
+    state.sessionToken = null; // a new seat adopts its own token on the first poll
     persistSeat(code, res.seatId);
     clearInterval(lobbyTimer);
     // Show the waiting view and watch until the countdown ends, then join game.
@@ -1679,6 +1703,7 @@ async function joinRematch(code) {
   if (res.error) { alert(res.error); return; }
   state.code = res.code;
   state.seatId = res.seatId;
+  state.sessionToken = null; // a new seat adopts its own token on the first poll
   persistSeat(res.code, res.seatId);
   clearInterval(lobbyTimer);
   enterGame();

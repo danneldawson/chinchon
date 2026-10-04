@@ -109,6 +109,41 @@ function lobbyMatches() {
   return out;
 }
 
+// Deploy-safety signal (GET /api/activity). A restart must never kick anyone
+// out of a match, so before every push we ask: is any room "active"? Active =
+// its game has started (including a results/rematch screen) or its countdown
+// is running, AND at least one human seat was seen in the last ACTIVE_HUMAN_MS
+// (clients poll every ~1.5s, so a present player is always fresh).
+// Visibility does not matter: public, private and solo rooms all count.
+// Read-only and anonymous: no seat ids, tokens, names or cards, and private
+// room codes are withheld (a code is enough to join a room).
+const ACTIVE_HUMAN_MS = 60 * 1000;
+function roomPhase(room) {
+  if (!room.started) return 'countdown';
+  if (room.match && room.match.gameOver) return room.pending ? 'rematch-countdown' : 'gameover';
+  if (room.layoff && room.state && room.state.phase === 'layoff') return 'layoff';
+  return (room.state && room.state.phase) || 'playing';
+}
+function activitySummary(now = Date.now()) {
+  const list = [];
+  let activeHumans = 0;
+  for (const room of rooms.values()) {
+    if (room.gone) continue;
+    if (!room.started && !room.pending) continue;
+    const humans = humanSeats(room).filter((p) => now - (p.lastSeen || 0) < ACTIVE_HUMAN_MS).length;
+    if (!humans) continue;
+    activeHumans += humans;
+    list.push({
+      code: room.visibility === 'public' ? room.code : null,
+      mode: room.mode,
+      visibility: room.visibility || 'private',
+      phase: roomPhase(room),
+      humans,
+    });
+  }
+  return { activeRooms: list.length, activeHumans, rooms: list, checkedAt: new Date(now).toISOString() };
+}
+
 function lobbyState() {
   return {
     members: [...lobby.members.values()].map((m) => ({ name: m.name })),
@@ -468,6 +503,108 @@ function sweepLobby(now = Date.now()) {
   }
 }
 
+// ---------------------------------------------------------------- persistence
+// Rooms and lobby members live in memory, so every restart (each push to main
+// redeploys Railway) used to wipe all matches; the clients' next poll got 404
+// "no such room" and bounced to the lobby. When CHINCHON_STATE_FILE is set (put
+// it on a Railway volume, e.g. /data/rooms.json) we snapshot rooms + lobby to it:
+//   - on SIGTERM/SIGINT (graceful shutdown),
+//   - ~2s after any POST (debounced), and
+//   - every 15s if anything was touched since the last save (covers a crash or
+//     SIGKILL, and GET /api/state, which also mutates lastSeen/countdowns).
+// Writes are atomic (temp file + rename). On boot the snapshot is restored and
+// every absolute timestamp is shifted by the downtime, so countdowns and the
+// away/idle timers resume where they were instead of jumping.
+// Everything a room holds is plain JSON (arrays, objects, strings, numbers,
+// booleans, null; cards are compared by id, never by identity), so
+// JSON.stringify/parse round-trips it. The only Map is lobby.members, which is
+// stored as an array of its values. Nothing at all happens when the env var is unset.
+const STATE_FILE = process.env.CHINCHON_STATE_FILE || null;
+const SAVE_DEBOUNCE_MS = 2000;
+const SAVE_INTERVAL_MS = 15000;
+const SNAPSHOT_VERSION = 1;
+let stateDirty = false;
+let saveDebounceTimer = null;
+
+function snapshot() {
+  return {
+    version: SNAPSHOT_VERSION,
+    savedAt: Date.now(),
+    rooms: [...rooms.values()].filter((r) => !r.gone),
+    lobby: { members: [...lobby.members.values()], chat: lobby.chat },
+  };
+}
+
+function saveRooms(file = STATE_FILE) {
+  if (!file) return false;
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(tmp, JSON.stringify(snapshot()));
+  fs.renameSync(tmp, file); // atomic on the same filesystem: readers never see half a file
+  stateDirty = false;
+  return true;
+}
+
+// Never throws (a full disk or missing volume must not take the server down).
+function safeSave(file = STATE_FILE) {
+  try { return saveRooms(file); } catch (e) { console.error('saveRooms failed:', e.message); return false; }
+}
+
+// Called for every API request. GETs only mark the state dirty (the 15s tick
+// saves it); POSTs also schedule a debounced save.
+function noteStateChange(isWrite) {
+  if (!STATE_FILE) return;
+  stateDirty = true;
+  if (!isWrite || saveDebounceTimer) return;
+  saveDebounceTimer = setTimeout(() => { saveDebounceTimer = null; safeSave(); }, SAVE_DEBOUNCE_MS);
+  if (saveDebounceTimer.unref) saveDebounceTimer.unref();
+}
+
+function shiftTime(obj, key, gap) {
+  if (obj && typeof obj[key] === 'number' && obj[key] > 0) obj[key] += gap;
+}
+
+// Restore a snapshot into the (empty, freshly booted) rooms map and lobby.
+// Returns how many rooms were restored; a missing or corrupt file restores 0.
+function loadRooms(file = STATE_FILE, now = Date.now()) {
+  if (!file) return 0;
+  let snap;
+  try { snap = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return 0; }
+  if (!snap || typeof snap !== 'object' || !Array.isArray(snap.rooms)) return 0;
+  const gap = Math.max(0, now - (Number(snap.savedAt) || now));
+  let n = 0;
+  for (const room of snap.rooms) {
+    if (!room || typeof room.code !== 'string' || !Array.isArray(room.players)) continue;
+    shiftTime(room.pending, 'until', gap);
+    shiftTime(room.waiting, 'since', gap);
+    shiftTime(room, 'hostGraceSince', gap);
+    shiftTime(room, 'startedAt', gap);
+    for (const p of room.players) shiftTime(p, 'lastSeen', gap);
+    if (!Array.isArray(room.chat)) room.chat = [];
+    if (!Array.isArray(room.banned)) room.banned = [];
+    rooms.set(room.code, room);
+    n++;
+  }
+  const lob = snap.lobby;
+  const members = Array.isArray(lob) ? lob : (lob && Array.isArray(lob.members) ? lob.members : []);
+  for (const m of members) {
+    if (!m || !m.token) continue;
+    shiftTime(m, 'lastSeen', gap);
+    shiftTime(m, 'at', gap);
+    lobby.members.set(m.token, m);
+  }
+  if (lob && Array.isArray(lob.chat)) lobby.chat = lob.chat;
+  return n;
+}
+
+// Boot-time wiring for the real server process (not used by tests).
+function startPersistence() {
+  if (!STATE_FILE) return null;
+  const tick = setInterval(() => { if (stateDirty) safeSave(); }, SAVE_INTERVAL_MS);
+  if (tick.unref) tick.unref();
+  return tick;
+}
+
 // Start an interactive lay-off from a closed round. Honors the closer's chosen
 // meld decomposition (room.pendingCloseChoice) when a human picked one.
 function beginLayoffForRoom(room) {
@@ -629,6 +766,7 @@ function serialize(room, seatId) {
         tutorial: !!room.tutorial,
         tutorialRuleIndex: room.tutorialRuleIndex,
         tutorialPaused: false,
+        visibility: room.visibility || 'private', // drives the host Start button for a lone host in a private room
         started: room.started,
         gameOver: false,
         pending: room.pending ? pendingView(room) : null,
@@ -901,6 +1039,10 @@ function handleApi(req, res, url) {
       return sendJson(res, 200, { code: rejoin.code, seatId: rejoin.seatId, name: rejoin.name, rejoined: true });
     });
   }
+  if (method === 'GET' && p === '/api/activity') {
+    return sendJson(res, 200, activitySummary());
+  }
+
   if (method === 'GET' && p === '/api/lobby/state') {
     const token = url.searchParams.get('token');
     if (token) {
@@ -1412,6 +1554,7 @@ function createServer() {
   const srv = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) {
+      noteStateChange(req.method === 'POST');
       return handleApi(req, res, url);
     }
     // Serve static files from public/.
@@ -1456,9 +1599,22 @@ function createServer() {
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
-  createServer().listen(PORT, () => {
+  const restored = loadRooms();
+  if (STATE_FILE) console.log(`State file ${STATE_FILE}: restored ${restored} room(s), ${lobby.members.size} lobby member(s)`);
+  startPersistence();
+  const srv = createServer();
+  let shuttingDown = false;
+  const shutdown = (sig) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    if (STATE_FILE) console.log(`${sig}: saving state, saved=${safeSave()}`);
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  srv.listen(PORT, () => {
     console.log(`Chinchon server on http://localhost:${PORT}`);
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, humanSeats, lobbyRef: lobby } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary } };
