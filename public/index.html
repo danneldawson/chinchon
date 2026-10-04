@@ -20,13 +20,7 @@
                 </div>
                 <input id="lobby-name" type="text" data-i18n-placeholder="yourName" placeholder="Your name" minlength="2" maxlength="14" />
                 <div class="landing-buttons">
-                  <button id="btn-solo-play" class="primary big" data-i18n="tabSolo"></button>
-                  <button id="btn-go-lobby" class="primary" data-i18n="tabMulti"></button>
-                </div>
-                <div id="rejoin-row" class="rejoin-row">
-                  <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
-                  <button id="btn-rejoin" class="primary small">Rejoin</button>
-                  <p id="rejoin-msg" class="msg"></p>
+                  <button id="btn-go-lobby" class="primary" data-i18n="joinLobby">Join lobby</button>
                 </div>
                 <p id="lobby-msg" class="msg"></p>
               </div>
@@ -47,6 +41,12 @@
             <button id="btn-go-create" class="primary" data-i18n="createRoomBtn">Multiplayer room</button>
             <button id="btn-go-join" class="primary" data-i18n="joinRoom">Join room</button>
             <button id="btn-gameplay" class="primary" data-i18n="soloVsBots">Play solo</button>
+          </div>
+          <!-- Rejoin your own seat in a running game (moved here from the landing page). -->
+          <div id="rejoin-row" class="rejoin-row">
+            <input id="rejoin-code" type="text" placeholder="Room code" maxlength="4" />
+            <button id="btn-rejoin" class="primary small">Rejoin</button>
+            <p id="rejoin-msg" class="msg"></p>
           </div>
         </section>
 

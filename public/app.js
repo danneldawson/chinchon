@@ -19,8 +19,7 @@ const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 const I18N = {
   en: {
     title: 'CHINCHON',
-    tabMulti: 'Multiplayer',
-    tabSolo: 'Solo',
+    joinLobby: 'Join lobby',
     subCreate: 'Create a room',
     subJoin: 'Have a code? Join',
     backToCreate: '← Back to create',
@@ -161,8 +160,7 @@ const I18N = {
   },
   es: {
     title: 'CHINCHON',
-    tabMulti: 'Multijugador',
-    tabSolo: 'Solo',
+    joinLobby: 'Entrar al lobby',
     subCreate: 'Crear una sala',
     subJoin: '¿Tienes un código? Únete',
     backToCreate: '← Volver a crear',
@@ -1810,11 +1808,8 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-name').focus();
 })();
 
-// Landing page button handlers
-$('btn-solo-play').onclick = async () => {
-  await enterLobby();
-  $('btn-gameplay').click();
-};
+// Landing page: the single "Join lobby" button saves the name and opens the
+// lobby, where the player picks Play solo / Multiplayer room / Join room.
 $('btn-go-lobby').onclick = enterLobby;
 
 applyLang();
