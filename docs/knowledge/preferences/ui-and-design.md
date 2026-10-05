@@ -201,6 +201,7 @@ Dannel dictated this at 15:10 PT on Sep 14:
    - Nobody types a SeatID.
 3. **Share.** The waiting room gets **Copy table link** and **WhatsApp** buttons:
    "That's how family actually joins."
+   - **Oct 4, 2026:** WhatsApp button removed (Dannel). Room code + Copy remain.
 4. **Felt.** A green table, card shadows, and the Draw/Discard buttons removed; you tap
    the piles.
 5. **Bots stay.** If a bot is still seated, the "only player, game will close" sheet

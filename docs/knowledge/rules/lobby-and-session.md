@@ -104,6 +104,8 @@ noted alongside.
   - save it in the browser and resume the table automatically;
   - `?code=` in the URL sits you down;
   - the waiting room gets **Copy table link** and **WhatsApp** share buttons.
+  - **[Oct 4, 2026]** WhatsApp button removed (Dannel). The waiting room keeps the
+    room code and **Copy**.
 
 ## 5. Starting, leaving, kicking
 
