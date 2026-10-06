@@ -134,6 +134,19 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
   - the gap between piles is tighter;
   - close buttons stack at full width;
   - chat docks to the bottom, collapsed.
+- **Fit to the viewport (Oct 5, 2026, Dannel): the game screen never scrolls the page**,
+  on desktop and on phones in portrait and landscape, for 2-7 players and 7 or 8 cards.
+  - Layout/sizing only (no new features or visual changes): `#game` is a column capped
+    at `100dvh`; the oval table takes the leftover height (never taller than the old
+    430px) and is a size container, so piles and seats scale with it; hand cards size
+    to the row width (36-66px, same 66x96 proportions), all 8 visible from 360px wide.
+  - Phones in landscape (`orientation: landscape` and height <= 500px): table on the
+    left, header/hand/chat bar on the right. Chat starts collapsed there too.
+  - Collapsed chat stays a compact bar under the hand; expanded it is an overlay sheet.
+    On desktops >= 1280px wide the chat floats in the margin beside the board.
+  - The lobby fills the viewport too (player list / chat log scroll inside their panels).
+  - Guarded by `test/viewport-fit.test.js`; verified headless at 390x844, 360x740,
+    844x390, 740x360, 1280x800, 1366x650, 1920x1080.
 - **"Make it an app":** Share → **Add to Home Screen** opens full-screen like an app, so
   no rewrite is needed.
 

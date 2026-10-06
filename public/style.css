@@ -688,3 +688,211 @@ button, .card, .pile, input { touch-action: manipulation; }
   .seat.turn, .seat.turn.mid-move { animation: none !important; }
   .seat.turn.mid-move { box-shadow: 0 0 0 2px rgba(255,207,77,.9), 0 0 18px rgba(255,207,77,.5); }
 }
+
+/* ======================================================================
+   Fit to the viewport (Oct 5, 2026). The game screen never scrolls the
+   page: on desktop and on phones in portrait AND landscape the whole board
+   (header, scores, turn marker, table, hand, collapsed chat) sits inside
+   100dvh. Layout/sizing only: the table flexes, and the piles, seats and
+   hand cards scale with the space they get (container query units), so the
+   look is unchanged. The lobby, landing and waiting screens fit too.
+   ====================================================================== */
+
+/* ---- Game screen: one full-height column; only the table flexes. ---- */
+#app:has(> #game:not(.hidden)) { padding-top: 8px; padding-bottom: 8px; }
+#game {
+  margin-top: 0; padding: 12px 16px;
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px);
+  overflow-x: hidden; overflow-y: auto; /* last-resort inner scroll; the page itself never scrolls */
+}
+#game > * { flex-shrink: 0; min-width: 0; }
+
+/* Header: room code + Leave on one line, the scores wrap underneath. */
+.board-top-row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 12px; width: 100%; }
+#room-code-tag { order: 0; }
+#phase-pill { order: 1; }
+#btn-leave-match { order: 2; margin: 0 0 0 auto; }
+#scoreboard { order: 3; flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0 14px; }
+#scoreboard .row { margin: 1px 0; }
+#turn-marker {
+  margin: 2px auto 6px;
+  padding: clamp(3px, 0.9dvh, 8px) 18px;
+  font-size: clamp(1.05em, 3.3dvh, 1.55em);
+}
+
+/* The table takes whatever height is left (never taller than before). It is a
+   size container, so the piles and seats inside scale with it. */
+#game > #table {
+  flex: 1 1 430px; height: auto; min-height: 160px; margin: 6px auto 18px;
+  container: table / size;
+}
+#center {
+  --pc-h: clamp(46px, min(26cqh, 24cqw), 96px);   /* pile card height (96px max = as before) */
+  --pc-w: calc(var(--pc-h) * 0.6875);
+  gap: clamp(12px, 5.5cqw, 44px);
+}
+#center .pile { width: calc(var(--pc-w) + 30px); min-height: 0; padding: clamp(4px, 1.8cqh, 8px) 6px; gap: clamp(3px, 1.6cqh, 8px); }
+#center .pile-stock .stock-stack,
+#center .discard-stack,
+#center .pile-stock .card-back,
+#center .discard-top { width: var(--pc-w); height: var(--pc-h); }
+#center .discard-top { gap: calc(var(--pc-h) * 0.04); }
+#center .discard-top .rank { font-size: calc(var(--pc-w) * 0.5); }
+#center .discard-top .emblem { width: calc(var(--pc-w) * 0.5); height: calc(var(--pc-w) * 0.5); }
+#center .stock-count { font-size: calc(var(--pc-h) * 0.3); padding: 1px 8px; min-width: calc(var(--pc-h) * 0.46); }
+#center .discard-tray { padding-top: calc(var(--pc-h) * 0.146); }
+#center .tray-card { width: calc(var(--pc-w) * 0.727); height: calc(var(--pc-h) * 0.73); margin-left: calc(var(--pc-w) * -0.36); }
+#center .tray-card:first-child { margin-left: 0; }
+/* Small table (phones, short screens): the compact seat size phones already use. */
+@container table (max-width: 560px) or (max-height: 330px) {
+  .seat { min-width: 58px; max-width: 74px; padding: 3px 5px; }
+  .seat-fan { width: 54px; height: 26px; }
+  .mini-back { width: 15px; height: 23px; }
+  .seat-name { font-size: 0.72em; max-width: 66px; }
+  .seat-count { font-size: 0.62em; }
+  .me-seat { padding: 3px 12px; }
+}
+
+/* Hand: one row. Cards size themselves to the row width (8 cards + the drawn-
+   card arrow always fit), between 36px and the full 66px. If a row is ever
+   narrower than that (8 cards at 36px), the hand swipes sideways inside itself. */
+#your-area { container: hand / inline-size; }
+#your-area h2 { margin: 4px 0 2px; font-size: clamp(1.05em, 2.6dvh, 1.5em); }
+#hand {
+  --hgap: clamp(3px, 1cqw, 10px);
+  --hc-w: clamp(36px, calc((100cqw - 8 * var(--hgap) - 4px) / 8.4), 66px);
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: var(--hgap);
+  padding: 10px 2px 6px; -webkit-overflow-scrolling: touch;
+}
+#hand .card {
+  flex: 0 0 auto; width: var(--hc-w); height: calc(var(--hc-w) * 1.4545);
+  gap: calc(var(--hc-w) * 0.06);
+}
+#hand .card .rank { font-size: calc(var(--hc-w) * 0.485); }
+#hand .card .emblem { width: calc(var(--hc-w) * 0.5); height: calc(var(--hc-w) * 0.5); }
+#hand .hand-sep { flex: 0 0 auto; width: calc(var(--hc-w) * 0.4); padding: 0; text-align: center; font-size: calc(var(--hc-w) * 0.36); }
+#controls { margin-top: 4px; }
+#game #status { margin: 0; min-height: 0; }
+/* Game over / seat-reconnected cards stay reachable on short screens. */
+.go-card { max-height: calc(100dvh - 16px); overflow-y: auto; }
+
+/* Desktop with room beside the board: the chat floats in the right margin,
+   next to the board instead of over it. */
+@media (min-width: 1280px) and (min-height: 501px) {
+  #chat { position: fixed; top: 64px; right: auto; left: calc(50% + 376px); }
+}
+
+/* Phones, portrait. */
+@media (max-width: 640px) {
+  #app:has(> #game:not(.hidden)) { padding: 4px; }
+  #game { max-height: calc(100vh - 8px); max-height: calc(100dvh - 8px); padding: 8px 6px; }
+  #game > #table { flex-basis: 420px; margin: 4px auto 16px; }
+  /* Collapsed chat: a compact bar at the foot of the column, under the hand. */
+  #chat.collapsed { margin: 4px 0 env(safe-area-inset-bottom, 0px); padding: 6px 12px; }
+}
+
+/* Phones, landscape (short screens): table on the left, everything else on
+   the right; the collapsed chat bar sits at the bottom of the right column. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #app:has(> #game:not(.hidden)) {
+    max-width: none;
+    padding: 4px max(4px, env(safe-area-inset-right, 0px)) 4px max(4px, env(safe-area-inset-left, 0px));
+  }
+  #game {
+    height: calc(100vh - 8px); height: calc(100dvh - 8px); max-height: none;
+    padding: 6px 10px; border-radius: 12px;
+    display: grid; column-gap: 12px;
+    grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+    grid-template-rows: repeat(12, auto) minmax(0, 1fr);
+    align-content: start;
+  }
+  #game > * { grid-column: 2; }
+  #game > #table { grid-column: 1; grid-row: 1 / -1; width: 100%; max-width: none; height: auto; min-height: 0; margin: 0 0 14px; }
+  #turn-marker { margin: 2px auto 4px; }
+  #game #center { top: 66%; gap: clamp(10px, 4cqw, 44px); }
+  #your-area h2 { margin: 2px 0 0; }
+  #hand { padding-top: 8px; padding-bottom: 4px; }
+  #scoreboard { font-size: 0.82em; gap: 0 12px; }
+  #game > #table { max-height: calc(100dvh - 34px); }
+  #close-options { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  #close-options .close-prompt { margin: 2px 0 0; }
+  #close-options .close-btn, #close-options .keep-btn { margin: 0; padding: 6px 10px; font-size: 0.9em; }
+
+  /* Chat: collapsed = bar in the layout; expanded = a sheet over the right column. */
+  #chat {
+    position: fixed; top: auto; bottom: 0; right: 0; left: auto;
+    width: min(440px, 55vw); max-height: calc(100dvh - 8px); z-index: 60;
+    border-radius: 14px 0 0 0; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    background: rgba(26, 29, 36, 0.96);
+  }
+  #game > #chat.collapsed {
+    position: static; grid-row: 13; align-self: end; width: auto; max-height: none;
+    border-radius: 12px; overflow: hidden; margin: 4px 0 0; padding: 6px 12px;
+  }
+  #chat.collapsed .chat-head { margin-bottom: 0; }
+  #chat.collapsed #chat-log, #chat.collapsed #chat-input { display: none; }
+  #chat .chat-head { cursor: pointer; }
+  #chat .chat-head::after { content: ' ▲'; opacity: .7; }
+  #chat.collapsed .chat-head::after { content: ' ▼'; }
+  #chat-log { max-height: calc(100dvh - 120px); }
+}
+
+/* ---- Lobby: fills the viewport; the player list, matches and chat log
+   scroll inside their own panels instead of growing the page. ---- */
+#app:has(> #globby:not(.hidden) > #lobby-main:not(.hidden)) {
+  height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+  padding-top: 8px; padding-bottom: 8px;
+}
+#globby:has(> #lobby-main:not(.hidden)) { margin-top: 0; flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#globby:has(> #lobby-main:not(.hidden)) > :not(#lobby-main) { flex-shrink: 0; }
+#globby > #lobby-main {
+  flex: 0 1 auto; min-height: 0; display: grid;
+  /* Short screen: the three panels share the height (none taller than its
+     content, none shorter than its own min-height); the list / chat log
+     scroll inside. */
+  grid-template-rows: auto repeat(3, minmax(auto, max-content));
+}
+#lobby-main > section:nth-of-type(1) { min-height: 11.5em; display: flex; flex-direction: column; } /* title + 2 names + the room buttons */
+#lobby-main > section:nth-of-type(1) > * { flex-shrink: 0; }
+#lobby-main #lobby-members { flex: 0 1 auto; min-height: 2.6em; overflow-y: auto; }
+#lobby-main > section:nth-of-type(2) { min-height: 3.5em; overflow-y: auto; }
+#lobby-main > section:nth-of-type(3) { min-height: 10em; display: flex; flex-direction: column; } /* title + 2 lines + the input row */
+#lobby-main > section:nth-of-type(3) > * { flex-shrink: 0; }
+#lobby-main #lobby-chat-log { flex: 0 1 auto; min-height: 2.6em; overflow-y: auto; }
+
+/* ---- Phones, landscape: every screen loses the big top gap; the lobby
+   goes two-column and the waiting list wraps into columns. ---- */
+@media (orientation: landscape) and (max-height: 500px) {
+  #app { padding-top: 6px; padding-bottom: 6px; }
+  .panel { margin-top: 0; padding: 10px 14px; }
+  #title { font-size: min(64px, 14vw, 11dvh); }
+  .tagline { margin: 0 0 4px; }
+  #globby:has(> #lobby-main:not(.hidden)) { flex: 1 1 auto; }
+  /* Lobby: players (with the room buttons) on the left; header, matches and
+     chat on the right. */
+  #globby > #lobby-main {
+    flex: 1 1 auto; display: grid; column-gap: 14px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  #lobby-main > .lobby-header { grid-column: 2; grid-row: 1; }
+  #lobby-title { font-size: 1.6em; margin: 0; }
+  #lobby-main > section:nth-of-type(1) { grid-column: 1; grid-row: 1 / 4; }
+  #lobby-main > section:nth-of-type(2) { grid-column: 2; grid-row: 2; max-height: 32dvh; min-height: 0; }
+  #lobby-main > section:nth-of-type(3) { grid-column: 2; grid-row: 3; min-height: 0; overflow: hidden; }
+  #lobby-main .lobby-panel { margin: 4px 0; padding: 8px 12px; }
+  #lobby-main .lobby-panel h3 { margin: 0 0 6px; }
+  #lobby-main #lobby-members { flex: 1 1 auto; min-height: 2.6em; }
+  #lobby-main #lobby-chat-log { flex: 1 1 0; height: auto; max-height: none; min-height: 1.4em; }
+  #lobby-main .lobby-actions { flex-wrap: wrap; gap: 6px; }
+  #lobby-main .lobby-actions button { margin: 0; padding: 7px 12px; }
+  #lobby-main .chat-send-row { display: flex; gap: 8px; margin-top: 4px; }
+  #lobby-main .chat-send-row input { margin-top: 0; }
+  #lobby-main .chat-send-row button { margin: 0; }
+  /* Waiting room */
+  #room-info { margin-top: 4px; }
+  #room-info p { margin: 4px 0; }
+  ul#lobby-players { columns: 3; margin: 4px 0; }
+  #lobby .share-buttons button, #btn-host-start, #btn-back-lobby { margin-top: 4px; }
+}

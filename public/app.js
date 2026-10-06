@@ -1149,6 +1149,9 @@ function seatName(seat) {
   return l[seat].name || '';
 }
 
+// Phones in portrait (narrow) or landscape (short): compact seat arc, chat starts collapsed.
+const COMPACT_MQ = '(max-width: 640px), (orientation: landscape) and (max-height: 500px)';
+
 // ---- Table layout (seats around an oval felt) ----
 // Seat angle (degrees, 0 = right, 90 = near/bottom, 270 = far/top) for opponent
 // i of n. Opponents fill the far half of the rim, clockwise from your left, so
@@ -1173,7 +1176,7 @@ function renderTableSeats(v) {
   const activeSeat = v.gameOver ? null : (lo ? lo.currentSeat : v.turnSeat);
   // Mid-move: the active player has drawn and still has to discard.
   const midMove = !lo && v.phase === 'discard';
-  const narrow = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  const narrow = window.matchMedia && window.matchMedia(COMPACT_MQ).matches;
   const rx = narrow ? 44 : 42;
   const ry = 39;
   wrap.innerHTML = '';
@@ -1387,8 +1390,8 @@ $('chat').querySelector('.chat-head').addEventListener('click', (e) => {
   if (e.target.id === 'btn-chat-send') return; // don't toggle when tapping Send
   $('chat').classList.toggle('collapsed');
 });
-// Start collapsed on small screens so the board is clear on load.
-if (window.matchMedia('(max-width: 640px)').matches) $('chat').classList.add('collapsed');
+// Start collapsed on small screens (phones in portrait or landscape) so the board is clear on load.
+if (window.matchMedia(COMPACT_MQ).matches) $('chat').classList.add('collapsed');
 
 // discardCard close: which close decomposition to use (idx into closeOptions).
 async function doDiscard(card, close = false, splitIdx = null) {
