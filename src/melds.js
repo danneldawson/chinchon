@@ -75,6 +75,24 @@ function meldType(cards) {
   return null;
 }
 
+// Display order for a meld on the table: a run is laid out in rank order
+// (including across the 12 -> 1 wrap), with the wild in the slot it fills.
+// Sets, and anything that is not a valid run, come back unchanged.
+function orderRun(cards) {
+  if (!isValidRun(cards)) return [...cards];
+  const n = RANKS.length;
+  const natural = cards.filter((c) => !isWild(c));
+  const wilds = cards.filter(isWild);
+  const idxs = natural.map((c) => rankIndex(c.rank));
+  for (let start = 0; start < n; start++) {
+    if (!idxs.every((i) => (i - start + n) % n < cards.length)) continue;
+    const slots = new Array(cards.length).fill(null);
+    natural.forEach((c, k) => { slots[(idxs[k] - start + n) % n] = c; });
+    return slots.map((c) => c || wilds.shift());
+  }
+  return [...cards];
+}
+
 // Deadwood points for a collection of unmelded cards.
 function deadwoodValue(cards) {
   return cards.reduce((sum, c) => sum + cardValue(c), 0);
@@ -87,5 +105,6 @@ module.exports = {
   isValidRun,
   isValidMeld,
   meldType,
+  orderRun,
   deadwoodValue,
 };

@@ -11,8 +11,8 @@ const expected = [
   'code','mode','learning','tutorial','tutorialRuleIndex','tutorialPaused',
   'started','gameOver','pending','chinchonWin','winner','hostId','isHost',
   'spectator','waiting','phase','turnSeat','isYourTurn','layoff','stockCount',
-  'lastReshuffle','discardTop','yourHand','lastDrawnId','yourMelds','yourDeadwood',
-  'closeOptions','canClose','opponents','scoreboard','chat','aloneNotice','sessionToken'
+  'lastReshuffle','discardTop','yourHand','lastDrawnId','yourDeadwood',
+  'canClose','falseClose','opponents','scoreboard','chat','aloneNotice','sessionToken'
 ];
 const missing = expected.filter(k => !(k in view));
 console.log('Missing keys:', missing);

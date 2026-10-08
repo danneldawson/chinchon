@@ -42,17 +42,22 @@ If the new server can't bind (EADDRINUSE), you're silently testing the **old** c
 | `/api/room/start` | POST `{code, seat}` | host starts; `seat` = the host's real seatId |
 | `/api/state?code=&seat=` | **GET** | per-seat view; stamps `lastSeen`. **No seat = seat 0's view** |
 | `/api/draw` | POST `{code, seat, from:'stock'\|'discard'}` | draw |
-| `/api/discard` | POST `{code, seat, cardId, close?, splitIdx?}` | discard, optionally closing with a chosen split |
-| `/api/layoff/auto` | POST `{code, seat}` | auto lay-off + Ready |
+| `/api/discard` | POST `{code, seat, cardId, close?, melds?}` | discard; to close, `melds` = the player's own groups as arrays of card ids (Oct 8, 2026). Invalid groups = false close (R24) |
+| `/api/layoff/lay` / `attach` / `pass` / `ready` | POST `{code, seat, cardIds}` / `{…, cardId, meldIndex}` / `{code, seat}` | lay-off actions (`/api/layoff/auto` and `/suggest` were removed Oct 8, 2026) |
+| `/api/test/rig` | POST `{code, seat, cardIds}` | **test-only**: swaps those cards into a seat's hand; exists only when the server runs with `CHINCHON_TEST_HOOKS=1` (404 otherwise, including production) |
 | `/api/tutorial/ack` | POST `{code, seat}` | release the tutorial pause |
 | `/api/room/leave`, `/api/room/kick`, `/api/room/chat`, `/api/room/rejoin`, `/api/room/join-rematch`, `/api/room/by-seat`, `/api/lobby/rejoin` | — | lobby/session flows (see `../rules/lobby-and-session.md`) |
 
 **Gotchas**
-- `canClose` and `closeOptions` are **empty until you have drawn**: they're only filled
-  when `phase==='discard'` and it's your turn. Draw first, then check.
-- Close with `{cardId: closeOptions[i].cardId, close: true, splitIdx}`.
+- `canClose` is **false until you have drawn**: it's only set when `phase==='discard'`
+  and it's your turn. Draw first, then check. It is a yes/no only; the server never
+  sends decompositions (no `closeOptions`, no `yourMelds` since Oct 8, 2026).
+- Close with `{cardId, close: true, melds: [[ids…], [ids…]]}`. A driver works out its
+  own melds (e.g. `scoring.allCloseSplits` on the 7 kept cards, as `test/server.test.js`
+  `declareClose` does).
 - After a close, `phase==='layoff'`. Whoever has `isYourTurn` calls
-  `/api/layoff/auto`. A **driver must make legal closes** or the match never ends.
+  `/api/layoff/ready` (or lays/attaches first). A **driver must make legal closes** or
+  the match never ends.
 - `/api/state` is a **GET**; a POST returns an empty body.
 - Seat ids are random strings (or 3-digit SeatIDs for reclaim), never 0/1.
 - `yourScore` isn't a serialized field. Read `scoreboard` instead.
@@ -83,33 +88,34 @@ while True:
         if st.get('gameOver'):
             print('winner', st.get('winner')); raise SystemExit
         if st.get('phase') == 'layoff':
-            if st.get('isYourTurn'): api('/api/layoff/auto', 'POST', {'code': code, 'seat': seat})
+            if st.get('isYourTurn'): api('/api/layoff/ready', 'POST', {'code': code, 'seat': seat})
             continue
         if not st.get('isYourTurn'): continue
         if st.get('phase') == 'draw':
             api('/api/draw', 'POST', {'code': code, 'seat': seat, 'from': 'stock'})
             st = api(f'/api/state?code={code}&seat={seat}')
-        opts = st.get('closeOptions') or []
-        if opts:
-            api('/api/discard', 'POST', {'code': code, 'seat': seat, 'cardId': opts[0]['cardId'],
-                                         'close': True, 'splitIdx': opts[0].get('splitIdx', 0)})
-        else:   # throw the highest unpaired card that isn't the one just drawn (simple heuristic)
-            hand = st['yourHand']; drawn = st.get('lastDrawnId')
-            counts = {}
-            for c in hand: counts[c['rank']] = counts.get(c['rank'], 0) + 1
-            pick = max((c for c in hand if c['id'] != drawn) or hand,
-                       key=lambda c: (-counts[c['rank']], c['rank']))
-            api('/api/discard', 'POST', {'code': code, 'seat': seat, 'cardId': pick['id']})
+        # Oct 8, 2026: closing needs the player's own melds (card ids), so this trimmed
+        # driver never closes; see test/server.test.js declareClose for one that does.
+        # Throw the highest unpaired card that isn't the one just drawn (simple heuristic).
+        hand = st['yourHand']; drawn = st.get('lastDrawnId')
+        counts = {}
+        for c in hand: counts[c['rank']] = counts.get(c['rank'], 0) + 1
+        pick = max((c for c in hand if c['id'] != drawn) or hand,
+                   key=lambda c: (-counts[c['rank']], c['rank']))
+        api('/api/discard', 'POST', {'code': code, 'seat': seat, 'cardId': pick['id']})
 ```
 
 On Sep 3 a run like this finished cleanly: Bob won, and Alice was eliminated at 105.
+(That version closed with the old `closeOptions`/`splitIdx`; since Oct 8, 2026 a
+driver has to declare melds to close, so this trimmed copy never closes and needs a
+`declareClose` step added before it can finish a match.)
 
 ## 4. Solo close driver: `scripts/play_to_close.js`
 
 With the server up on :3000, this plays a solo game and logs
-`isYourTurn/phase/canClose/closeOptions.length` every turn, then attempts a close when
-one appears. Use it to **separate server bugs from client bugs**. If the server sends
-close options and the browser shows no buttons, the problem is the client or the cache.
+`isYourTurn/phase/canClose` every turn, then declares a close when one appears. Use it
+to **separate server bugs from client bugs**. If the server sends `canClose: true` and
+the browser shows no Close button, the problem is the client or the cache.
 
 ## 5. Stress-harness discipline (a broken harness reports false bugs)
 
@@ -165,14 +171,14 @@ Dannel sometimes plays a live 2-human game against an agent-driven seat. Use
   in Hermes' sandbox.
 - Seed the second seat with
   `curl -s -X POST "$HOST/api/room/join" -H "Content-Type: application/json" -d '{"code":"<ROOM>","name":"Guest2"}'`.
-- **Watch Dannel's seat with *his* seatId.** With `closeOptions.length > 0` on his
-  discard turn but no buttons on his screen, the problem is the cache or client. With
-  0, it's the data layer.
+- **Watch Dannel's seat with *his* seatId.** With `canClose: true` on his discard turn
+  but no Close button on his screen, the problem is the cache or client. With false,
+  it's the data layer.
 
 ## 8. "It still doesn't work after the deploy": diagnosis order
 
 1. `curl "<url>/api/state?code=<ROOM>&seat=<SEAT>"`: are
-   `phase/turnSeat/isYourTurn/canClose/closeOptions.length` correct? If they are, it's
+   `phase/turnSeat/isYourTurn/canClose` correct? If they are, it's
    not the server.
 2. `curl -s <url>/app.js | grep -n '<feature marker>'`: did the code actually ship?
 3. `curl -s -D - -o /dev/null <url>/app.js | grep -i cache-control`: should be

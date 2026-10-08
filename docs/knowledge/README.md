@@ -48,20 +48,17 @@ personal working-style notes are **kept in a separate private repo
 - So run `git status` / `git log origin/main..HEAD` first, then ask Dannel what he
   wants to keep. Set up SSH or a PAT for pushing (`engineering/deploy.md`).
 
-## Pending code changes (from 2026-10-02 rulings)
+## Code status of the 2026-10-02 rulings (none pending)
 
-On Oct 2, 2026 Dannel settled four rule questions. Three of them are **engine/server
-changes that have not been made yet**, so until they land the code and these docs
-disagree on purpose. The docs describe the rule; the code still runs the old behaviour.
+On Oct 2, 2026 Dannel settled four rule questions. **All four are in the code now**
+(checked Oct 8, 2026), so nothing is pending from them:
 
-| Rule | Ruling | What still needs changing |
+| Rule | Ruling | Where it landed |
 |---|---|---|
-| R37 | A run can wrap from 12 round to 1 (…11‑12‑1…) | Engine: `isValidRun` in `src/melds.js` rejects the wrap. Flip the "run does not wrap" check in `scripts/cards-audit.js` in the same change |
-| R38 | The wild (1 de Oros) scores **0** | Engine: `cardValue` in `src/cards.js` scores it 1; change its client mirror `window.__cardVal` in `public/app.js` too (the drift test compares them). Flip the "wild scores 1" audit check |
-| R40 | The pre-start countdown is **60s** | Server: the countdown currently runs about 90s |
-
-R39 (no lay-off timer, no nudge, no timeout) already matches the current behaviour and
-needs no change.
+| R37 | A run can wrap from 12 round to 1 (…11‑12‑1…) | `d8cc416`: `isValidRun` in `src/melds.js`; the audit checks the wrap |
+| R38 | The wild (1 de Oros) scores **0** | `d8cc416`: `cardValue` in `src/cards.js` and the client mirror `window.__cardVal` |
+| R39 | No lay-off timer, nudge or timeout | Always matched the code |
+| R40 | The pre-start countdown is **60s** | `6ef221e`: `server.js` (the rematch window is a separate 90s) |
 
 **Still open** (check with Dannel before changing behaviour):
 - a lone human in a multi room: 2 random bots (Sep 11) vs the Sep 14 audit that deletes
@@ -101,8 +98,8 @@ kept in a separate private repo (danneldawson/chinchon-transcripts).
 1. If you have access to the private repo (danneldawson/chinchon-transcripts), read
    its working-style notes first. They're short and they matter. The essentials: confirm
    your understanding before acting, one feature at a time, small verified layers.
-2. Read `rules/house-rules.md` before touching any game logic, then the "Pending code
-   changes" section above.
+2. Read `rules/house-rules.md` before touching any game logic, then the "Code status
+   of the 2026-10-02 rulings" section above.
 3. On his Mac:
    ```bash
    cd ~/Desktop/chinchon && git status && git log --oneline -5

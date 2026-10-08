@@ -126,7 +126,10 @@ function drawFromDiscard(state) {
 }
 
 // Discard one card. Set declareClose to attempt to end the round.
-function discardCard(state, card, declareClose = false) {
+// `verdict` (optional): a pre-judged close, e.g. scoring.validateDeclaredClose()
+// for a player who laid out their own melds. When given, it decides whether the
+// close is real or a false close instead of the engine's own canClose search.
+function discardCard(state, card, declareClose = false, verdict = null) {
   if (state.phase !== 'discard') return { ok: false, reason: 'not the discard phase' };
 
   const hand = state.hands[state.turn];
@@ -138,11 +141,14 @@ function discardCard(state, card, declareClose = false) {
   const kept = [...hand.slice(0, idx), ...hand.slice(idx + 1)];
 
   if (declareClose) {
-    const check = canClose(kept);
+    const check = verdict || canClose(kept);
     if (!check.ok) {
       // FALSE CLOSE: hand is exposed, nobody scores, play continues.
       const closer = state.turn;
       state.hands[closer] = kept;
+      // R24: the would-be closer's hand is shown to the whole table. It stays
+      // up until their next discard (one full lap) or the end of the round.
+      state.falseClose = { seat: closer, hand: [...kept], reason: check.reason };
       state.discard.push(card);
       state.lastDrawn = null;
       state.phase = 'draw';
@@ -158,6 +164,7 @@ function discardCard(state, card, declareClose = false) {
 
     state.hands[state.turn] = kept;
     state.discard.push(card);
+    state.falseClose = null;
     state.closerIndex = state.turn;
     state.phase = 'closed';
     return { ok: true, closed: true, closerIndex: state.turn, check };
@@ -165,6 +172,8 @@ function discardCard(state, card, declareClose = false) {
 
   state.hands[state.turn] = kept;
   state.discard.push(card);
+  // The exposed hand (R24) is stale once its owner has discarded again.
+  if (state.falseClose && state.falseClose.seat === state.turn) state.falseClose = null;
   state.lastDrawn = null;
   state.phase = 'draw';
   state.turn = nextActiveTurn(state);

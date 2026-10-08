@@ -76,8 +76,8 @@ noted alongside.
   (house rule R40).
   - Decided Aug 18: **60s** for both public and private rooms; Dannel confirmed 60s on
     Oct 2, 2026.
-  - The code as described in Sep notes runs about **90s**, so the server still needs
-    changing to 60s. See `../README.md`, "Pending code changes".
+  - The server runs 60s for both (`6ef221e`; checked Oct 8, 2026). The rematch window
+    is a separate 90s.
 
 ## 4. Room codes, seats and identity [live, Sep 12]
 

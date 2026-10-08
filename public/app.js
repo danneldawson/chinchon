@@ -47,11 +47,17 @@ const I18N = {
     roomChat: 'Room chat',
     quickNote: 'Quick note to the table…',
     reshuffle: 'Stock reshuffled',
-    keepPlaying: 'Keep playing (don’t close)',
-    closeOffer: 'You can close now — Close, or keep playing?',
-    closeOfferContinue: 'Keep playing',
     chinchon: 'CHINCHON — win!',
     close: 'Close',
+    makeMeld: 'Make meld',
+    discardClose: 'Discard & close',
+    cancel: 'Cancel',
+    closeHelp: 'Tap cards, then Make meld. Tap a meld on the table to take it back. Then tap the card to throw and Discard & close.',
+    pickOneDiscard: 'Select the one card to throw',
+    needMeld: 'Make at least one meld first',
+    falseClose: 'False close',
+    handShown: 'hand shown to everyone',
+    attachHelp: 'To attach: select one card, then tap a meld on the table',
     discard: 'discard',
     out: 'OUT',
     soloName: 'Your name',
@@ -61,11 +67,9 @@ const I18N = {
     table: 'Table',
     yourCards: 'Your remaining cards',
     laySelected: 'Lay selected',
-    auto: 'Auto (lay all + shed)',
     ready: 'Ready — count me',
     waitingLayoff: 'Waiting for others to lay off…',
     pass: 'Not yet',
-    suggest: 'Suggest',
     goTitle: 'Match over',
     goWinner: 'Winner',
     eliminated: 'Eliminated',
@@ -101,7 +105,6 @@ const I18N = {
     // Additional UI strings missing from EN
     rulesTitle: 'How to play',
     backToCreate: '← Back to create',
-    keepPlayingLong: 'Keep playing (don’t close)',
     soloVsBots: 'Play solo',
     playWithFriends: 'Play with friends',
     subCreate: 'Create a room',
@@ -111,7 +114,6 @@ const I18N = {
     waitExtend: 'Wait / extend',
     continueWithout: 'Continue without them',
     spectating: 'You are spectating — you rejoin the next match.',
-    closeError: 'Close UI error:',
     selectLay: 'Select ≥3 cards to lay',
     cardsCount: 'cards',
     layLabel: 'Lay:',
@@ -186,11 +188,17 @@ const I18N = {
     roomChat: 'Chat de sala',
     quickNote: 'Nota rápida para la mesa…',
     reshuffle: 'Mazo rebarajado',
-    keepPlaying: 'Seguir jugando (no cerrar)',
-    closeOffer: 'Puedes cerrar ahora — ¿Cerrar o seguir jugando?',
-    closeOfferContinue: 'Seguir jugando',
     chinchon: 'CHINCHON — ¡ganas!',
     close: 'Cerrar',
+    makeMeld: 'Formar jugada',
+    discardClose: 'Descartar y cerrar',
+    cancel: 'Cancelar',
+    closeHelp: 'Toca cartas y luego Formar jugada. Toca una jugada en la mesa para devolverla. Después toca la carta que tiras y Descartar y cerrar.',
+    pickOneDiscard: 'Selecciona la carta que vas a tirar',
+    needMeld: 'Primero forma al menos una jugada',
+    falseClose: 'Cierre falso',
+    handShown: 'mano a la vista de todos',
+    attachHelp: 'Para añadir: selecciona una carta y toca una jugada de la mesa',
     discard: 'descartar',
     out: 'FUERA',
     soloName: 'Tu nombre',
@@ -200,11 +208,9 @@ const I18N = {
     table: 'Mesa',
     yourCards: 'Tus cartas restantes',
     laySelected: 'Poner seleccionadas',
-    auto: 'Auto (poner todo + soltar)',
     ready: 'Listo — contadme',
     waitingLayoff: 'Esperando a los demás…',
     pass: 'Todavía no',
-    suggest: 'Sugerir',
     goTitle: 'Partida terminada',
     goWinner: 'Ganador',
     eliminated: 'Eliminados',
@@ -254,7 +260,6 @@ const I18N = {
     joinRoom: 'Unirse a sala',
     host: 'Anfitrion',
     player: 'Jugador',
-    keepPlayingLong: 'Seguir jugando (no cerrar)',
     soloVsBots: 'Jugar solo',
     playWithFriends: 'Jugar con amigos',
     subCreate: 'Crear una sala',
@@ -264,7 +269,6 @@ const I18N = {
     waitExtend: 'Esperar más',
     continueWithout: 'Continuar sin él',
     spectating: 'Estás como espectador; vuelves en la proxima partida.',
-    closeError: 'Error en Close UI:',
     selectLay: 'Selecciona ≥3 cartas para poner',
     cardsCount: 'cartas',
     layLabel: 'Poner:',
@@ -356,7 +360,6 @@ const state = {
   seatId: null,
   view: null,
   pollTimer: null,
-  chosenSplit: null,
   selected: new Set(),
   handOrder: [],
   swapPick: null,
@@ -640,12 +643,6 @@ function cardLabel(c) {
   return `${c.rank}${SUIT_ICON[c.suit] || '?'}`;
 }
 
-// Compact meld chip: rank + the SAME SVG emblem used on the cards, so meld
-// lists match the actual suit icons (cup/sword/coin/plant), not just a glyph.
-function meldChip(c) {
-  return `<span class="meld-chip ${c.suit.toLowerCase()}">${c.rank}${suitEmblem(c.suit)}</span>`;
-}
-
 // Original Spanish-deck suit emblems (Fournier-STYLE, not the copyrighted art):
 //   Oros    = a gold coin
 //   Copas   = a goblet / cup
@@ -675,6 +672,7 @@ function suitEmblem(suit) {
 function renderCardEl(c, { clickable, onClick, reorderable } = {}) {
   const el = document.createElement('div');
   el.className = `card ${c.suit.toLowerCase()}`;
+  el.dataset.id = c.id;
   if (window.__isWild(c)) el.classList.add('has-wild');
   el.innerHTML =
     `<span class="rank">${c.rank}</span>` +
@@ -686,28 +684,6 @@ function renderCardEl(c, { clickable, onClick, reorderable } = {}) {
   if (reorderable) el.classList.add('reorderable');
   return el;
 }
-
-// Describe a meld set for the close-choice UI, in the player's language.
-// Compact, suit-COLOURED label that ALSO carries the real SVG emblem, so every
-// inline spot (discard, close-choice, layoff suggestions) matches the cards.
-function coloredLabel(c) {
-  return meldChip(c);
-}
-
-function meldsText(split) {
-  const parts = split.map((m) =>
-    '[ ' + m.map((c) => coloredLabel(c)).join(' ') + ' ]'
-  );
-  return parts.join('  ');
-}
-
-// (Close-hint rule, kept here for reference:)
-// The ONLY close prompt shown is a generic "You can close now — or keep
-// playing", fired whenever any NON-chinchon close is available. It never lists
-// cards, never reveals a run, and NEVER reveals a chinchon (whole-game win stays
-// hidden — everyone knows the game by this point). It fades after ~10s. The
-// authoritative run/chinchon detection for scoring lives in src/hints.js +
-// src/melds.js (unit-tested) and is what the close-options UI relies on.
 
 // Edge-triggered animations: only fire once per meaningful state change, so the
 // 1.2s poll re-render never replays them.
@@ -937,13 +913,23 @@ function render() {
   const byId = new Map(seven.map((c) => [c.id, c]));
   const ordered = state.handOrder.map((id) => byId.get(id)).filter(Boolean);
 
-  const reorderable = !canAct || phase === 'draw'; // not while discarding
+  // Card-based close (Oct 8, 2026): after tapping Close the player builds their
+  // own melds from the hand; cards already put in a meld sit on the felt, not in
+  // the hand. Close mode ends when the discard turn ends or the hand changes.
   const discarding = canAct && phase === 'discard';
+  const handKey = v.yourHand.map((c) => c.id).sort().join(',');
+  if (state.closeMode && (!discarding || !v.canClose || state.closeMode.handKey !== handKey)) state.closeMode = null;
+  const cm = state.closeMode;
+  const grouped = new Set(cm ? cm.groups.flat() : []);
+
+  const reorderable = !cm && (!canAct || phase === 'draw'); // not while discarding
   for (const c of ordered) {
+    if (grouped.has(c.id)) continue;
     const el = renderCardEl(c, {
       clickable: discarding,
       reorderable,
       onClick: () => {
+        if (state.closeMode) { toggleCloseSel(c.id); return; }
         if (discarding) { doDiscard(c, false); return; }
         // Reorder mode: tap to pick up, tap another to swap.
         if (state.swapPick === c.id) { state.swapPick = null; return; }
@@ -957,21 +943,26 @@ function render() {
     });
     if (reorderable && state.swapPick === c.id) el.classList.add('picked');
     if (reorderable) el.classList.add('reorderable');
+    if (cm && cm.sel.has(c.id)) el.classList.add('selected');
     handWrap.appendChild(el);
   }
 
   // Locked 8th slot: the card just drawn. It IS discardable (you only learn its
   // identity after drawing, so it must be a valid throw) — but not reorderable.
-  if (drawn) {
+  if (drawn && !grouped.has(drawn.id)) {
     const sep = document.createElement('div');
     sep.className = 'hand-sep';
     sep.textContent = '⟶';
     handWrap.appendChild(sep);
     const el = renderCardEl(drawn, {
       clickable: discarding,
-      onClick: () => { if (discarding) doDiscard(drawn, false); },
+      onClick: () => {
+        if (state.closeMode) { toggleCloseSel(drawn.id); return; }
+        if (discarding) doDiscard(drawn, false);
+      },
     });
     el.classList.add('drawn-locked');
+    if (cm && cm.sel.has(drawn.id)) el.classList.add('selected');
     handWrap.appendChild(el);
   }
 
@@ -981,10 +972,9 @@ function render() {
   const melds = $('melds');
   melds.innerHTML = '';
 
-  // Close availability is surfaced ONLY through the Close / Keep playing
-  // buttons (shown on the 8-card discard turn below) — no separate "you can
-  // close now" hint text. Agency stays with the player: they pick which 8th
-  // card to discard to close.
+  // Close availability is surfaced ONLY through the Close button (shown on the
+  // 8-card discard turn below, when a close exists) — no "you can close now"
+  // hint text and never a suggested meld. The player lays out their own melds.
   const hintEl = $('run-hint');
   if (hintEl) {
     hintEl.classList.add('hidden');
@@ -993,9 +983,6 @@ function render() {
   if (_animState.runHintTimer) { clearTimeout(_animState.runHintTimer); _animState.runHintTimer = null; }
   _animState.runHintKey = '';
 
-  // Close options are rendered directly in #close-options below (one button
-  // per legal close: discard that card AND close). No separate banner — the
-  // player sees every option up front and picks the discard they want.
 
   // Tutorial gating: while a rule is pending, the human cannot act. Show the
   // current rule (text) with a Continue button that acknowledges it server-side.
@@ -1010,63 +997,43 @@ function render() {
     tutEl.classList.add('hidden');
   }
 
+  // Close (rules gate): one Close button, only when a close exists. In close
+  // mode: Make meld / Discard & close / Cancel. The server judges the declared
+  // melds; an invalid declaration is a false close (R24). Nothing here checks or
+  // suggests melds.
   const co = $('close-options');
   co.innerHTML = '';
-  if (canAct && phase === 'discard' && v.closeOptions && v.closeOptions.length) {
-    try {
-      if (!_animState.close) { onceAnimate(co, 'appear'); }
-      _animState.close = true;
-      // Prompt: choose how to close (each option is a distinct meld decomposition).
-      const prompt = document.createElement('div');
-      prompt.className = 'close-prompt';
-      prompt.textContent = lang === 'es' ? '¿Como quieres cerrar?' : 'How do you want to close?';
-      co.appendChild(prompt);
-
-      v.closeOptions.forEach((o, idx) => {
-        const b = document.createElement('button');
-        b.className = 'close-btn';
-        const disc = coloredLabel(findCard(o.cardId));
-        if (o.chinchon) {
-          b.innerHTML = `${t('chinchon')} (${t('discard')} ${disc})`;
-        } else {
-          const sign = o.score < 0 ? '' : '+';
-          b.innerHTML = `${t('close')} ${sign}${o.score} · ${t('discard')} ${disc} · ${meldsText(o.split)}`;
-        }
-        b.onclick = () => doDiscard(findCard(o.cardId), true, idx);
-        co.appendChild(b);
+  if (discarding && v.canClose) {
+    if (!_animState.close) { onceAnimate(co, 'appear'); }
+    _animState.close = true;
+    const btn = (id, cls, label, onClick) => {
+      const b = document.createElement('button');
+      b.id = id; b.className = cls; b.textContent = label; b.onclick = onClick;
+      co.appendChild(b);
+      return b;
+    };
+    if (!cm) {
+      btn('btn-close-mode', 'close-btn', t('close'), () => {
+        state.closeMode = { groups: [], sel: new Set(), handKey, msg: '' };
+        state.swapPick = null;
+        render();
       });
-
-      // Explicit "keep playing" alternative: discard the highest-value card
-      // WITHOUT declaring a close, so the player keeps the same hand shape and
-      // can chase a better/wild draw next turn.
-      const keep = document.createElement('button');
-      keep.className = 'keep-btn';
-      keep.textContent = t('keepPlaying');
-      keep.onclick = () => {
-        const hand = state.view.yourHand;
-        // Prefer discarding the card with the highest deadwood value that is NOT
-        // part of the first close option's kept melds (keeps melds intact).
-        const keepIds = new Set(v.closeOptions[0].split.flat().map((c) => c.id));
-        const candidates = hand.filter((c) => !keepIds.has(c.id));
-        const pool = candidates.length ? candidates : hand;
-        const worst = pool.reduce((a, b) => (window.__cardVal(b) > window.__cardVal(a) ? b : a), pool[0]);
-        doDiscard(worst, false);
-      };
-      co.appendChild(keep);
-    } catch (err) {
-      // Surface any render error instead of failing silently — this is a
-      // diagnostic guard so a thrown error shows as text rather than blank.
-      co.innerHTML = '';
-      const e = document.createElement('div');
-      e.className = 'close-prompt';
-      e.style.color = '#ff6b6b';
-      e.textContent = t('closeError') + ' ' + (err && err.message ? err.message : err);
-      co.appendChild(e);
-      console.error('close-options render error', err);
+    } else {
+      const help = document.createElement('div');
+      help.id = 'close-help';
+      help.className = 'close-prompt';
+      help.textContent = cm.msg || t('closeHelp');
+      co.appendChild(help);
+      btn('btn-make-meld', 'close-btn', t('makeMeld'), makeMeld);
+      btn('btn-discard-close', 'close-btn', t('discardClose'), discardAndClose);
+      btn('btn-close-cancel', 'close-cancel', t('cancel'), () => { state.closeMode = null; render(); });
     }
   } else {
     _animState.close = false;
   }
+
+  // R24: a false close shows that player's hand to the whole table.
+  renderFalseClose(v);
 
   // ---- Slice 2: interactive lay-off board ----
   const inLayoff = !!(v.layoff && (v.layoff.phase === 'layoff' || v.layoff.done));
@@ -1077,6 +1044,144 @@ function render() {
   $('your-area').classList.toggle('hidden', inLayoff);
   $('controls').classList.toggle('hidden', inLayoff);
   if (inLayoff) renderLayoff(v.layoff);
+  // Melds face up on the felt: the closer's groups while building them, then
+  // every meld on the table during the lay-off (with the seat that laid it).
+  renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : null);
+}
+
+// ---- Card-based close (Oct 8, 2026) ----
+function toggleCloseSel(id) {
+  const cm = state.closeMode;
+  if (!cm) return;
+  if (cm.sel.has(id)) cm.sel.delete(id); else cm.sel.add(id);
+  cm.msg = '';
+  render();
+}
+
+// Put the selected cards on the felt as one meld. Only the count is checked
+// here (a meld is 3+ cards); whether it is a real meld is the server's call.
+function makeMeld() {
+  const cm = state.closeMode;
+  if (!cm) return;
+  if (cm.sel.size < 3) { cm.msg = t('selectLay'); render(); return; }
+  cm.groups.push([...cm.sel]);
+  cm.sel.clear();
+  cm.msg = '';
+  render();
+}
+
+function discardAndClose() {
+  const cm = state.closeMode;
+  if (!cm || !state.view) return;
+  if (!cm.groups.length) { cm.msg = t('needMeld'); render(); return; }
+  if (cm.sel.size !== 1) { cm.msg = t('pickOneDiscard'); render(); return; }
+  const card = state.view.yourHand.find((c) => c.id === [...cm.sel][0]);
+  if (!card) return;
+  const melds = cm.groups.map((g) => [...g]);
+  state.closeMode = null;
+  doDiscard(card, true, melds);
+}
+
+// A small face-up card for the felt (melds) and the false-close banner.
+function feltCard(c) {
+  const wild = window.__isWild ? window.__isWild(c) : false;
+  return `<span class="fm-card ${String(c.suit).toLowerCase()}${wild ? ' has-wild' : ''}">` +
+    `<span class="tc-rank">${c.rank}</span><span class="tc-emblem">${suitEmblem(c.suit)}</span></span>`;
+}
+
+function renderFelt(v, cm, lo) {
+  const felt = $('felt-melds');
+  const table = $('table');
+  if (!felt || !('innerHTML' in felt)) return;
+  const show = !!cm || !!lo;
+  felt.classList.toggle('hidden', !show);
+  table.classList.toggle('melds-mode', show);
+  if (!show) { felt.innerHTML = ''; felt.dataset.key = ''; return; }
+  const me = (v.opponents || []).find((o) => o.isYou);
+  const mySeat = me ? me.seat : null;
+  let groups;
+  if (cm) {
+    const byId = new Map(v.yourHand.map((c) => [c.id, c]));
+    groups = cm.groups.map((ids, i) => ({
+      cards: ids.map((id) => byId.get(id)).filter(Boolean),
+      owner: mySeat,
+      tap: () => { const m = state.closeMode; if (m) { m.groups.splice(i, 1); m.msg = ''; render(); } },
+    }));
+  } else {
+    const myTurn = !!lo.isYourTurn && !lo.done;
+    groups = (lo.table || []).map((m, i) => ({
+      cards: m,
+      owner: Array.isArray(lo.owners) ? lo.owners[i] : lo.closerIndex,
+      tap: myTurn ? () => attachTo(i) : null,
+    }));
+  }
+  const key = (cm ? 'cm|' : 'lo|') + lang + '|' + groups.map((g) => `${g.owner}:${g.tap ? 1 : 0}:${g.cards.map((c) => c.id).join(',')}`).join('|');
+  if (felt.dataset.key === key) return;
+  felt.dataset.key = key;
+  felt.innerHTML = '';
+  if (!groups.length) {
+    const ph = document.createElement('div');
+    ph.className = 'felt-empty';
+    ph.textContent = t('makeMeld') + ' …';
+    felt.appendChild(ph);
+  }
+  groups.forEach((g, i) => {
+    const d = document.createElement('div');
+    d.className = 'felt-meld' + (g.tap ? ' tappable' : '') + (g.owner === mySeat ? ' mine' : '');
+    d.dataset.meldIndex = String(i);
+    const owner = (v.opponents || []).find((o) => o.seat === g.owner);
+    const name = owner ? owner.name : '';
+    d.innerHTML = `<div class="fm-owner">${g.owner === mySeat ? '★ ' : ''}${escapeHtml(name)}</div>` +
+      `<div class="fm-cards">${g.cards.map(feltCard).join('')}</div>`;
+    if (g.tap) d.onclick = g.tap;
+    felt.appendChild(d);
+  });
+  fitFelt(felt);
+}
+
+// Shrink the felt cards until every meld fits inside the felt area (no scroll).
+// (Centred content can spill past the top edge, which scrollHeight does not
+// report, so each meld's box is checked against the felt's box. A meld should
+// not sit under an opponent's seat either.)
+function fitFelt(felt) {
+  if (!felt || felt.classList.contains('hidden') || !felt.style) return;
+  const seats = [...document.querySelectorAll('#opponents .seat')].map((e) => e.getBoundingClientRect());
+  const hits = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  const spills = () => {
+    const f = felt.getBoundingClientRect();
+    if (felt.scrollHeight > felt.clientHeight + 1 || felt.scrollWidth > felt.clientWidth + 1) return true;
+    return [...felt.children].some((ch) => {
+      const b = ch.getBoundingClientRect();
+      if (b.top < f.top - 0.5 || b.bottom > f.bottom + 0.5 || b.left < f.left - 0.5 || b.right > f.right + 0.5) return true;
+      return seats.some((st) => hits(b, st));
+    });
+  };
+  let w = 44;
+  felt.style.setProperty('--fm-w', w + 'px');
+  while (w > 12 && spills()) {
+    w -= 2;
+    felt.style.setProperty('--fm-w', w + 'px');
+  }
+}
+window.addEventListener('resize', () => fitFelt(document.getElementById('felt-melds')));
+
+// Lay-off tap-to-attach: one selected card + tap a table meld.
+function attachTo(meldIndex) {
+  if (state.selected.size !== 1) { $('layoff-status').textContent = t('attachHelp'); return; }
+  doLayoffAction('attach', { cardId: [...state.selected][0], meldIndex });
+}
+
+function renderFalseClose(v) {
+  const el = $('false-close');
+  if (!el || !('innerHTML' in el)) return;
+  const fc = v.falseClose;
+  el.classList.toggle('hidden', !fc);
+  if (!fc) { el.innerHTML = ''; el.dataset.key = ''; return; }
+  const key = lang + '|' + fc.seat + '|' + fc.hand.map((c) => c.id).join(',');
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.innerHTML = `<span class="fc-text">${escapeHtml(fc.name)} — ${t('falseClose')}: ${t('handShown')}</span>` +
+    `<span class="fc-cards">${fc.hand.map(feltCard).join('')}</span>`;
 }
 
 // Connection / waiting / spectator banner. Shows drops, the host's wait/continue
@@ -1268,20 +1373,8 @@ function renderLayoff(lo) {
   $('layoff-title').textContent = lo.done ? t('gameOver') : t('layoffTitle');
   $('layoff-cards-label').textContent = t('yourCards');
 
-  // Table melds.
-  const tableWrap = $('layoff-table');
-  tableWrap.innerHTML = '';
-  const tableLabel = document.createElement('div');
-  tableLabel.className = 'dim';
-  tableLabel.textContent = t('table');
-  tableWrap.appendChild(tableLabel);
-  (lo.table || []).forEach((meld, i) => {
-    const d = document.createElement('div');
-    d.className = 'meld on-table';
-    d.innerHTML = `[${i + 1}] ` + meld.map(meldChip).join(' ');
-    d.dataset.meldIndex = i;
-    tableWrap.appendChild(d);
-  });
+  // The table melds are drawn face up on the felt (renderFelt); tap one to
+  // attach the selected card.
 
   // Your remaining cards (only shown while it's your turn; otherwise hide).
   const handWrap = $('layoff-hand');
@@ -1300,19 +1393,13 @@ function renderLayoff(lo) {
 
   // Controls.
   const layBtn = $('btn-layoff-lay');
-  const autoBtn = $('btn-layoff-auto');
   const readyBtn = $('btn-layoff-ready');
-  const sugBtn = $('btn-layoff-suggest');
   const passBtn = $('btn-layoff-pass');
   layBtn.textContent = t('laySelected');
-  autoBtn.textContent = t('auto');
   readyBtn.textContent = t('ready');
-  sugBtn.textContent = t('suggest');
   passBtn.textContent = t('pass');
   layBtn.classList.toggle('hidden', !myTurn);
-  autoBtn.classList.toggle('hidden', !myTurn);
   readyBtn.classList.toggle('hidden', !myTurn);
-  sugBtn.classList.toggle('hidden', !myTurn);
   passBtn.classList.toggle('hidden', !myTurn);
 
   if (lo.done) {
@@ -1321,14 +1408,17 @@ function renderLayoff(lo) {
       : '';
   } else if (!myTurn) {
     $('layoff-status').textContent = t('waitingLayoff');
+  } else if (state.layoffMsg && Date.now() < state.layoffMsg.until) {
+    $('layoff-status').textContent = state.layoffMsg.text;
   } else {
     $('layoff-status').textContent = state.selected.size
       ? `${state.selected.size} selected`
-      : '';
+      : t('attachHelp');
   }
 }
 
 function toggleSelect(id) {
+  state.layoffMsg = null;
   if (state.selected.has(id)) state.selected.delete(id);
   else state.selected.add(id);
   // Re-render just the lay-off hand to reflect selection.
@@ -1341,14 +1431,14 @@ async function doLayoffAction(kind, payload) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).then((r) => r.json());
+  // Keep a rejection (e.g. "that card does not fit") on screen for a moment;
+  // the next render would otherwise replace it straight away.
+  state.layoffMsg = res.error ? { text: res.error, until: Date.now() + 4000 } : null;
   if (res.error) $('layoff-status').textContent = res.error;
   state.selected.clear();
   await poll();
 }
 
-function findCard(id) {
-  return state.view.yourHand.find((c) => c.id === id) || { id, rank: '?', suit: 'Oros' };
-}
 
 // ----------------------------------------------------------- actions
 
@@ -1393,10 +1483,12 @@ $('chat').querySelector('.chat-head').addEventListener('click', (e) => {
 // Start collapsed on small screens (phones in portrait or landscape) so the board is clear on load.
 if (window.matchMedia(COMPACT_MQ).matches) $('chat').classList.add('collapsed');
 
-// discardCard close: which close decomposition to use (idx into closeOptions).
-async function doDiscard(card, close = false, splitIdx = null) {
+// Discard; to close, also send the melds the player laid out (card ids, one
+// array per meld). The server judges them: valid closes the round, invalid is a
+// false close (R24).
+async function doDiscard(card, close = false, melds = null) {
   const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
-  if (close && splitIdx != null) body.splitIdx = splitIdx;
+  if (close) body.melds = melds || [];
   // Mark this as OUR discard so the next render plays the throw-pop on the new
   // discard top (see render's discard block). One-shot; cleared when it fires.
   _animState.pendingThrow = true;
@@ -1445,20 +1537,11 @@ $('discard').onclick = () => { if (state.view && state.view.isYourTurn && state.
 // Lay selected (l): send the currently-selected cards as one meld.
 $('btn-layoff-lay').onclick = () => {
   if (state.selected.size >= 3) doLayoffAction('lay', { cardIds: [...state.selected] });
-  else $('layoff-status').textContent = 'Select ≥3 cards to lay';
+  else $('layoff-status').textContent = t('selectLay');
 };
-$('btn-layoff-auto').onclick = () => doLayoffAction('auto', {});
 $('btn-layoff-ready').onclick = () => doLayoffAction('ready', {});
 // "Not yet": stay in the lay-off rotation without being counted.
 $('btn-layoff-pass').onclick = () => doLayoffAction('pass', {});
-$('btn-layoff-suggest').onclick = async () => {
-  const res = await fetch(`/api/layoff/suggest?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
-  if (res.melds) {
-    const parts = (res.melds || []).map((m) => m.map(coloredLabel).join(' '));
-    const att = (res.attachable || []).map((a) => coloredLabel(a.card) + '→' + (a.meldIndex + 1));
-    $('layoff-status').innerHTML = `Lay: [${parts.join('] [')}]` + (att.length ? `  Shed: ${att.join(', ')}` : '');
-  }
-};
 
 // ---- Game over (Slice 3) ----
 $('btn-rematch').onclick = async () => {

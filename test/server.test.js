@@ -58,13 +58,15 @@ async function playMatchToEnd(code, seatIds) {
         // Close whenever the server says a legal close exists; otherwise
         // discard the first card. Closing is what produces scores and,
         // eventually, eliminations -> a winner.
-        const closeOpt = v.closeOptions && v.closeOptions[0];
-        const card = closeOpt ? { id: closeOpt.cardId } : v.yourHand[0];
-        await api('POST', '/api/discard', { code, seat, cardId: card.id, close: !!closeOpt });
+        // The server only says "a close exists" (canClose); like a real player,
+        // the test works out its own melds and declares them.
+        const decl = v.canClose ? declareClose(v.yourHand) : null;
+        if (decl) await api('POST', '/api/discard', { code, seat, cardId: decl.cardId, close: true, melds: decl.melds });
+        else await api('POST', '/api/discard', { code, seat, cardId: v.yourHand[0].id });
         acted = true;
       } else if (v.layoff && v.layoff.isYourTurn) {
-        // Interactive lay-off (Slice 2): auto-shed everything and declare ready.
-        await api('POST', '/api/layoff/auto', { code, seat });
+        // Interactive lay-off: declare ready with whatever is left.
+        await api('POST', '/api/layoff/ready', { code, seat });
         acted = true;
       }
       if (acted) break;
@@ -81,7 +83,20 @@ async function playMatchToEnd(code, seatIds) {
   throw new Error('match did not terminate');
 }
 
-module.exports = { api };
+// A test player's own close: find a legal declaration for an 8-card hand
+// (the closing discard + the melds, as card ids). Test-side only; the server
+// never sends decompositions to the client.
+function declareClose(hand) {
+  const { allCloseSplits } = require('../src/scoring');
+  for (let i = 0; i < hand.length; i++) {
+    const kept = hand.filter((_, j) => j !== i);
+    const sp = allCloseSplits(kept)[0];
+    if (sp) return { cardId: hand[i].id, melds: sp.melds.map((m) => m.map((c) => c.id)) };
+  }
+  return null;
+}
+
+module.exports = { api, declareClose };
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -253,16 +268,16 @@ test('concurrent lay-off calls do not crash the server', async () => {
     if (v.layoff && v.layoff.isYourTurn) { reached = true; break; }
     if (v.isYourTurn && v.phase === 'draw') { await api('POST', '/api/draw', { code, seat, from: 'stock' }); }
     else if (v.isYourTurn && v.phase === 'discard') {
-      const o = v.closeOptions && v.closeOptions[0];
-      const c = o ? { id: o.cardId } : v.yourHand[0];
-      await api('POST', '/api/discard', { code, seat, cardId: c.id, close: !!o });
+      const d = v.canClose ? declareClose(v.yourHand) : null;
+      if (d) await api('POST', '/api/discard', { code, seat, cardId: d.cardId, close: true, melds: d.melds });
+      else await api('POST', '/api/discard', { code, seat, cardId: v.yourHand[0].id });
     } else { await new Promise((r) => setTimeout(r, 15)); }
   }
   assert.ok(reached, 'reached a human lay-off turn');
-  // Fire two auto calls back-to-back (as a double-click / race would).
+  // Fire two Ready calls back-to-back (as a double-click / race would).
   const [a, b] = await Promise.all([
-    api('POST', '/api/layoff/auto', { code, seat }),
-    api('POST', '/api/layoff/auto', { code, seat }),
+    api('POST', '/api/layoff/ready', { code, seat }),
+    api('POST', '/api/layoff/ready', { code, seat }),
   ]);
   // At least one succeeded; the other must be a clean 400, never a 500/crash.
   assert.ok([a.status, b.status].includes(200), 'one lay-off action succeeded');

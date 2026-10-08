@@ -23,7 +23,7 @@ distilled from Hermes' `chinchon-engineering`, `game-rules-engine-first` and
 | `src/scoring.js` | `bestSplit` (brute-forces every split of 7 cards), `canClose`, `allCloseSplits`, `isChinchon`, `scoreHand` |
 | `src/turn.js` | `startRound(playerCount, rng, dealer, active)`, draw/discard state machine (`'draw'`→`'discard'`), `closeOptions`, false close, `nextDealer`, stock reshuffle |
 | `src/layoff.js` | greedy `resolveRound` (bots and simulation), `layoffOrder` |
-| `src/layoff-interactive.js` | human lay-off rotation: `beginLayoff`, `layMeld`, `attachCard`, `passTurn`, `declareReady`, `suggest` |
+| `src/layoff-interactive.js` | human lay-off rotation: `beginLayoff` (takes the closer's declared melds), `layMeld`, `attachCard`, `passTurn`, `declareReady`; `suggest` only for `play.js` |
 | `src/match.js` | `createMatch`, `applyRound`, `isEliminated` (≥101), `MIN_SCORE=-50`, `activePlayers` |
 | `src/bot.js` | `chooseDraw`/`chooseTurn`/`planLayoff`/`findAttach`/`shouldClose`, by skill |
 | `src/room-words.js` | 4-letter EN/ES room-code words |

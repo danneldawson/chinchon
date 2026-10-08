@@ -1,4 +1,4 @@
-# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings)
+# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings and the Oct 8 card-based close)
 
 This was distilled from the 25 Chinchon sessions in Hermes Agent's chat history (the
 transcripts are kept in a separate private repo, danneldawson/chinchon-transcripts),
@@ -265,6 +265,33 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
 - **D: the pre-start countdown is 60 seconds,** not the ~90s the code currently runs.
   *Reason:* Dannel's ruling. **Server change pending.** (R40; was lobby open
   question 2.)
+- *Status (checked Oct 8, 2026):* all three code changes have landed: R37 and R38 in
+  `d8cc416`, R40 in `6ef221e`.
+
+### Thu Oct 8, 2026: card-based close (Dannel's design and picks, 9:33 AM PT)
+- **D: the closer lays out their own melds.** Tap **Close** (shown only when a close
+  exists: a rules gate), tap cards + **Make meld** (groups go face up on the felt; tap
+  one to take it back), then select the discard and **Discard & close**; **Cancel**
+  leaves close mode. *Reason:* Dannel wants to put his own game down like at a real
+  table, with no hints: the game must not suggest or auto-pick melds.
+- **D: invalid declared melds are an R24 false close:** the hand is shown to everyone
+  and play continues. No reject-and-rearrange. (The engine already returned the shown
+  hand; the server used to throw it away, and the old UI never reached it.)
+- **D: the numbered close options and "Keep playing" are removed entirely,** and so is
+  the `splitIdx` path. Not closing = tap a card to discard as normal. The server sends
+  only `canClose`; `closeOptions[].split` and `yourMelds` are no longer sent (deadwood
+  stays). The dead `src/hints.js` and the unused `#close-offer` markup were removed.
+- **D: scored as declared.** A chinchon hand laid down as 4+3 is −10; a chinchon is
+  only one declared 7-card group.
+- **D: lay-off uses the same tap style on the felt:** face-up small cards with the
+  owner's name per meld; select one card and tap a meld to attach. **Suggest and Auto
+  are removed** from the client and the API; bots still auto-play their lay-off.
+- **Fix:** the closer's leftover and score now follow the declared melds. Before, a
+  closer who chose a decomposition other than the engine's best was scored from the
+  engine's split (e.g. −10 instead of the 1 they kept).
+- **Fix:** `/api/layoff/ready` and `/api/layoff/pass` referenced an undefined `room`,
+  so a human pressing **Ready** or **Not yet** threw an unhandled rejection (which
+  stops a Node process). Humans could only finish a lay-off through **Auto** until now.
 
 ---
 

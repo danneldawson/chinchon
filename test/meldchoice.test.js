@@ -90,12 +90,9 @@ test('chosen melds change the lay-off table vs bestSplit', () => {
   assert.equal(chosen.table[0][0].rank, 4, 'chosen meld is the set of 4s');
 });
 
-test('discard with splitIdx stashes the chosen melds on the room', async () => {
-  // Drive through the real server API: set up a hand indirectly is hard without
-  // deal control, so we assert the helper enumeration is deterministic and that
-  // closeOptionsFor on a fixed hand yields stable splitIdx. (Full HTTP path is
-  // covered by the 7-human match in server.test.js, which now closes via the new
-  // options shape.)
+test('allCloseSplits finds the clean close after the right discard (engine gate for the Close button)', () => {
+  // The server only uses this enumeration as a yes/no gate (canClose) and for
+  // bots; the human closer declares their own melds (see card-close.test.js).
   const h = hand([
     [4, 'Oros'], [4, 'Copas'], [4, 'Espadas'], [4, 'Bastos'],
     [10, 'Oros'], [11, 'Oros'], [12, 'Oros'], [7, 'Bastos'],

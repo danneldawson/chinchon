@@ -18,8 +18,8 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
   | Bastos | green plant/club | green |
 
 - **Never render `♥` for Copas anywhere.**
-- Every suit marker on screen uses the same `suitEmblem` SVG: hand, discard top, meld
-  chips (`meldChip`), close options and lay-off suggestions.
+- Every suit marker on screen uses the same `suitEmblem` SVG: hand, discard top, the
+  discard tray, and the small face-up cards on the felt (melds, false-close hand).
   - Bastos has an explicit case (Sep 12 audit).
   - Inject the SVG with `.innerHTML`, not `.textContent`.
 - **Ranks print as numbers** (1–7, 10, 11, 12), large and readable.
@@ -85,22 +85,35 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
 
 ## 5. Closing and lay-off UI
 
-- **Close offer (a rules gate, not hand-holding).**
-  - It appears **only on your own discard turn**, when a legal close exists.
-  - It lists **every** legal decomposition with its score, phrased like "You can close —
-    discard X (ends round, score Y). Or continue?"
-  - **"Keep playing"** dismisses it.
-  - It especially helps with the easy-to-miss 3+3+≤5 and chinchon cases.
+- **Card-based close (Oct 8, 2026, Dannel; replaces the list of close options).**
+  - **Close button = rules gate.** One **Close** button appears only on your own
+    discard turn when a close exists. The server sends just `canClose: true`; it never
+    sends decompositions or `yourMelds`. Without closing you just tap a card to
+    discard as normal. The numbered close-option buttons and **Keep playing** are gone.
+  - **Close mode:** tap cards, then **Make meld**; the group goes face up on the felt
+    (the piles hide meanwhile). Tap a group on the felt to take it back. Then select
+    the card to throw and **Discard & close**. **Cancel** leaves close mode.
+  - **No hints:** the client only checks counts (a meld is 3+ cards, exactly one card
+    to throw). Whether the melds are valid is the server's call.
+  - **Invalid declared melds = false close (R24):** the hand is shown to everyone in a
+    banner above the table (until that player's next discard) and play continues. No
+    reject-and-rearrange.
+  - **Scored as declared:** a chinchon hand laid down as 4+3 is −10; chinchon only as
+    one 7-card group. The closer's leftover is what they did not declare.
 - **A mis-discard is allowed.** If the player throws the wrong card, the hand just
   continues.
-- **Lay-off panel.**
-  - Actions: **Lay** your own melds, **Attach** to any meld, **Suggest** (hints from
-    `suggest`), **Not yet** (pass), and **Ready** (lock in your score).
+- **Lay-off (Oct 8, 2026).**
+  - Every table meld is shown face up on the felt with the name of the seat that laid
+    it (runs in rank order); the cards shrink to fit, so nothing scrolls.
+  - Actions: select 3+ cards and **Lay selected**; **attach** by selecting one card and
+    tapping a meld on the felt; **Not yet** (pass); **Ready** (lock in your score).
+  - **Suggest and Auto were removed** (buttons and their API routes). Bots still play
+    their lay-off automatically on the server.
   - The marker shows whose lay-off turn it is.
   - **No lay-off timer:** no nudge and no timeout for slow players (house rule R39,
     confirmed Oct 2, 2026).
-  - [decided, Sep 14, unbuilt] Show **Auto + Ready** up front, and put Lay / Suggest /
-    Not yet behind a **More** menu.
+  - ~~[decided, Sep 14, unbuilt] Show **Auto + Ready** up front, and put Lay / Suggest /
+    Not yet behind a **More** menu.~~ Superseded Oct 8, 2026: no Auto, no Suggest.
 - **[decided, Sep 14, unbuilt] Chinchon moment:** a 7-card chinchon pops a
   **CHINCHON** full-screen celebration once.
 - **Game over:**

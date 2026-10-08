@@ -5,12 +5,13 @@
 //   Reproduce a specific game state (a legal close on the human's discard turn)
 //   WITHOUT a browser. Browser automation caps page-eval at ~30s and freezes on
 //   multi-turn loops, and closes are only occasional in random play.
-//   Each human turn it logs isYourTurn / phase / canClose / closeOptions.length;
+//   Each human turn it logs isYourTurn / phase / canClose;
 //   when a close appears it prints the serialized summary and calls
 //   POST /api/discard with close:true. This separates SERVER bugs (data layer)
-//   from CLIENT bugs (UI rendering): if the server sends closeOptions and the
-//   close succeeds, the client's close buttons (same endpoint) are the suspect.
-//   During a lay-off it calls POST /api/layoff/auto so rounds keep progressing.
+//   from CLIENT bugs (UI rendering): if the server sends canClose and the
+//   close succeeds, the client's close mode (same endpoint) is the suspect.
+//   During a lay-off it calls POST /api/layoff/ready so rounds keep progressing.
+//   (Updated Oct 8, 2026 for the card-based close: melds are declared by id.)
 //
 // USAGE
 //   cd ~/Desktop/chinchon && PORT=3000 node server.js &     # server on :3000
@@ -26,6 +27,18 @@
 //     (Aug 20, 2026). Reformatted with this header; behaviour unchanged.
 
 const http = require('http');
+
+// Oct 8, 2026: the server only says canClose (no decompositions) and the closer
+// declares their own melds. This diagnostic finds a legal declaration itself
+// with the engine (repo-relative require), like a player reading their hand.
+const { allCloseSplits } = require('../../../src/scoring');
+function declareClose(hand) {
+  for (let i = 0; i < hand.length; i++) {
+    const sp = allCloseSplits(hand.filter((_, j) => j !== i))[0];
+    if (sp) return { cardId: hand[i].id, melds: sp.melds.map((m) => m.map((c) => c.id)) };
+  }
+  return null;
+}
 
 const post = (p, b) => new Promise((res, rej) => {
   const d = JSON.stringify(b);
@@ -66,12 +79,12 @@ const get = (p) => new Promise((res, rej) => {
     const st = await get(`/api/state?code=${code}&seat=${seat}`);
     const phase = st.phase;
     const isYours = st.isYourTurn;
-    const co = (st.closeOptions || []).length;
+    const decl = st.canClose ? declareClose(st.yourHand) : null;
 
     if (st.gameOver) { console.log('gameOver'); break; }
 
     if (phase === 'layoff') {
-      await post('/api/layoff/auto', { code, seat }).catch(() => {});
+      await post('/api/layoff/ready', { code, seat }).catch(() => {});
       await new Promise((r) => setTimeout(r, 30));
       continue;
     }
@@ -81,9 +94,9 @@ const get = (p) => new Promise((res, rej) => {
       continue;
     }
     if (phase === 'discard') {
-      if (co > 0) {
-        console.log('>>> CLOSE AVAILABLE:', JSON.stringify({ isYourTurn: isYours, phase, canClose: st.canClose, opts: co }));
-        const r = await post('/api/discard', { code, seat, cardId: st.closeOptions[0].cardId, close: true, splitIdx: 0 });
+      if (decl) {
+        console.log('>>> CLOSE AVAILABLE:', JSON.stringify({ isYourTurn: isYours, phase, canClose: st.canClose, decl }));
+        const r = await post('/api/discard', { code, seat, cardId: decl.cardId, close: true, melds: decl.melds });
         console.log('>>> close result:', JSON.stringify(r).slice(0, 140));
         break;
       }

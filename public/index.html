@@ -143,10 +143,16 @@
            cover a card, a meld or a pile you need to tap. -->
       <div id="turn-marker" class="hidden"></div>
 
+      <!-- R24 false close: that player's hand, face up, for everyone. -->
+      <div id="false-close" class="hidden"></div>
+
       <!-- The table: an oval felt. Opponents sit around the rim (face-down fans
            + name), the stock and the discard tray in the open centre, and you at
            the near rim (your big hand stays below the table). -->
       <div id="table" class="table">
+      <!-- Melds face up on the felt: the closer's own groups while closing, then
+           every table meld (with the seat that laid it) during the lay-off. -->
+      <div id="felt-melds" class="felt-melds hidden"></div>
       <div id="opponents" class="table-seats"></div>
       <div id="center">
         <div id="stock" class="pile pile-stock" title="Tap to draw from stock">
@@ -192,16 +198,6 @@
         <button id="btn-tutorial-continue" class="primary" data-i18n="tutorialContinue">Continue</button>
       </div>
 
-      <!-- Close/Continue offer: shown on the human's discard turn when a legal
-           close exists (incl. chinchon). No card/meld revealed — pure agency. -->
-      <div id="close-offer" class="close-offer hidden">
-        <div id="close-offer-text" class="close-offer-text" data-i18n="closeOffer">You can close now — Close, or keep playing?</div>
-        <div class="close-offer-actions">
-          <button id="btn-close-accept" class="primary" data-i18n="close">Close</button>
-          <button id="btn-close-continue" class="ghost" data-i18n="keepPlaying">Keep playing</button>
-        </div>
-      </div>
-
       <div id="your-area">
         <h2 id="your-hand-h2">Your hand <span id="deadwood" class="dim"></span></h2>
         <div id="hand"></div>
@@ -212,14 +208,11 @@
       <!-- Slice 2: interactive lay-off board -->
       <div id="layoff-area" class="hidden">
         <h2 id="layoff-title"></h2>
-        <div id="layoff-table"></div>
         <h3 id="layoff-cards-label"></h3>
         <div id="layoff-hand"></div>
         <div id="layoff-controls">
           <button id="btn-layoff-lay" class="primary"></button>
-          <button id="btn-layoff-auto" class="primary"></button>
           <button id="btn-layoff-ready" class="primary"></button>
-          <button id="btn-layoff-suggest" class="small"></button>
           <!-- "Not yet": ends your turn WITHOUT being counted, so you stay in the
                rotation and can still shed once others have laid their melds. -->
           <button id="btn-layoff-pass" class="small"></button>

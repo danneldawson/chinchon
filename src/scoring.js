@@ -205,6 +205,58 @@ function canClose(hand) {
   return { ok: false, reason: 'too many leftover cards', split };
 }
 
+// ---------------------------------------------------------------------------
+// PLAYER-DECLARED CLOSE (Oct 8, 2026)
+//
+// The closer lays their own groups face up; the server judges exactly what they
+// declared. Nothing here searches for melds on the player's behalf: the score
+// follows the declaration (a chinchon hand laid down as 4+3 is a -10 close; a
+// chinchon is only a single declared 7-card group).
+//   kept   : the 7 cards kept after the closing discard
+//   groups : arrays of card objects, each meant to be one meld
+// Returns { ok: true, kind, score, melds, leftovers }
+//      or { ok: false, reason, badGroup? } -- the caller treats that as a false
+//         close (R24).
+function validateDeclaredClose(kept, groups) {
+  if (!Array.isArray(kept) || kept.length !== HAND_SIZE) {
+    return { ok: false, reason: 'a close needs 7 kept cards' };
+  }
+  if (!Array.isArray(groups) || groups.length === 0) {
+    return { ok: false, reason: 'no combinations declared' };
+  }
+  const keptIds = new Set(kept.map((c) => c.id));
+  const used = new Set();
+  for (const g of groups) {
+    if (!Array.isArray(g)) return { ok: false, reason: 'bad combination' };
+    for (const c of g) {
+      if (!c || !keptIds.has(c.id)) return { ok: false, reason: 'a declared card is not in the kept hand' };
+      if (used.has(c.id)) return { ok: false, reason: 'a card is in two combinations' };
+      used.add(c.id);
+    }
+  }
+  for (let i = 0; i < groups.length; i++) {
+    if (!isValidMeld(groups[i])) {
+      return { ok: false, reason: `combination ${i + 1} is not valid`, badGroup: i };
+    }
+  }
+  const melds = groups.map((g) => [...g]);
+  const leftovers = kept.filter((c) => !used.has(c.id));
+  if (melds.length === 1 && melds[0].length === HAND_SIZE) {
+    return { ok: true, kind: 'chinchon', score: 0, melds, leftovers: [] };
+  }
+  if (leftovers.length === 0) {
+    return { ok: true, kind: 'clean', score: CLOSE_BONUS, melds, leftovers };
+  }
+  if (leftovers.length === 1) {
+    const value = cardValue(leftovers[0]);
+    if (value <= MAX_LEFTOVER_TO_CLOSE) {
+      return { ok: true, kind: 'leftover', score: value, melds, leftovers };
+    }
+    return { ok: false, reason: `leftover ${value} exceeds ${MAX_LEFTOVER_TO_CLOSE}` };
+  }
+  return { ok: false, reason: 'too many leftover cards' };
+}
+
 // Score a non-closing player at the end of a round: their unmelded deadwood.
 function scoreHand(hand) {
   return bestSplit(hand).deadwood;
@@ -222,4 +274,5 @@ module.exports = {
   canClose,
   scoreHand,
   splitKey,
+  validateDeclaredClose,
 };

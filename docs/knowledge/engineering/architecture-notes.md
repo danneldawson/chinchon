@@ -16,8 +16,8 @@ is zero-dependency.
 
 - **The server is authoritative.** Every action is re-validated by the engine. The
   client only renders `serialize(room, viewerSeat)`, a fair per-seat view: your hand,
-  opponents' hand *counts*, piles, scoreboard, phase, `isYourTurn`, `closeOptions`,
-  `layoff`, `pending` and `waiting`.
+  opponents' hand *counts*, piles, scoreboard, phase, `isYourTurn`, `canClose` (a
+  yes/no only), `falseClose`, `layoff`, `pending` and `waiting`.
 - **There's no WebSocket.** Polling is the only realtime mechanism, and it does triple
   duty:
   - the heartbeat (`lastSeen`);
@@ -48,8 +48,7 @@ is zero-dependency.
 - Other DOM-flow invariants are pinned by tests that read `public/*.html` and `app.js`
   as text, because jsdom isn't allowed (it's a dependency). One example is
   `test/client-lobby-flow.test.js`.
-- `src/hints.js` (the run hint) follows the same pattern: a pure function plus a test,
-  mirrored in the client.
+- (`src/hints.js`, the old run hint, was dead code and was removed on Oct 8, 2026.)
 
 ## 3. The room lifecycle
 
@@ -82,10 +81,11 @@ create ──► pending (countdown; code shown in lobby if public) ──► st
 - **Strict two-phase state machine,** `'draw'` → `'discard'`. Out-of-phase calls are
   rejected.
 - **Closes are judged on the 7 kept cards.**
-  - `closeOptions` and `allCloseSplits` enumerate every legal decomposition (chinchon,
-    clean, leftover), deduplicated, each with `cardId`, `splitIdx` and `score`.
-  - They're serialized only on your own discard turn.
-  - The chosen melds are threaded into the lay-off as the closer's table.
+  - Since Oct 8, 2026 the human closer declares their own melds;
+    `scoring.validateDeclaredClose` judges exactly that declaration (valid = close,
+    invalid = false close), and the declared melds become the closer's table.
+  - `allCloseSplits` (every legal decomposition) is now only the server-side gate for
+    `canClose` and a helper for bots/tests; it is never serialized.
 - **False close** returns a distinct non-scoring result: the hand is exposed, the turn
   advances, and the totals are untouched. Capture `closer = state.turn` *before*
   advancing, so `revealedBy` is correct.
@@ -105,9 +105,16 @@ create ──► pending (countdown; code shown in lobby if public) ──► st
   - `layMeld` and `attachCard`: validated, including the wild cap and card ownership;
   - `passTurn` ("Not yet"): advances without confirming;
   - `declareReady`: the only exit, and the moment the score locks;
-  - `suggest`: a hint.
-- **Bots confirm in the same visit they act.** `/api/layoff/auto` means "do everything
-  and confirm", which gives up the wrap by design.
+  - `suggest`: a hint, kept only for the terminal client (`play.js`); the browser game
+    and the API no longer expose it (Oct 8, 2026).
+- **Declared close (Oct 8, 2026):** `beginLayoff(hands, closer, active, declared)` takes
+  the closer's validated declaration (`scoring.validateDeclaredClose`). Its melds go on
+  the table as declared, `closerLeftovers` is what they did not declare, and
+  `declareReady` scores the closer from that (−10 only when nothing was left over).
+  Bots pass no declaration and get the engine's split. `owners[]` (parallel to
+  `table`) records which seat laid each meld.
+- **Bots confirm in the same visit they act** (`runBotLayoffTurns`), which gives up the
+  wrap by design. The human `/api/layoff/auto` route was removed on Oct 8, 2026.
 - `resolveRound` (greedy, used by bots and the soak) still scores others first and the
   closer last. That's fine, because turn order and scoring order are separate concerns.
 - **No timer.** Dannel confirmed on Oct 2, 2026 that there's no lay-off timer, nudge

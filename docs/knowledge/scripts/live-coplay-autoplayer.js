@@ -4,7 +4,7 @@
 // PURPOSE
 //   In a live 2-human game on Railway, auto-play the other seat unattended so
 //   Dannel never has to prompt "your turn", while you inspect HIS seat's
-//   /api/state (closeOptions etc.) to separate server bugs from client/cache bugs.
+//   /api/state (canClose etc.) to separate server bugs from client/cache bugs.
 //
 // USAGE
 //   1. Join the room as a second player and note the returned seatId:
@@ -21,14 +21,27 @@
 //   (Requires curl on PATH.)
 //
 // STRATEGY (diagnostic, not smart)
-//   draw from stock; if closeOptions exist, close with option 0; otherwise discard
-//   the first card in hand; during a lay-off call /api/layoff/auto (auto + Ready).
+//   draw from stock; if canClose, declare the first legal close found (melds by
+//   card id); otherwise discard the first card in hand; during a lay-off call
+//   /api/layoff/ready. (Updated Oct 8, 2026 for the card-based close.)
 //
 // Source: adapted from Hermes' chinchon-engineering/references/live-coplay.md
 // (Aug 31, 2026): same loop, with CLI arguments instead of hard-coded
 // placeholders and a log line per action.
 
 const { execSync } = require('child_process');
+
+// Oct 8, 2026: the server only says canClose (no decompositions) and the closer
+// declares their own melds. This diagnostic finds a legal declaration itself
+// with the engine (repo-relative require), like a player reading their hand.
+const { allCloseSplits } = require('../../../src/scoring');
+function declareClose(hand) {
+  for (let i = 0; i < hand.length; i++) {
+    const sp = allCloseSplits(hand.filter((_, j) => j !== i))[0];
+    if (sp) return { cardId: hand[i].id, melds: sp.melds.map((m) => m.map((c) => c.id)) };
+  }
+  return null;
+}
 
 const [code, mySeat, HOST = 'https://chinchon-production.up.railway.app'] = process.argv.slice(2);
 if (!code || !mySeat) {
@@ -57,7 +70,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const me = api(`/api/state?code=${code}&seat=${mySeat}`);
     if (me.gone || me.gameOver) { log('game over / room gone'); break; }
     if (me.phase === 'layoff') {
-      if (me.isYourTurn) { api('/api/layoff/auto', { code, seat: mySeat }); log('layoff auto'); }
+      if (me.isYourTurn) { api('/api/layoff/ready', { code, seat: mySeat }); log('layoff ready'); }
       await wait(700);
       continue;
     }
@@ -69,9 +82,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       continue;
     }
     if (me.phase === 'discard') {
-      const o = me.closeOptions || [];
-      if (o.length) {
-        api('/api/discard', { code, seat: mySeat, cardId: o[0].cardId, close: true, splitIdx: 0 });
+      const d = me.canClose ? declareClose(me.yourHand) : null;
+      if (d) {
+        api('/api/discard', { code, seat: mySeat, cardId: d.cardId, close: true, melds: d.melds });
         log('close');
       } else {
         api('/api/discard', { code, seat: mySeat, cardId: me.yourHand[0].id });

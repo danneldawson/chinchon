@@ -17,14 +17,15 @@ test that asserted the wrong behaviour.
 is listed under [Open questions & resolved conflicts](#open-questions--resolved-conflicts).
 
 **Oct 2, 2026 rulings.** Dannel settled four questions that were open here (run wrap,
-wild value, lay-off timer, pre-start countdown). They are rules **R37–R40**. Three of
-them (R37, R38, R40) are **not in the engine/server yet**; see "Pending code changes"
-in `../README.md`.
+wild value, lay-off timer, pre-start countdown). They are rules **R37–R40**. All four
+are in the code now (checked Oct 8, 2026): R37 and R38 landed in `d8cc416`, R40 in
+`6ef221e`, and R39 always matched.
+
+**Oct 8, 2026: card-based close.** The closer now lays out their own melds instead
+of picking from a list of decompositions; see R21, R22 and R24 below.
 
 **Where the code lives:** `src/` in the repo is the implementation. If the code and this
-file disagree, **ask Dannel** rather than "fixing" either one quietly. (Exception: R37,
-R38 and R40 are decided rulings the code hasn't caught up with yet; there, the code is
-what needs changing.)
+file disagree, **ask Dannel** rather than "fixing" either one quietly.
 
 > Notation: *1 de Oros* = the ace of coins. *Meld* = a combination (set or run).
 > *Deadwood* / *leftover* = cards not in a meld. In the Spanish UI the deadwood label
@@ -38,9 +39,9 @@ what needs changing.)
 |---|---|
 | Deck | 2 × 40-card Spanish decks = **80 cards**; ranks 1–7, 10, 11, 12 (no 8/9); every card exists twice |
 | Wild | **1 de Oros** (an existing card, so there are exactly **2 wilds**); max **one wild per meld** |
-| Values | 1–7 = face value; 10/11/12 = **10**; 1 de Oros (wild) = **0** (R38; engine still scores 1, change pending) |
+| Values | 1–7 = face value; 10/11/12 = **10**; 1 de Oros (wild) = **0** (R38) |
 | Set | 3+ of the same rank; duplicate suits allowed |
-| Run | 3+ of the same suit in sequence; **7 → 10 is consecutive** (7‑10‑11‑12); runs **wrap 12 → 1** (…11‑12‑1…) (R37; engine doesn't wrap yet, change pending) |
+| Run | 3+ of the same suit in sequence; **7 → 10 is consecutive** (7‑10‑11‑12); runs **wrap 12 → 1** (…11‑12‑1…) (R37) |
 | Players | **2–7**; hands hidden until someone closes |
 | Turn | draw 1 (stock or face-up discard) → discard 1; a card just taken from the discard may be thrown straight back |
 | Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10** |
@@ -52,7 +53,7 @@ what needs changing.)
 | Elimination | **≥101 is out for good** (100 survives); no buy-back |
 | Score floor | totals never go below **−50** |
 | Winner | last player standing (or a chinchon); exactly one winner |
-| Pre-start countdown | **60 s** before a game starts (R40; server currently runs ~90 s, change pending) |
+| Pre-start countdown | **60 s** before a game starts (R40) |
 
 ---
 
@@ -90,7 +91,7 @@ also be played as itself, a natural 1 de Oros (for example in 1‑2‑3 de Oros)
 |---|---|
 | 1–7 | face value |
 | 10, 11, 12 | 10 each, any suit |
-| 1 de Oros (wild) | **0** (R38, Oct 2, 2026; the engine still scores it 1, change pending) |
+| 1 de Oros (wild) | **0** (R38, Oct 2, 2026) |
 
 Dannel's reasoning on the wild: it "can never not be placed", because when someone
 closes there is always a meld on the table to drop it onto. On Oct 2, 2026 he ruled it
@@ -108,8 +109,8 @@ is worth **0** for that reason: it can sit with any other card at the table (R38
   rank that's already in the run, that copy is blocked.
 - A run with a real gap is invalid.
 - A run **can wrap from 12 back to 1** (…11‑12‑1…). Dannel ruled this on Oct 2, 2026
-  (R37). The current engine and `scripts/cards-audit.js` still say no; that code change
-  is pending.
+  (R37). The engine (`isValidRun` in `src/melds.js`) and `scripts/cards-audit.js`
+  allow it.
 
 ### C. Players and visibility
 
@@ -183,14 +184,19 @@ over** (a 4 and a 3), you score **−10** for the round.
 leftover card, blocks the close completely.
 
 **R21. The closer picks which melds to reveal.**
-- If your hand splits into melds in more than one way, the game shows **every** legal
-  decomposition with its score, and you choose one.
+- Since Oct 8, 2026 (Dannel's design): you tap **Close**, put your own cards into
+  melds face up on the felt, then pick the card to throw and **Discard & close**.
+  The game never lists, suggests or auto-picks melds; it judges exactly what you laid
+  out. (Before Oct 8 it listed every legal decomposition with its score.)
+- Your score follows what you declared: a chinchon hand laid down as 4+3 is a −10
+  close, not a chinchon (a chinchon is one declared 7-card group), and a leftover you
+  chose to keep is what you pay.
 - This is real strategy, not cosmetics: everyone else lays off onto the melds you
   reveal, so what you show (and what you hide) matters.
 
 **R22. A mis-discard just continues the hand.**
-- The game offers the close (it has already checked that the close is legal), but you
-  still choose which card to discard.
+- The **Close** button only appears when a close exists (a rules gate; it never says
+  which melds), and you can still simply tap a card to discard and keep playing.
 - If you throw a card that ruins your own close, the hand simply continues. Other
   players may not even notice.
 - Dannel wants players to have this agency.
@@ -207,10 +213,14 @@ leftover card, blocks the close completely.
 
 **R24. False close.**
 - **What triggers it:** a player declares a close without actually having a valid game.
+  Since Oct 8, 2026 that means the melds they laid out are not valid (a group that
+  isn't a meld, two leftover cards, or a leftover worth 6+). There is no "rearrange
+  and try again".
 - **Scoring:** nobody scores, no points move, and the round counter doesn't advance.
 - **Penalty:** the would-be closer's hand is **exposed** to the table, so everyone now
   knows what they hold.
-- **Afterwards:** play continues from that state.
+- **Afterwards:** play continues from that state. In the game the shown hand stays
+  up for everyone until that player's next discard (or the end of the round).
 
 ### F. Lay-off (after a valid close)
 
@@ -292,19 +302,17 @@ was explicit: "I need the computer keeping the score for them."
 
 ### H. Rulings confirmed by Dannel on Oct 2, 2026
 
-These were open questions until Oct 2, 2026 (see C12–C15 below). **R37, R38 and R40
-are not implemented yet**; the code still behaves the old way until the pending changes
-listed in `../README.md` land.
+These were open questions until Oct 2, 2026 (see C12–C15 below). All four are
+implemented (checked Oct 8, 2026).
 
 **R37. Runs wrap from 12 to 1.** A run may continue from 12 round to 1, so …11‑12‑1…
 in one suit is consecutive (this is on top of the 7 → 10 bridge in R8). Dannel's
-ruling. *Code status:* `src/melds.js` and `scripts/cards-audit.js` still reject the
-wrap; pending change.
+ruling. *Code status:* implemented in `d8cc416` (`isValidRun` in `src/melds.js`; the
+audit checks the wrap).
 
 **R38. The wild scores 0.** A 1 de Oros left in your hand counts **0** points, because
-it can sit with any other card at the table. *Code status:* `cardValue` in
-`src/cards.js` (and its client mirror `window.__cardVal`) still score it **1**; pending
-change.
+it can sit with any other card at the table. *Code status:* implemented in `d8cc416`
+(`cardValue` in `src/cards.js` and its client mirror `window.__cardVal` score it 0).
 
 **R39. No lay-off timer.** Slow players get **no nudge and no timeout** during the
 lay-off; the table waits until they act, pass (**Not yet**) or declare **Ready**. The
@@ -313,8 +321,9 @@ ruling. *Code status:* matches current behaviour.
 
 **R40. Pre-start countdown is 60 seconds.** A room's countdown before a game starts is
 **60s**. Dannel's ruling (it restates the Aug 18 decision). Details of the room flow
-are in `lobby-and-session.md` §3. *Code status:* the server currently runs about
-**90s**; pending change.
+are in `lobby-and-session.md` §3. *Code status:* implemented in `6ef221e`
+(`PUBLIC_COUNTDOWN_MS` / `PRIVATE_HUMAN_COUNTDOWN_MS` = 60s in `server.js`; the
+separate rematch window, `REMATCH_COUNTDOWN_MS`, is still 90s).
 
 **Total: 40 numbered house rules (R1–R40).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
@@ -331,7 +340,7 @@ room and session behaviour is in `lobby-and-session.md`.
 | `src/scoring.js` | `bestSplit`, `canClose`, `allCloseSplits`, `isChinchon`, `CLOSE_BONUS` |
 | `src/turn.js` | deal, dealer rotation, draw/discard, `closeOptions`, false close, `replenishStock` |
 | `src/layoff.js` | automatic lay-off resolver (bots / soak), `layoffOrder` |
-| `src/layoff-interactive.js` | human lay-off rotation: `beginLayoff`, `layMeld`, `attachCard`, `passTurn` (Not yet), `declareReady`, `suggest` |
+| `src/layoff-interactive.js` | human lay-off rotation: `beginLayoff` (closer's declared melds), `layMeld`, `attachCard`, `passTurn` (Not yet), `declareReady` |
 | `src/match.js` | totals, `MIN_SCORE = -50`, elimination at 101, `eliminatedOrder`, winner |
 | `public/app.js` | client mirrors `__isWild` / `__cardVal`, guarded by `test/client-cards.test.js` |
 
@@ -374,7 +383,7 @@ numbering is kept so older references still point at the right item.)
 | C9 | Stock exhaustion | Hermes asked whether it should end the round | Reshuffle and continue, no cap, never scores (R16) |
 | C10 | Buy-back | Hermes asked about *recompra* | No buy-back; 101 is out for good (R33) |
 | C11 | Single winner | — | Exactly one winner; others ranked by elimination order (R35–R36) |
-| C12 | Run wrap 12 → 1 (was Q1) | Aug 2: Dannel described the 7→10 bridge only. Aug 17–18: Hermes' notes and tutorial text said "11‑12‑1 is also a valid run" (source message lost). The engine (`src/melds.js`) and `scripts/cards-audit.js` treat runs as **not** wrapping; only the bot's run heuristic in `src/bot.js` uses cyclic adjacency | Oct 2, 2026, Dannel's ruling: runs **wrap** (…11‑12‑1…) (R37). Engine and audit still need changing, and the bot heuristic and in-game rules text should be checked to agree |
-| C13 | Value of a stranded wild (was Q2) | Engine and the Sep 12 card audit: wild = **1**. Aug 18 tutorial draft: "counts as 0 (it's wild)" | Oct 2, 2026: the wild is worth **0**, because it can sit with any other card at the table (R38). Engine and client mirror still need changing |
+| C12 | Run wrap 12 → 1 (was Q1) | Aug 2: Dannel described the 7→10 bridge only. Aug 17–18: Hermes' notes and tutorial text said "11‑12‑1 is also a valid run" (source message lost). The engine (`src/melds.js`) and `scripts/cards-audit.js` treat runs as **not** wrapping; only the bot's run heuristic in `src/bot.js` uses cyclic adjacency | Oct 2, 2026, Dannel's ruling: runs **wrap** (…11‑12‑1…) (R37). Engine and audit changed in `d8cc416` |
+| C13 | Value of a stranded wild (was Q2) | Engine and the Sep 12 card audit: wild = **1**. Aug 18 tutorial draft: "counts as 0 (it's wild)" | Oct 2, 2026: the wild is worth **0**, because it can sit with any other card at the table (R38). Engine and client mirror changed in `d8cc416` |
 | C14 | Lay-off timer (was Q4) | No timer; Hermes asked on Sep 12 whether Dannel wanted a nudge or timeout, with no answer | Oct 2, 2026, Dannel's ruling: **no timer, no nudge, no timeout** (R39). Matches current behaviour |
-| C15 | Pre-start countdown | Aug 18 decision: 60s. The code as described in Sep notes: about 90s | Oct 2, 2026, Dannel's ruling: **60s** (R40). Server still needs changing |
+| C15 | Pre-start countdown | Aug 18 decision: 60s. The code as described in Sep notes: about 90s | Oct 2, 2026, Dannel's ruling: **60s** (R40). Server changed in `6ef221e` |

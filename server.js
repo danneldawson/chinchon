@@ -605,8 +605,9 @@ function startPersistence() {
   return tick;
 }
 
-// Start an interactive lay-off from a closed round. Honors the closer's chosen
-// meld decomposition (room.pendingCloseChoice) when a human picked one.
+// Start an interactive lay-off from a closed round. Uses the melds the closer
+// laid out themselves (room.pendingCloseChoice, a validated declaration) when a
+// human closed; bots fall back to the engine's split.
 function beginLayoffForRoom(room) {
   const { state, players } = room;
   const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
@@ -681,34 +682,39 @@ function maybeRedeal(room) {
   runBotTurns(room);
 }
 
+// Test hook helper (see /api/test/rig): swap the requested cards into a seat's
+// hand from wherever they are (stock, discard, other hands). Every card stays in
+// play exactly once.
+function rigHand(state, seat, cardIds) {
+  const hand = state.hands[seat];
+  if (!hand || !Array.isArray(cardIds) || cardIds.length > hand.length) return false;
+  const piles = [state.stock, state.discard, ...state.hands.filter((_, i) => i !== seat)];
+  const want = cardIds.filter((id) => !hand.some((c) => c.id === id));
+  const spare = hand.filter((c) => !cardIds.includes(c.id));
+  for (const id of want) {
+    const pile = piles.find((pl) => pl.some((c) => c.id === id));
+    if (!pile) return false;
+    const i = pile.findIndex((c) => c.id === id);
+    const out = spare.shift();
+    const incoming = pile[i];
+    pile[i] = out;
+    hand[hand.indexOf(out)] = incoming;
+  }
+  return true;
+}
+
 // ----------------------------------------------------------- serialization
 
-// Enumerate every legal close for an 8-card hand: for each candidate discard,
-// the legal meld decompositions of the 7 kept cards. Deduped by (meld-set,
-// discard-card) so identical choices collapse. Returns the SAME indexable list
-// used by both serialize (for display) and the discard handler (for validation),
-// so a splitIdx from the UI always resolves to the same decomposition.
-function closeOptionsFor(hand) {
-  const out = [];
-  const seen = new Set();
+// Rules gate for the Close button: can this 8-card hand close at all, with any
+// discard? Only a yes/no ever leaves the server -- never a decomposition, so the
+// player still has to find and lay out their own melds (no hints).
+function closeAvailable(hand) {
+  if (!Array.isArray(hand) || hand.length !== scoring.HAND_SIZE + 1) return false;
   for (let i = 0; i < hand.length; i++) {
     const kept = [...hand.slice(0, i), ...hand.slice(i + 1)];
-    const disc = hand[i];
-    for (const sp of scoring.allCloseSplits(kept)) {
-      const key = scoring.splitKey(sp.melds) + '#' + disc.id;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({
-        splitIdx: out.length,
-        cardId: disc.id,
-        score: sp.score,
-        kind: sp.kind,
-        chinchon: sp.kind === 'chinchon',
-        split: sp.melds,
-      });
-    }
+    if (scoring.allCloseSplits(kept).length > 0) return true;
   }
-  return out;
+  return false;
 }
 
 function serialize(room, seatId) {
@@ -793,10 +799,9 @@ function serialize(room, seatId) {
         discardHistory: [],
         yourHand: [],
         lastDrawnId: null,
-        yourMelds: [],
         yourDeadwood: [],
-        closeOptions: [],
         canClose: false,
+        falseClose: null,
         opponents,
         scoreboard,
         chat: room.chat || [],
@@ -827,9 +832,7 @@ function serialize(room, seatId) {
   }));
 
   const split = scoring.bestSplit(hand);
-  const opts = state.turn === viewerSeat && state.phase === 'discard'
-    ? closeOptionsFor(hand)
-    : [];
+  const canCloseNow = state.turn === viewerSeat && state.phase === 'discard' && closeAvailable(hand);
 
   // Lay-off view (Slice 2): only show each player their own remaining cards.
   let layoffView = null;
@@ -841,6 +844,7 @@ function serialize(room, seatId) {
     layoffView = {
       phase: 'layoff',
       table: lo.table,
+      owners: lo.owners || lo.table.map(() => lo.closerIndex),
       currentSeat: cur,
       isYourTurn: layoffYourTurn,
       yourRemaining: lo.remaining[viewerSeat] || [],
@@ -853,6 +857,7 @@ function serialize(room, seatId) {
     layoffView = {
       done: true,
       table: room.layoff.table,
+      owners: room.layoff.owners || room.layoff.table.map(() => room.layoff.closerIndex),
       scores: room.layoff.scores,
       closerIndex: room.layoff.closerIndex,
     };
@@ -905,10 +910,13 @@ function serialize(room, seatId) {
     discardHistory: state.discard.slice(-DISCARD_HISTORY_N),
     yourHand: hand,
     lastDrawnId: state.lastDrawn ? state.lastDrawn.id : null,
-    yourMelds: split.melds,
     yourDeadwood: split.deadwood,
-    closeOptions: opts,
-    canClose: opts.length > 0,
+    canClose: canCloseNow,
+    // R24: a false close shows that player's hand to everyone until their next
+    // discard (or the end of the round).
+    falseClose: state.falseClose
+      ? { seat: state.falseClose.seat, name: players[state.falseClose.seat] ? players[state.falseClose.seat].name : '', hand: state.falseClose.hand }
+      : null,
     opponents,
     scoreboard: match.players.map((p, i) => {
       const pc = players[i];
@@ -1422,15 +1430,35 @@ function handleApi(req, res, url) {
       const hand = room.state.hands[viewer.seat];
       const card = hand.find((c) => c.id === body.cardId);
       if (!card) return sendJson(res, 400, { error: 'you do not hold that card' });
-      // If the human is closing AND picked a specific meld decomposition, stash
-      // it so the lay-off resolver reveals exactly those melds. Use the same
-      // enumeration as the UI so splitIdx resolves to the same decomposition.
-      if (body.close && body.splitIdx != null) {
-        const chosen = closeOptionsFor(hand)[body.splitIdx];
-        if (chosen) room.pendingCloseChoice = chosen.split;
+      // Closing: the player declares their OWN melds (card ids, one array per
+      // group) and the closing discard. The server judges exactly that
+      // declaration: valid -> the round closes and those melds go on the table;
+      // invalid -> a false close (R24: the hand is shown, play continues).
+      let verdict = null;
+      if (body.close) {
+        if (!Array.isArray(body.melds) || !body.melds.length || !body.melds.every(Array.isArray)) {
+          return sendJson(res, 400, { error: 'lay out your combinations to close' });
+        }
+        const seen = new Set();
+        const groups = [];
+        for (const ids of body.melds) {
+          const g = [];
+          for (const id of ids) {
+            if (id === card.id) return sendJson(res, 400, { error: 'the closing discard cannot be in a combination' });
+            if (seen.has(id)) return sendJson(res, 400, { error: 'a card is in two combinations' });
+            const c = hand.find((x) => x.id === id);
+            if (!c) return sendJson(res, 400, { error: 'you do not hold that card' });
+            seen.add(id);
+            g.push(c);
+          }
+          groups.push(g);
+        }
+        const kept = hand.filter((x) => x.id !== card.id);
+        verdict = scoring.validateDeclaredClose(kept, groups);
       }
-      const res2 = turn.discardCard(room.state, card, !!body.close);
+      const res2 = turn.discardCard(room.state, card, !!body.close, verdict);
       if (!res2.ok) return sendJson(res, 400, { error: res2.reason });
+      if (res2.closed && verdict) room.pendingCloseChoice = verdict;
       runBotTurns(room);
       return sendJson(res, 200, serialize(room, body.seat));
     });
@@ -1492,7 +1520,7 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const g = layoffGuard(body);
       if (g.error) return g.error;
-      const r = layoffInteractive.declareReady(room.layoff);
+      const r = layoffInteractive.declareReady(g.room.layoff);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
       return afterLayoffAction(g.room, body.seat);
     });
@@ -1504,47 +1532,25 @@ function handleApi(req, res, url) {
     return readBody(req).then((body) => {
       const g = layoffGuard(body);
       if (g.error) return g.error;
-      const r = layoffInteractive.passTurn(room.layoff);
+      const r = layoffInteractive.passTurn(g.room.layoff);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
       return afterLayoffAction(g.room, body.seat);
     });
   }
 
-  // Auto: shed everything the engine can, then declare ready. Convenience for
-  // players who don't want to place each meld/attach by hand.
-  if (method === 'POST' && p === '/api/layoff/auto') {
+  // Test-only hook: put chosen cards into a seat's hand so end-to-end tests can
+  // reach a close on demand. It only exists when the server is started with
+  // CHINCHON_TEST_HOOKS=1; production never sets it, so there it is a 404.
+  if (method === 'POST' && p === '/api/test/rig' && process.env.CHINCHON_TEST_HOOKS === '1') {
     return readBody(req).then((body) => {
-      const g = layoffGuard(body);
-      if (g.error) return g.error;
-      const lo = g.room.layoff;
-      const seat = g.viewer.seat;
-      const plan = bot.planLayoff(lo, seat);
-      for (const meld of plan.melds) layoffInteractive.layMeld(lo, meld);
-      let progressed = true;
-      while (progressed) {
-        progressed = false;
-        const split = scoring.bestSplit(lo.remaining[seat]);
-        for (const card of split.leftovers) {
-          const idx = bot.findAttach(lo.table, card);
-          if (idx !== -1) {
-            const r = layoffInteractive.attachCard(lo, card, idx);
-            if (r.ok) { progressed = true; break; }
-          }
-        }
-      }
-      layoffInteractive.declareReady(lo);
-      return afterLayoffAction(g.room, body.seat);
+      const room = rooms.get(body.code);
+      if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer) return sendJson(res, 404, { error: 'no such seat' });
+      const ok = rigHand(room.state, viewer.seat, body.cardIds || []);
+      if (!ok) return sendJson(res, 400, { error: 'could not rig that hand' });
+      return sendJson(res, 200, serialize(room, body.seat));
     });
-  }
-
-  if (method === 'GET' && p === '/api/layoff/suggest') {
-    const code = url.searchParams.get('code');
-    const seat = url.searchParams.get('seat');
-    const room = rooms.get(code);
-    if (!room || !room.layoff) return sendJson(res, 404, { error: 'no lay-off' });
-    const viewer = room.players.find((pl) => pl.id === seat);
-    if (!viewer) return sendJson(res, 404, { error: 'no such seat' });
-    return sendJson(res, 200, layoffInteractive.suggest(room.layoff, viewer.seat));
   }
 
   return sendJson(res, 404, { error: 'unknown api route' });
