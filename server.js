@@ -23,6 +23,7 @@ const bot = require('./src/bot');
 const layoffCore = require('./src/layoff');
 const layoffInteractive = require('./src/layoff-interactive');
 const cards = require('./src/cards');
+const steps = require('./src/steps');
 
 const dealRng = Math.random;
 
@@ -336,21 +337,21 @@ function runBotTurns(room) {
     if (!p || !p.isBot) return; // hand back to a human
     if (p.out) { state.turn = turn.nextDealer(state); continue; }
 
-    // Bot draw.
+    // Bot draw. Recorded after it happens; the turn itself is not delayed.
     if (state.phase === 'draw') {
       const src = bot.chooseDraw(state, p.bot ? p.bot.skill : 'balanced');
-      if (src === 'discard' && topOfDiscardOk(state)) turn.drawFromDiscard(state);
-      else {
-        const r = turn.drawFromStock(state);
-        if (r.reshuffled) room.lastReshuffle = Date.now();
-        if (!r.ok) return; // stock exhausted; round over
-      }
+      const fromDiscard = src === 'discard' && topOfDiscardOk(state);
+      const r = fromDiscard ? turn.drawFromDiscard(state) : turn.drawFromStock(state);
+      if (!fromDiscard && r.reshuffled) room.lastReshuffle = Date.now();
+      if (!r.ok) return; // stock exhausted; round over
+      steps.pushStep(room, { type: 'draw', seat, from: fromDiscard ? 'discard' : 'stock', card: r.card });
     }
     // Bot discard / close.
     if (state.phase === 'discard') {
       const decision = bot.chooseTurn(state, p.bot ? p.bot.skill : 'balanced');
       const res = turn.discardCard(state, decision.card, decision.close);
       if (!res.ok) return;
+      steps.recordDiscard(room, seat, decision.card, res);
     }
   }
   // If the round just closed, set up an interactive lay-off (Slice 2). Bots
@@ -631,12 +632,18 @@ function runBotLayoffTurns(room) {
     const seat = layoffInteractive.currentPlayer(lo);
     const p = players[seat];
     if (!p || !p.isBot) return; // hand back to a human
-    if (p.out) { layoffInteractive.declareReady(lo); continue; }
+    if (p.out) {
+      layoffInteractive.declareReady(lo);
+      steps.pushStep(room, { type: 'ready', seat, nextSeat: layoffInteractive.currentPlayer(lo) });
+      continue;
+    }
 
     // Bot lays its melds, then attaches leftovers, then readies.
+    // Each of those is its own step so the table can show them one at a time.
     const plan = bot.planLayoff(lo, seat);
     for (const meld of plan.melds) {
-      layoffInteractive.layMeld(lo, meld);
+      const r = layoffInteractive.layMeld(lo, meld);
+      if (r.ok) steps.pushStep(room, { type: 'lay', seat, cards: meld });
     }
     // Greedily attach leftovers the engine says fit.
     let progressed = true;
@@ -647,11 +654,16 @@ function runBotLayoffTurns(room) {
         const idx = bot.findAttach(lo.table, card);
         if (idx !== -1) {
           const r = layoffInteractive.attachCard(lo, card, idx);
-          if (r.ok) { progressed = true; break; }
+          if (r.ok) {
+            steps.pushStep(room, { type: 'attach', seat, card, meldIndex: idx });
+            progressed = true;
+            break;
+          }
         }
       }
     }
     layoffInteractive.declareReady(lo);
+    steps.pushStep(room, { type: 'ready', seat, nextSeat: layoffInteractive.currentPlayer(lo) });
   }
   if (lo.phase === 'done') finishLayoff(room);
 }
@@ -717,7 +729,7 @@ function closeAvailable(hand) {
   return false;
 }
 
-function serialize(room, seatId) {
+function serialize(room, seatId, since) {
   // Auto-start a pending room once its window elapses (no hold). Handles both
   // rematch pending and a freshly created room's countdown.
   // MUST run before reading room.state — otherwise the first poll after the
@@ -808,6 +820,7 @@ function serialize(room, seatId) {
         lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })),
         aloneNotice: !!room.aloneNotice,
         sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
+        ...steps.stepsFor(room, since, viewerSeat),
       };
     }
   const viewer = players.find((p) => p.id === seatId);
@@ -937,6 +950,7 @@ function serialize(room, seatId) {
     chat: room.chat || [],
     aloneNotice: !!room.aloneNotice,
     sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
+    ...steps.stepsFor(room, since, viewerSeat),
   };
 }
 
@@ -1067,7 +1081,7 @@ function handleApi(req, res, url) {
     if (!room) return sendJson(res, 404, { error: 'no such room' });
     if (seat) stampSeen(room, seat);
     evaluateWaiting(room);
-    const out = serialize(room, seat);
+    const out = serialize(room, seat, url.searchParams.get('since'));
     if (out && out.gone) return sendJson(res, 410, { error: 'room expired', gone: true, code });
     return sendJson(res, 200, out);
   }
@@ -1410,9 +1424,11 @@ function handleApi(req, res, url) {
       if (room.state.phase !== 'draw') return sendJson(res, 400, { error: 'not the draw phase' });
       // Tutorial: a human may not act until they've acknowledged the current rule.
       if (room.tutorial && room.tutorialPaused) return sendJson(res, 409, { error: 'read the rule first', tutorialPause: true });
-      const r = body.from === 'discard' ? turn.drawFromDiscard(room.state) : turn.drawFromStock(room.state);
+      const fromDiscard = body.from === 'discard';
+      const r = fromDiscard ? turn.drawFromDiscard(room.state) : turn.drawFromStock(room.state);
       if (r.reshuffled) room.lastReshuffle = Date.now();
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      steps.pushStep(room, { type: 'draw', seat: viewer.seat, from: fromDiscard ? 'discard' : 'stock', card: r.card });
       runBotTurns(room);
       return sendJson(res, 200, serialize(room, body.seat));
     });
@@ -1459,6 +1475,7 @@ function handleApi(req, res, url) {
       const res2 = turn.discardCard(room.state, card, !!body.close, verdict);
       if (!res2.ok) return sendJson(res, 400, { error: res2.reason });
       if (res2.closed && verdict) room.pendingCloseChoice = verdict;
+      steps.recordDiscard(room, viewer.seat, card, res2);
       runBotTurns(room);
       return sendJson(res, 200, serialize(room, body.seat));
     });
@@ -1500,6 +1517,7 @@ function handleApi(req, res, url) {
         g.room.layoff.remaining[g.viewer.seat].find((c) => c.id === id)).filter(Boolean);
       const r = layoffInteractive.layMeld(g.room.layoff, cards);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      steps.pushStep(g.room, { type: 'lay', seat: g.viewer.seat, cards });
       return afterLayoffAction(g.room, body.seat);
     });
   }
@@ -1512,6 +1530,7 @@ function handleApi(req, res, url) {
       if (!card) return sendJson(res, 400, { error: 'you do not hold that card' });
       const r = layoffInteractive.attachCard(g.room.layoff, card, body.meldIndex);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      steps.pushStep(g.room, { type: 'attach', seat: g.viewer.seat, card, meldIndex: body.meldIndex });
       return afterLayoffAction(g.room, body.seat);
     });
   }
@@ -1522,6 +1541,7 @@ function handleApi(req, res, url) {
       if (g.error) return g.error;
       const r = layoffInteractive.declareReady(g.room.layoff);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      steps.pushStep(g.room, { type: 'ready', seat: g.viewer.seat, nextSeat: layoffInteractive.currentPlayer(g.room.layoff) });
       return afterLayoffAction(g.room, body.seat);
     });
   }
@@ -1534,6 +1554,7 @@ function handleApi(req, res, url) {
       if (g.error) return g.error;
       const r = layoffInteractive.passTurn(g.room.layoff);
       if (!r.ok) return sendJson(res, 400, { error: r.reason });
+      steps.pushStep(g.room, { type: 'pass', seat: g.viewer.seat, nextSeat: layoffInteractive.currentPlayer(g.room.layoff) });
       return afterLayoffAction(g.room, body.seat);
     });
   }

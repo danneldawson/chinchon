@@ -978,3 +978,30 @@ button, .card, .pile, input { touch-action: manipulation; }
   #layoff-controls button { margin: 0; padding: 5px 10px; font-size: 0.85em; }
   #layoff-status { font-size: 0.8em; }
 }
+
+/* Watched turns (Oct 8, 2026): a card travelling between the stock, the
+   discard and a seat. Transform only. It never takes a tap, and the hand
+   sits above it so a flight cannot cover or block your cards. */
+.fly-card {
+  position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 46px; height: 66px; border-radius: 6px; background: #f7f3e8; color: #222;
+  box-shadow: 0 8px 18px rgba(0,0,0,.4); font-weight: 800;
+}
+.fly-card.face-down { background: #163828; }
+.fly-card .fly-back {
+  width: 70%; height: 74%; border-radius: 3px;
+  background: repeating-linear-gradient(45deg, #1d4e3a, #1d4e3a 4px, #245c44 4px, #245c44 8px);
+  border: 1px solid #d4af37;
+}
+.fly-card .rank { font-size: 18px; line-height: 1; }
+.fly-card .emblem-wrap { width: 18px; height: 18px; }
+.fly-card .emblem-wrap svg { width: 100%; height: 100%; }
+.fly-card.oros { color: #c9971b; }
+.fly-card.copas { color: #d23b3b; }
+.fly-card.espadas { color: #2f6fd0; }
+.fly-card.bastos { color: #2f9e54; }
+#your-area, #controls, #layoff-area { position: relative; z-index: 36; }
+@media (prefers-reduced-motion: reduce) {
+  .fly-card { transition: none !important; }
+}

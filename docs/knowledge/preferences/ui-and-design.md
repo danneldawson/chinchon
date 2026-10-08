@@ -137,13 +137,30 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
 - The server is always the source of truth, so a broken animation can never corrupt
   the game. The worst case is a refresh.
 
-## 6a. Watching turns play out (spec only, Oct 8 2026 — not built)
+## 6a. Watching turns play out (built Oct 8, 2026, 2:28 PM PT)
 
 Dannel, by voice at 2:24 PM PT: in solo, each bot's turn should play out on its own,
 with a short pause, so he can watch the bot pick a card and then discard. Same
 addition: in a multiplayer game, each player should watch the other humans' turns
 the same way, live, instead of only seeing the result. One animation, shared by
 bots and humans. This is a design note only. No game code changes with it.
+
+**Built the same day.** Dannel said "go with the proposal" at 2:28 PM PT, and the
+open questions were settled as follows. One constant, `STEP_MS = 800` (about 0.8s
+a step, so a bot turn is about 1.6s). No skip or speed button. A backlog of more
+than one turn that is already a few seconds old replays at `CATCHUP_MS = 250`;
+fresh steps, including the bots that just played after your discard, stay at 0.8s
+so you can actually watch them. The server snaps (no replay) when the cursor is
+older than the log or more than one circuit of the table behind (each seat drawing
+and discarding once). Lay-off steps use the same pause. The tutorial's open bot
+shows the card it drew; every other stock draw stays face down to everyone but the
+drawer. `prefers-reduced-motion` skips the travel. The server still resolves turns
+instantly; `src/steps.js` records the log on the room (it is in the snapshot) and
+`serialize` returns the steps after `?since=`. The client replays them on a shadow
+of the table and then snaps to the server. Your controls follow the server, so they
+unlock the moment it is your turn, and the moving card cannot take a tap or sit
+over the hand.
+
 
 ### How it works today
 
@@ -275,7 +292,7 @@ stay synchronous.
 - Client: steps play draw then discard; reduced motion does not travel; the hand
   is tappable the moment it is your turn; no new page scroll.
 
-### Open decisions (questions only, nothing here is decided)
+### Open decisions — resolved Oct 8, 2:28 PM PT (see the note at the top of this section)
 
 - Are the proposed times right (0.6–1 second a step, 1.5–2.5 seconds a bot), or
   does he want them shorter or longer?

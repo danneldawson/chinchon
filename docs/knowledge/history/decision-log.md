@@ -1,4 +1,4 @@
-# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings, the Oct 8 card-based close, and the Oct 8 watching-turns spec)
+# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings, the Oct 8 card-based close, and the Oct 8 watching-turns work)
 
 This was distilled from the 25 Chinchon sessions in Hermes Agent's chat history (the
 transcripts are kept in a separate private repo, danneldawson/chinchon-transcripts),
@@ -306,6 +306,16 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
   instant and records a move log; the client replays it. Timings (about 0.6–1 second
   a step) are marked as a proposal. A skip control, the catch-up speed, the lay-off
   pause, and the tutorial open bot's card are left as questions.
+
+### Thu Oct 8, 2026, 2:28 PM PT: watching turns, built
+- **D: "go with the proposal."** The spec in `preferences/ui-and-design.md` §6a is
+  what shipped. Pace is one constant, 0.8s a step (`STEP_MS`). No skip button.
+  Catch-up is 0.25s a step when more than one turn is queued and the steps are
+  already a few seconds old; a gap older than the log, or more than one circuit
+  of the table behind, jumps to the current table. Lay-off steps take the same
+  pause. The tutorial's open bot shows its drawn card; every other stock draw
+  stays face down. The server stays instant and records a step log
+  (`src/steps.js`); the client replays it.
 
 ## Bugs fixed (selected, with root causes)
 

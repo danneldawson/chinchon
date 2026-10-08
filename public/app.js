@@ -594,6 +594,7 @@ $('btn-join').onclick = async () => {
 // ----------------------------------------------------------- game wiring
 
 async function enterGame() {
+  rememberPlaying();
   show($('game'));
   $('room-info').classList.add('hidden');
   // Replace (never stack) the timer: watchRoom's interval, or a second
@@ -603,11 +604,248 @@ async function enterGame() {
   await poll();
 }
 
+// Watched turns (Oct 8, 2026). One number tunes the pace of every step.
+const STEP_MS = 800;
+const CATCHUP_MS = 250;
+
+function stepStoreKey() { return 'chinchon-steps:' + (state.code || ''); }
+function stepCursor() {
+  // Memory is per room. A refresh has no memory, so the cursor comes back
+  // from sessionStorage and the missed steps replay. A different room does not
+  // inherit the previous cursor.
+  if (state.stepCode !== state.code) {
+    state.stepCode = state.code;
+    state.stepCursor = null;
+    state.seenSteps = new Set();
+    try {
+      const raw = sessionStorage.getItem(stepStoreKey());
+      if (raw != null && raw !== '') {
+        const n = Number(raw);
+        if (Number.isFinite(n)) state.stepCursor = n;
+      }
+    } catch { /* private mode */ }
+  }
+  return state.stepCursor;
+}
+function saveStepCursor(n) {
+  state.stepCode = state.code;
+  state.stepCursor = n;
+  try { sessionStorage.setItem(stepStoreKey(), String(n)); } catch { /* private mode */ }
+}
+// A refresh of this tab should come back into the same hand (sessionStorage
+// dies with the tab, so a brand-new visit still opens on the landing page).
+function rememberPlaying() {
+  try {
+    sessionStorage.setItem('chinchon-playing', JSON.stringify({
+      code: state.code, seatId: state.seatId, lobbyToken: state.lobbyToken, lobbyName: state.lobbyName,
+    }));
+  } catch { /* private mode */ }
+}
+function clearPlaying() {
+  try { sessionStorage.removeItem('chinchon-playing'); } catch { /* private mode */ }
+}
+function reducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function cloneTable(v) {
+  return {
+    stockCount: v.stockCount,
+    discardTop: v.discardTop ? { ...v.discardTop } : null,
+    discardHistory: (v.discardHistory || []).map((c) => ({ ...c })),
+    turnSeat: v.turnSeat,
+    phase: v.phase,
+    opponents: (v.opponents || []).map((o) => ({ ...o })),
+    falseClose: v.falseClose ? { ...v.falseClose, hand: (v.falseClose.hand || []).map((c) => ({ ...c })) } : null,
+    layoff: v.layoff ? JSON.parse(JSON.stringify(v.layoff)) : null,
+  };
+}
+// The table follows the shadow while steps replay. The hand does not: yourHand,
+// isYourTurn and the scoreboard stay whatever the server just said.
+function shownView(live) {
+  if (!state.shadow) return live;
+  const sh = state.shadow;
+  return {
+    ...live,
+    stockCount: sh.stockCount,
+    discardTop: sh.discardTop,
+    discardHistory: sh.discardHistory,
+    turnSeat: sh.turnSeat,
+    phase: sh.phase,
+    opponents: sh.opponents,
+    falseClose: sh.falseClose,
+    layoff: sh.layoff,
+  };
+}
+function mySeat() {
+  const v = state.view;
+  const me = v && v.opponents && v.opponents.find((o) => o.isYou);
+  return me ? me.seat : null;
+}
+function applyWatchStep(sh, step) {
+  const opp = (sh.opponents || []).find((o) => o.seat === step.seat);
+  const bump = (n) => { if (opp) opp.handCount = Math.max(0, (opp.handCount || 0) + n); };
+  if (step.type === 'draw') {
+    sh.turnSeat = step.seat;
+    sh.phase = 'discard';
+    bump(1);
+    if (step.from === 'stock') sh.stockCount = Math.max(0, (sh.stockCount || 0) - 1);
+    else {
+      sh.discardHistory = (sh.discardHistory || []).slice(0, -1);
+      sh.discardTop = sh.discardHistory.length ? sh.discardHistory[sh.discardHistory.length - 1] : null;
+    }
+  } else if (step.type === 'discard') {
+    sh.turnSeat = step.seat;
+    sh.phase = 'discard';
+    bump(-1);
+    if (step.card) {
+      sh.discardHistory = [...(sh.discardHistory || []), step.card].slice(-5);
+      sh.discardTop = step.card;
+    }
+  } else if (step.type === 'close') {
+    sh.phase = 'layoff';
+    sh.falseClose = null;
+    sh.layoff = {
+      phase: 'layoff',
+      table: step.melds || [],
+      owners: (step.melds || []).map(() => step.seat),
+      currentSeat: step.seat,
+      isYourTurn: false,
+      yourRemaining: [],
+      closerIndex: step.seat,
+    };
+  } else if (step.type === 'falseClose') {
+    sh.falseClose = { seat: step.seat, name: opp ? opp.name : '', hand: step.hand || [] };
+  } else if (step.type === 'lay') {
+    if (!sh.layoff) sh.layoff = { phase: 'layoff', table: [], owners: [], currentSeat: step.seat, isYourTurn: false, yourRemaining: [] };
+    sh.layoff.table = [...(sh.layoff.table || []), step.cards || []];
+    sh.layoff.owners = [...(sh.layoff.owners || []), step.seat];
+    sh.layoff.currentSeat = step.seat;
+    bump(-((step.cards && step.cards.length) || 0));
+  } else if (step.type === 'attach' && sh.layoff && sh.layoff.table) {
+    const t = sh.layoff.table[step.meldIndex] || [];
+    sh.layoff.table = sh.layoff.table.slice();
+    sh.layoff.table[step.meldIndex] = [...t, step.card];
+    sh.layoff.currentSeat = step.seat;
+    bump(-1);
+  } else if ((step.type === 'pass' || step.type === 'ready') && sh.layoff) {
+    if (step.nextSeat != null) sh.layoff.currentSeat = step.nextSeat;
+  }
+}
+function watchDelay() {
+  const q = state.watchQueue || [];
+  const turns = q.filter((s) => s.type === 'draw' || s.type === 'close').length;
+  const oldest = q.reduce((m, s) => Math.min(m, s.t || Date.now()), Date.now());
+  // Fresh steps (the bots that just played) stay at STEP_MS so a turn reads as
+  // ~1.6s. A backlog from a refresh or a missed poll, of more than one turn,
+  // catches up at CATCHUP_MS. The server snaps anything older than the log or
+  // more than one circuit behind, so this queue never replays a whole round.
+  if (Date.now() - oldest > 3000 && turns > 1) return CATCHUP_MS;
+  return STEP_MS;
+}
+function flyCard(fromEl, toEl, card, faceDown, travel) {
+  return new Promise((resolve) => {
+    if (reducedMotion() || !fromEl || !toEl || !travel) { resolve(); return; }
+    const flyer = document.createElement('div');
+    flyer.className = 'fly-card' + (faceDown ? ' face-down' : (card ? ' ' + String(card.suit).toLowerCase() : ''));
+    flyer.innerHTML = (faceDown || !card)
+      ? '<span class="fly-back"></span>'
+      : `<span class="rank">${card.rank}</span><span class="emblem-wrap">${suitEmblem(card.suit)}</span>`;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    const w = 46;
+    const h = 66;
+    const at = (r) => `translate(${Math.round(r.left + r.width / 2 - w / 2)}px, ${Math.round(r.top + r.height / 2 - h / 2)}px)`;
+    flyer.style.width = w + 'px';
+    flyer.style.height = h + 'px';
+    flyer.style.transform = at(a);
+    document.body.appendChild(flyer);
+    requestAnimationFrame(() => {
+      flyer.style.transition = `transform ${travel}ms ease-in-out, opacity ${travel}ms ease-in-out`;
+      flyer.style.transform = at(b);
+    });
+    setTimeout(() => { flyer.remove(); resolve(); }, travel);
+  });
+}
+function seatEl(seat) {
+  return document.querySelector(`#opponents .seat[data-seat="${seat}"]`);
+}
+async function playWatch() {
+  if (state.watchPlaying) return;
+  state.watchPlaying = true;
+  window.__watchMarks = window.__watchMarks || [];
+  let finished = false;
+  try {
+    while (state.watchPlaying && state.shadow && state.watchQueue && state.watchQueue.length) {
+      const delay = watchDelay();
+      const step = state.watchQueue.shift();
+      if (!state.seenSteps) state.seenSteps = new Set();
+      state.seenSteps.add(step.seq);
+      const mine = mySeat() === step.seat;
+      window.__watchMarks.push({ seq: step.seq, type: step.type, seat: step.seat, t: Date.now() });
+      // Your own draw and discard are already on your screen. Apply them with
+      // no travel and no wait, then keep going.
+      if (mine && step.type !== 'close' && step.type !== 'falseClose' && step.type !== 'lay' && step.type !== 'attach') {
+        applyWatchStep(state.shadow, step);
+        saveStepCursor(step.seq);
+        render();
+        continue;
+      }
+      state.shadow.turnSeat = step.seat;
+      if (step.type === 'draw') state.shadow.phase = 'draw';
+      render();
+      const travel = reducedMotion() ? 0 : Math.round(delay * 0.55);
+      if (step.type === 'draw') {
+        const from = step.from === 'discard' ? $('discard') : $('stock');
+        await flyCard(from, seatEl(step.seat), step.card, step.from === 'stock' && !step.card, travel);
+      } else if (step.type === 'discard') {
+        await flyCard(seatEl(step.seat), $('discard'), step.card, false, travel);
+      }
+      if (!state.watchPlaying || !state.shadow) break;
+      applyWatchStep(state.shadow, step);
+      saveStepCursor(step.seq);
+      render();
+      const left = delay - travel;
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+    }
+    finished = state.watchPlaying;
+  } finally {
+    if (finished) {
+      state.watchQueue = [];
+      state.shadow = null;
+      state.watchPlaying = false;
+      render();
+    } else {
+      state.watchPlaying = false;
+    }
+  }
+}
+function ingestSteps(v) {
+  const known = stepCursor();
+  if (v.snap || known == null) {
+    state.watchQueue = [];
+    state.shadow = null;
+    state.watchPlaying = false;
+    saveStepCursor(v.stepSeq || 0);
+    return;
+  }
+  const cur = state.stepCursor != null ? state.stepCursor : known;
+  const queued = new Set((state.watchQueue || []).map((s) => s.seq));
+  const seen = state.seenSteps || new Set();
+  const fresh = (v.steps || []).filter((s) => s.seq > cur && !queued.has(s.seq) && !seen.has(s.seq));
+  if (!fresh.length) return;
+  if (!state.shadow) state.shadow = cloneTable(state.shownTable || v);
+  state.watchQueue = state.watchQueue || [];
+  state.watchQueue.push(...fresh);
+  if (!state.watchPlaying) playWatch();
+}
+
 async function poll() {
   // If we've already left the room (code cleared), don't fetch or redirect.
   // A poll in-flight when Leave was clicked must not call goToLobby().
   if (!state.code) return;
-  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
+  const since = stepCursor();
+  const sinceQ = since == null ? '' : `&since=${encodeURIComponent(since)}`;
+  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}${sinceQ}`).then((r) => r.json());
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
   // Match on the player id the server returns in scoreboard entries — not on
   // p.seat, which the server never sends (the old code assumed it did).
@@ -632,6 +870,7 @@ async function poll() {
     }
   }
   state.view = res;
+  ingestSteps(res);
   render();
 }
 
@@ -693,10 +932,14 @@ function onceAnimate(el, cls) {
 }
 
 function render() {
-  const v = state.view;
-  if (!v || !v.started) return;
-  const canAct = v.isYourTurn;
-  const phase = v.phase;
+  const live = state.view;
+  if (!live || !live.started) return;
+  // Shadow drives the table (piles, seat ring, felt) while a watched turn
+  // replays. canAct/phase stay on the server so your controls unlock the
+  // moment it is your turn, and the hand below is never the thing animating.
+  const v = shownView(live);
+  const canAct = !!live.isYourTurn;
+  const phase = live.phase;
 
   // Room code shown on top of the scoreboard (localized "Room XXXX").
   $('room-code-tag').textContent = v.code ? `${t('roomCodeLabel')} ${v.code}` : '';
@@ -1036,17 +1279,18 @@ function render() {
   renderFalseClose(v);
 
   // ---- Slice 2: interactive lay-off board ----
-  const inLayoff = !!(v.layoff && (v.layoff.phase === 'layoff' || v.layoff.done));
+  const inLayoff = !!(live.layoff && (live.layoff.phase === 'layoff' || live.layoff.done));
   $('layoff-area').classList.toggle('hidden', !inLayoff);
   if (inLayoff && !_animState.layoff) onceAnimate($('layoff-area'), 'appear');
   _animState.layoff = inLayoff;
   // During lay-off, hide the normal hand/discard controls.
   $('your-area').classList.toggle('hidden', inLayoff);
   $('controls').classList.toggle('hidden', inLayoff);
-  if (inLayoff) renderLayoff(v.layoff);
+  if (inLayoff) renderLayoff(live.layoff);
   // Melds face up on the felt: the closer's groups while building them, then
   // every meld on the table during the lay-off (with the seat that laid it).
   renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : null);
+  state.shownTable = cloneTable(v);
 }
 
 // ---- Card-based close (Oct 8, 2026) ----
@@ -1519,6 +1763,7 @@ $('btn-alone-ok').onclick = async () => {
     body: JSON.stringify({ code: state.code, seat: state.seatId }),
   }).catch(() => null);
   clearSeat(state.code);
+  clearPlaying();
   state.code = null;
   state.seatId = null;
   state.sessionToken = null;
@@ -1590,6 +1835,7 @@ $('btn-leave-match').onclick = async () => {
   // Return to the LOBBY (players/rooms view), not the global landing screen.
   clearInterval(state.pollTimer);
   clearSeat(state.code);
+  clearPlaying();
   state.code = null;
   state.seatId = null;
   state.sessionToken = null;
@@ -1606,6 +1852,7 @@ $('btn-tolobby').onclick = async () => {
   }).catch(() => null);
   clearInterval(state.pollTimer);
   clearSeat(state.code);
+  clearPlaying();
   state.code = null;
   state.seatId = null;
   state.sessionToken = null;
@@ -1839,6 +2086,7 @@ $('btn-go-join').onclick = () => {
 $('back-to-create').onclick = showCreatePane;
 function goToLobby() {
   clearInterval(state.pollTimer);
+  clearPlaying();
   state.code = null;
   state.seatId = null;
   state.sessionToken = null;
@@ -1854,6 +2102,7 @@ function goToLobby() {
 // the game and show a one-screen displaced view with a "make a new game" action.
 function showDisplaced() {
   clearInterval(state.pollTimer);
+  clearPlaying();
   state.code = null;
   state.seatId = null;
   state.sessionToken = null;
@@ -1954,6 +2203,17 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-enter').classList.remove('hidden');
   $('lobby-main').classList.add('hidden');
   $('lobby-name').value = '';
+  let playing = null;
+  try { playing = JSON.parse(sessionStorage.getItem('chinchon-playing') || 'null'); } catch { playing = null; }
+  // Refresh mid-hand: this tab still has the room. A new tab does not.
+  if (playing && playing.code && playing.seatId) {
+    state.code = playing.code;
+    state.seatId = playing.seatId;
+    state.lobbyToken = playing.lobbyToken || null;
+    state.lobbyName = playing.lobbyName || null;
+    enterGame();
+    return;
+  }
   $('lobby-name').focus();
 })();
 
