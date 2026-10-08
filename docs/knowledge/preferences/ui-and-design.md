@@ -137,6 +137,156 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
 - The server is always the source of truth, so a broken animation can never corrupt
   the game. The worst case is a refresh.
 
+## 6a. Watching turns play out (spec only, Oct 8 2026 — not built)
+
+Dannel, by voice at 2:24 PM PT: in solo, each bot's turn should play out on its own,
+with a short pause, so he can watch the bot pick a card and then discard. Same
+addition: in a multiplayer game, each player should watch the other humans' turns
+the same way, live, instead of only seeing the result. One animation, shared by
+bots and humans. This is a design note only. No game code changes with it.
+
+### How it works today
+
+**Solo bots are resolved in one go, on the server, inside the request.**
+`runBotTurns` (`server.js`) runs at the end of the request that triggered it: creating
+a solo room, the human's discard, and the deal of the next round. While the phase is
+`draw` or `discard` it loops (up to 500 steps). If the seat to play is a bot, the bot
+draws at once and then discards or closes at once, and the loop moves to the next
+seat. It stops when the next seat is a human. Nothing is sent to the browser between
+those steps. The response, and every later poll, is the table *after* all of those
+bots have finished. With the two bots in a solo game, both full turns collapse into
+one jump. A bot's draw choice is `bot.chooseDraw`: the face-up discard when taking it
+improves the hand (an aggressive bot also takes it when it builds toward a meld),
+otherwise the stock. The discard or close is `bot.chooseTurn`.
+
+If a bot closes, `runBotLayoffTurns` then plays every following bot's whole lay-off
+in that same call: lay its melds, attach whatever fits, and Ready, until it is a
+human's lay-off turn or the lay-off is done. That dumps at the end too.
+
+A human's own draw does not run the bots. The draw and the discard are two requests,
+and `runBotTurns` only finds bots to play once the human has discarded (or at the
+start of a round, for any bot seated before the human).
+
+**There is no live channel.** A started game polls `GET /api/state` every 1.2
+seconds and re-renders the snapshot. The snapshot has: your own hand; `lastDrawnId`
+for *your* last draw only; the face-up discard and the last 5 discards
+(`discardHistory`); each other seat's name and a hand *count*, never their cards;
+the stock count; whose turn it is. An opponent's stock draw is never a card. A poll
+that arrives after a finished turn shows only the new discard and the hand count
+back at 7. There is no list of moves, so a missed poll cannot be replayed. The only
+motion shipped is your own throw-pop and a few fades (section 6). Other seats jump.
+
+**Other humans are one step ahead of that, and still invisible as motion.** A
+person's draw and discard are separate requests, so the server really is mid-turn
+between them. Everyone else notices only on their next poll, as a new snapshot: the
+upcard gone or the stock one shorter, then a new upcard. No card travels from the
+pile to a seat. If they draw and discard between your polls (1.2 seconds, longer if
+the tab was in the background), you only ever see the result. Remembering the old
+upcard is the only way to tell "took the discard" from "drew from the stock", and
+the client does not even do that.
+
+**Who has bots.** A normal multiplayer room has no bots (since Sep 14). Solo is the
+bot game: 2 random family bots, started immediately. Tutorial rooms are the
+exception, with two bots, one of whose hands is face up.
+
+### The sequence (bots and other humans, same animation)
+
+For each seat that is not you, in order:
+
+1. The turn ring moves to that seat.
+2. **Draw.** From the stock: a face-down card travels from the stock to that seat.
+   From the discard: the face-up card travels from the tray to that seat. The card
+   an opponent drew from the stock is never turned over. Only the seat who drew it
+   learns which card it was (as today, via their own hand).
+3. A short pause.
+4. **Discard.** The card they throw travels from their seat to the tray, face up.
+5. Pause, then the next seat.
+
+**Proposed timings, adjustable, not decided:** about 0.6–1 second for the draw,
+the same for the discard, so roughly 1.5–2.5 seconds for one bot. A lay-off step
+(a meld landing on the felt, an attach) uses the same length unless Dannel wants it
+shorter.
+
+**A bot that closes.** The close is a step of its own: the discard plays, then the
+melds the bot actually used (the engine's split, since a bot does not tap cards)
+land face up on the felt, the same way a declared human close does. The lay-off
+then plays one action at a time (lay, attach, Ready), not as one dump. A human
+close is unchanged for the closer; everyone else sees the discard and then the
+melds, in that order, instead of a jump. A false close stays today's banner (the
+hand shown); it should appear in this same order so it is not skipped.
+
+**Your own turn.** Your draw and your discard happen immediately, as they do now,
+including the card you took from the stock. You do not watch your own stock draw as
+a face-down card. While bots are playing it is not your turn, so the hand stays
+locked the way it already does. In a multiplayer game your controls turn on the
+moment the server says it is your turn, even if a short catch-up animation is still
+finishing. That animation must not cover the hand or take taps.
+
+**Phones and the no-scroll layout.** The moving card is a transform (and opacity)
+between places that already exist: stock, discard tray, a seat's fan, the felt. No
+new panel, no page scroll, and the viewport-fit checks still have to pass.
+`prefers-reduced-motion` skips the travel and just shows the result of that step
+(section 6).
+
+**Falling behind, refresh, restart.** The client remembers the last step it has
+played (for that room, so a refresh can continue). Steps it missed play in order,
+faster when more than one turn is queued (proposed: about 0.25 seconds a step). A
+brand-new tab, or a gap older than the log, jumps to the current table and starts
+from now, so joining late does not replay the round. The log lives on the room, so
+the existing snapshot (`CHINCHON_STATE_FILE`) keeps it across a restart. There is
+no timer to re-arm. If the animation and the server's snapshot ever disagree, the
+snapshot wins.
+
+**Tutorial.** The open bot's hand is already public, so its drawn card may be shown
+face up. The hidden bot, and every human's stock draw, stay face down to everyone
+else. The tutorial pause before your own turn is unchanged.
+
+### How to build it (recommendation)
+
+**Keep the server instant, and have the client replay a move log.** Do not make
+`runBotTurns` wait on a timer.
+
+Each draw and each discard (bot or human) is appended to the room as a numbered
+step: who, `stock` or `discard`, and, for a discard or a taken upcard, the card.
+A stock draw is stored with its card on the server but the serialized step for
+every *other* seat omits it. A close step carries the melds. `serialize` returns
+the steps after the cursor the client sends.
+
+The client keeps a local shadow of the table and plays the steps against it, then
+snaps to the server snapshot once it is caught up. That is what makes a 1.2 second
+poll still show draw-then-discard: the steps are events, not "whatever the table
+looks like right now". A timer on the server would not survive that poll, would
+have to be re-armed after every restart, and would make the rules and the tests
+depend on the clock. The pause is only visual. The game, the scores and the tests
+stay synchronous.
+
+### Tests to add when this is built
+
+- A bot turn appends a draw step and then a discard step, in that order. Two bots
+  before the human append four steps before the response returns.
+- For any seat but the one who drew, a stock step has no card. The seat who drew
+  still gets the real card in their hand, as today.
+- A taken upcard and a discard both carry the face-up card.
+- A bot close appends the melds it used, then one lay-off step per lay, attach and
+  Ready.
+- Asking for steps after a cursor returns only the later ones, in order. A cursor
+  older than the log returns a "snap" instead of the whole round.
+- The log round-trips through the room snapshot.
+- Client: steps play draw then discard; reduced motion does not travel; the hand
+  is tappable the moment it is your turn; no new page scroll.
+
+### Open decisions (questions only, nothing here is decided)
+
+- Are the proposed times right (0.6–1 second a step, 1.5–2.5 seconds a bot), or
+  does he want them shorter or longer?
+- Does he want a skip / go-faster control, or is a faster catch-up when you are
+  behind enough?
+- How fast should catch-up be, and after how many missed turns should it snap
+  instead of replaying?
+- Should a bot's lay-off steps take the same pause as a draw and a discard?
+- For the tutorial's open bot, show the card it drew, or a face-down card like
+  everyone else?
+
 ## 7. Mobile
 
 - **Tap handling:** `touch-action: manipulation` and

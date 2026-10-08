@@ -1,4 +1,4 @@
-# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings and the Oct 8 card-based close)
+# Decision log (Aug 2 – Sep 14, 2026, plus Oct 2 rulings, the Oct 8 card-based close, and the Oct 8 watching-turns spec)
 
 This was distilled from the 25 Chinchon sessions in Hermes Agent's chat history (the
 transcripts are kept in a separate private repo, danneldawson/chinchon-transcripts),
@@ -294,6 +294,18 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
   stops a Node process). Humans could only finish a lay-off through **Auto** until now.
 
 ---
+
+### Thu Oct 8, 2026, 2:24 PM PT: watching turns play out (spec only, not built)
+- **D (voice): solo bots should play one at a time.** He wants to watch each bot
+  pick a card (the discard, or a face-down card from the stock) and then discard,
+  with a short pause, instead of both bot turns landing at once.
+- **D (voice), same note: multiplayer should work the same way.** Each player
+  watches the other players' draws and discards as they happen, not only the result.
+- **Recorded, not built.** The current behaviour and the proposed design are in
+  `preferences/ui-and-design.md` §6a. Recommendation written there: the server stays
+  instant and records a move log; the client replays it. Timings (about 0.6–1 second
+  a step) are marked as a proposal. A skip control, the catch-up speed, the lay-off
+  pause, and the tutorial open bot's card are left as questions.
 
 ## Bugs fixed (selected, with root causes)
 
