@@ -52,7 +52,6 @@ const I18N = {
     makeMeld: 'Make meld',
     discardClose: 'Discard & close',
     cancel: 'Cancel',
-    closeHelp: 'Tap cards, then Make meld. Tap a meld on the table to take it back. Then tap the card to throw and Discard & close.',
     pickOneDiscard: 'Select the one card to throw',
     needMeld: 'Make at least one meld first',
     falseClose: 'False close',
@@ -115,7 +114,6 @@ const I18N = {
     continueWithout: 'Continue without them',
     spectating: 'You are spectating — you rejoin the next match.',
     selectLay: 'Select ≥3 cards to lay',
-    cardsCount: 'cards',
     layLabel: 'Lay:',
     shedLabel: 'Shed:',
     tutorialContinue: 'Continue',
@@ -193,7 +191,6 @@ const I18N = {
     makeMeld: 'Formar jugada',
     discardClose: 'Descartar y cerrar',
     cancel: 'Cancelar',
-    closeHelp: 'Toca cartas y luego Formar jugada. Toca una jugada en la mesa para devolverla. Después toca la carta que tiras y Descartar y cerrar.',
     pickOneDiscard: 'Selecciona la carta que vas a tirar',
     needMeld: 'Primero forma al menos una jugada',
     falseClose: 'Cierre falso',
@@ -270,7 +267,6 @@ const I18N = {
     continueWithout: 'Continuar sin él',
     spectating: 'Estás como espectador; vuelves en la proxima partida.',
     selectLay: 'Selecciona ≥3 cartas para poner',
-    cardsCount: 'cartas',
     layLabel: 'Poner:',
     shedLabel: 'Soltar:',
     tutorialContinue: 'Continuar',
@@ -1019,11 +1015,15 @@ function render() {
         render();
       });
     } else {
-      const help = document.createElement('div');
-      help.id = 'close-help';
-      help.className = 'close-prompt';
-      help.textContent = cm.msg || t('closeHelp');
-      co.appendChild(help);
+      // No standing instructions in close mode; only a short message after a
+      // wrong tap (e.g. "Make at least one meld first").
+      if (cm.msg) {
+        const help = document.createElement('div');
+        help.id = 'close-help';
+        help.className = 'close-prompt';
+        help.textContent = cm.msg;
+        co.appendChild(help);
+      }
       btn('btn-make-meld', 'close-btn', t('makeMeld'), makeMeld);
       btn('btn-discard-close', 'close-btn', t('discardClose'), discardAndClose);
       btn('btn-close-cancel', 'close-cancel', t('cancel'), () => { state.closeMode = null; render(); });
@@ -1306,7 +1306,7 @@ function renderTableSeats(v) {
     el.innerHTML =
       `<div class="seat-fan">${fan}</div>` +
       `<div class="seat-name">${avatar}${escapeHtml(o.name)}</div>` +
-      `<div class="seat-count">${o.handCount} ${t('cardsCount')}${o.out ? ' · ' + t('out') : ''}</div>`;
+      (o.out ? `<div class="seat-count">${t('out')}</div>` : '');
     wrap.appendChild(el);
   });
   // You, at the near rim. Your own hand stays big and tappable below the table.

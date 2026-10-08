@@ -338,8 +338,18 @@ test('client: close mode sends the player-built melds; tap-to-attach posts to /a
 
 test('client: close-mode and lay-off strings exist in English and Spanish', () => {
   const block = (lang) => js.slice(js.indexOf(`  ${lang}: {`), js.indexOf('\n  },', js.indexOf(`  ${lang}: {`)));
-  for (const key of ['makeMeld', 'discardClose', 'cancel', 'closeHelp', 'pickOneDiscard', 'needMeld', 'falseClose', 'handShown', 'attachHelp']) {
+  for (const key of ['makeMeld', 'discardClose', 'cancel', 'pickOneDiscard', 'needMeld', 'falseClose', 'handShown', 'attachHelp']) {
     assert.match(block('en'), new RegExp(`\\b${key}:`), `en.${key}`);
     assert.match(block('es'), new RegExp(`\\b${key}:`), `es.${key}`);
   }
+});
+
+test('client (Oct 8 clean-up): no "N cards" under seat names and no standing close-mode instructions', () => {
+  // Everybody always holds 7 cards, so seats show only the name (+ "out" when eliminated).
+  assert.ok(!/cardsCount/.test(js), 'cardsCount string removed');
+  assert.ok(!/o\.handCount\} /.test(js), 'hand count not printed under the seat name');
+  assert.match(js, /\(o\.out \? `<div class="seat-count">\$\{t\('out'\)\}<\/div>` : ''\)/);
+  // Close mode shows only the buttons; a message appears only after a wrong tap.
+  assert.ok(!/closeHelp/.test(js), 'closeHelp instruction removed');
+  assert.match(js, /if \(cm\.msg\) \{\n\s+const help = document\.createElement\('div'\);/);
 });
