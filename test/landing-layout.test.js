@@ -32,7 +32,7 @@ test('lobby offers Play solo, Multiplayer room and Join room', () => {
     assert.ok(lobby.includes(`id="${id}"`), `${id} in the lobby screen`);
   }
   // Join room (enter a friend's code) is still wired.
-  assert.match(js, /\$\('btn-join'\)\.onclick = async/);
+  assert.match(js, /\$\('btn-join'\)\.onclick = \(\) => \{[\s\S]{0,200}joinByCode\(code\)/);
   // Play solo still starts a solo game directly.
   assert.match(js, /\$\('btn-gameplay'\)\.onclick = \(\) => \{[^}]*createRoom\('private', 2, false, false, 'solo'\)/);
 });

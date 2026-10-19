@@ -29,6 +29,8 @@ const I18N = {
     roomCode: 'Room code:',
     shareLink: 'Share link:',
     copy: 'Copy',
+    copyLink: 'Copy link',
+    share: 'Share',
     playersJoined: 'Players joined:',
     startGame: 'Start game',
     roomCodeLabel: 'Room code',
@@ -383,7 +385,11 @@ function loadSeat(code) {
 function clearSeat(code) {
   try { localStorage.removeItem('chinchon:' + code); } catch { /* ignore */ }
 }
-// Share link embeds the seat so it doubles as a rejoin link on any device.
+// Room link (Oct 18, 2026): https://<origin>/?room=CODE takes whoever opens it
+// to that room. The name is still the gate: no saved name -> the landing name
+// entry first, then the join. Pure helpers so test/share-link.test.js can run them.
+window.__roomLinkFor = (origin, code) => origin + '/?room=' + encodeURIComponent(code);
+window.__roomFromSearch = (search) => { const c = String(new URLSearchParams(search).get('room') || '').trim().toUpperCase(); return /^[A-Z]{4}$/.test(c) ? c : null; };
 // ----------------------------------------------------------- lobby wiring
 
 function show(panel) {
@@ -419,7 +425,26 @@ function showWaitingView() {
   $('create-pane').classList.add('hidden');
   $('join-pane').classList.add('hidden');
   $('room-info').classList.remove('hidden');
+  $('share-link-row').classList.add('hidden'); // only the host's create path shows it
 }
+
+// The host's room link, with Copy link and (where the device has one) Share.
+function showShareLink(code) {
+  const url = window.__roomLinkFor(location.origin, code);
+  $('share-link').value = url;
+  $('share-link-row').classList.remove('hidden');
+  $('btn-share-link').classList.toggle('hidden', typeof navigator.share !== 'function');
+}
+$('btn-copy-link').onclick = () => {
+  const url = $('share-link').value;
+  const fallback = () => { $('share-link').select(); try { document.execCommand('copy'); } catch { /* ignore */ } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).catch(fallback);
+  else fallback();
+};
+$('btn-share-link').onclick = () => {
+  if (typeof navigator.share !== 'function') return;
+  navigator.share({ title: 'Chinchon', url: $('share-link').value }).catch(() => null);
+};
 
 function showJoinPane() {
   $('join-pane').classList.remove('hidden');
@@ -484,6 +509,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   // response shape is unexpected — the player must see WHAT was created.
   $('room-code').textContent = res.code;
   showWaitingView();
+  if (mode === 'multi' && !learning && !tutorial) showShareLink(res.code);
   $('create-choices').classList.add('hidden');
   if (status) status.textContent = 'Room ' + res.code + ' — waiting for players…';
   const seatEl = $('room-seatid');
@@ -562,15 +588,28 @@ async function watchRoom() {
   }
 }
 
-$('btn-join').onclick = async () => {
+$('btn-join').onclick = () => {
   const code = $('join-code').value.trim().toUpperCase();
   if (!code) { $('join-msg').textContent = 'Enter the room code.'; return; }
+  joinByCode(code);
+};
+
+// Join a room by code: the Join room button and the room link both land here.
+// A bad, expired or full code shows the server's error on the join pane.
+async function joinByCode(code) {
   const name = state.lobbyName || $('lobby-name').value.trim() || t('player');
   const res = await fetch('/api/room/join', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
   }).then((r) => r.json());
-  if (res.error) { $('join-msg').textContent = res.error; return; }
+  if (res.error) {
+    clearInterval(lobbyTimer);
+    show($('lobby'));
+    showJoinPane();
+    $('join-code').value = code;
+    $('join-msg').textContent = res.error;
+    return;
+  }
   state.code = code;
   state.seatId = res.seatId;
   state.sessionToken = null; // a new seat adopts its own token on the first poll
@@ -589,7 +628,7 @@ $('btn-join').onclick = async () => {
   wireHostStart();
   watchRoom().catch(() => null);
   state.pollTimer = setInterval(watchRoom, 1500);
-};
+}
 
 // ----------------------------------------------------------- game wiring
 
@@ -1906,6 +1945,15 @@ async function enterLobby() {
   state.lobbyToken = res.token;
   state.lobbyName = res.name;
   persistLobby(res.token, res.name);
+  // Came in on a room link: the name was the gate; now go to that room.
+  if (state.linkRoom) {
+    const code = state.linkRoom;
+    state.linkRoom = null;
+    $('lobby-enter').classList.add('hidden');
+    $('lobby-name').value = res.name;
+    joinByCode(code);
+    return;
+  }
   $('lobby-enter').classList.add('hidden');
   $('lobby-main').classList.remove('hidden');
   applyLang(); // translate the lobby strings to the chosen language
@@ -2203,6 +2251,12 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-enter').classList.remove('hidden');
   $('lobby-main').classList.add('hidden');
   $('lobby-name').value = '';
+  // Room link: read ?room=CODE once and drop it from the address bar, so a
+  // refresh does not join again.
+  const linkRoom = window.__roomFromSearch(location.search);
+  if (new URLSearchParams(location.search).has('room')) {
+    try { history.replaceState(null, '', location.pathname); } catch { /* ignore */ }
+  }
   let playing = null;
   try { playing = JSON.parse(sessionStorage.getItem('chinchon-playing') || 'null'); } catch { playing = null; }
   // Refresh mid-hand: this tab still has the room. A new tab does not.
@@ -2213,6 +2267,18 @@ $('btn-leave-lobby').onclick = async () => {
     state.lobbyName = playing.lobbyName || null;
     enterGame();
     return;
+  }
+  if (linkRoom) {
+    const saved = loadLobby();
+    if (saved && saved.name && String(saved.name).trim().length >= 3) {
+      // Already has a name on this device: straight into the room.
+      state.lobbyToken = saved.token || null;
+      state.lobbyName = saved.name;
+      joinByCode(linkRoom);
+      return;
+    }
+    // No name yet: the landing name entry first; enterLobby() joins after.
+    state.linkRoom = linkRoom;
   }
   $('lobby-name').focus();
 })();

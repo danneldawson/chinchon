@@ -344,6 +344,10 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 /* Board top: room code sits above the scoreboard */
 .board-top-row { display: flex; flex-direction: column; gap: 4px; }
 #room-code-tag { font-size: 0.85em; letter-spacing: .06em; }
+/* Waiting room: the host's room link + Copy link / Share. */
+#share-link-row { display: flex; gap: 6px; align-items: center; max-width: 520px; margin-top: 6px; }
+#share-link { flex: 1 1 auto; min-width: 0; margin: 0; }
+#share-link-row button { margin: 0; flex: 0 0 auto; }
 
 /* Per-room chat — floats top-right, under the turn banner */
 #game { position: relative; }

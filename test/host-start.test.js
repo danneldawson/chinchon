@@ -38,7 +38,9 @@ test('one wireHostStart() helper owns the Start game click handler', () => {
 
 test('createRoom (host path) AND the join flow both wire the Start button', () => {
   assert.match(body('async function createRoom('), /wireHostStart\(\)/, 'createRoom must wire Start game');
-  assert.match(body("$('btn-join').onclick = async () => {"), /wireHostStart\(\)/, 'join flow must wire Start game');
+  // The Join room button and the room link (Oct 18) share joinByCode().
+  assert.match(body("$('btn-join').onclick = () => {"), /joinByCode\(code\)/, 'Join room must go through joinByCode');
+  assert.match(body('async function joinByCode('), /wireHostStart\(\)/, 'join flow must wire Start game');
 });
 
 // The client shows Start game to a LONE host only in a private room, keyed on

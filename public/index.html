@@ -117,6 +117,13 @@
         <div class="share-buttons">
             <button id="btn-copy-code" class="small" data-i18n="copy">Copy</button>
         </div>
+        <!-- Host only: a link straight to this room (?room=CODE). Share is the
+             native share sheet and stays hidden where navigator.share is missing. -->
+        <div id="share-link-row" class="share-buttons hidden">
+            <input id="share-link" type="text" readonly aria-label="Room link" />
+            <button id="btn-copy-link" class="small" data-i18n="copyLink">Copy link</button>
+            <button id="btn-share-link" class="small hidden" data-i18n="share">Share</button>
+        </div>
         <p class="dim" data-i18n="shareCodeNote">Share this code with the other players however you like.</p>
         <p id="room-waiting" class="dim"></p>
         <p data-i18n="playersJoined">Players joined:</p>
