@@ -45,8 +45,16 @@ const lobby = {
   chat: [],
 };
 
-const LOBBY_IDLE_EVICT_MS = 30 * 60 * 1000; // lobby members inactive this long are removed
-const GAME_IDLE_EVICT_MS  = 30 * 60 * 1000; // in-progress games with all humans idle this long are evicted
+// Cleanup timings (see sweepRooms). "Idle" = no /api poll from that human.
+const CLEANUP = {
+  SWEEP_INTERVAL_MS: 60 * 1000,          // how often the sweeper runs
+  LOBBY_IDLE_MS: 30 * 60 * 1000,         // lobby member idle this long is removed
+  WAITING_SEAT_IDLE_MS: 10 * 60 * 1000,  // departed seat in a not-yet-started room is removed
+  ROOM_IDLE_MS: 15 * 60 * 1000,          // waiting / finished / rematch room with every human idle this long goes
+  FINISHED_TTL_MS: 15 * 60 * 1000,       // finished match (no rematch pending) goes this long after game over
+  GAME_IDLE_MS: 15 * 60 * 1000,          // multiplayer game in progress with every human idle this long goes
+  SOLO_IDLE_MS: 30 * 60 * 1000,          // solo / tutorial game in progress with its human idle this long goes
+};
 
 function lobbyEnter(name) {
   const clean = String(name || '').trim().slice(0, 14);
@@ -395,7 +403,6 @@ const AWAY_END_MS = 8 * 60 * 1000; // a player away this long => match ends (aut
 const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
 const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
 const CONNECTED_MS = 45000;     // a seat that polled within this is "connected" (green)
-const ROOM_IDLE_EVICT_MS = 15 * 60 * 1000; // evict stale waiting/finished rooms
 
 function stampSeen(room, seatId) {
   const p = room.players.find((x) => x.id === seatId);
@@ -473,35 +480,90 @@ function evaluateWaiting(room) {
 }
 
 // Periodic cleanup: drop rooms nobody is actively in so they don't pile up in
-// memory. Only safe-to-evict rooms: a waiting room (never dealt) or a finished
-// match, where every human seat has been idle past ROOM_IDLE_EVICT_MS. An
-// in-progress game is left alone so a paused family match isn't disrupted.
-// `now` is injectable so tests can advance time without sleeping.
-function sweepRooms(now = Date.now()) {
+// memory or in the persisted state file. Rules (timings in CLEANUP below):
+//   - waiting room (never dealt): seats whose player stopped polling for
+//     WAITING_SEAT_IDLE_MS are removed (the host passes to the next player);
+//     the room goes once no human is left, or every human has been idle for
+//     ROOM_IDLE_MS.
+//   - finished match (game over): goes FINISHED_TTL_MS after game over (time
+//     to read the final scores), even if a tab is still open on the results.
+//     A rematch countdown in progress keeps it, unless every human has been
+//     idle for ROOM_IDLE_MS.
+//   - game in progress: multiplayer goes once every human has been idle for
+//     GAME_IDLE_MS; solo/tutorial (one human vs bots) after SOLO_IDLE_MS.
+// A room where a human polled recently is never touched mid-game.
+// `now` and `opts` (any CLEANUP key) are injectable so tests can advance time
+// without sleeping. Returns { rooms: [evicted codes], seats: removed seats }.
+function noteGameOver(room, now = Date.now()) {
+  const finished = !!(room.match && room.match.gameOver);
+  if (finished && !room.gameOverAt) room.gameOverAt = now;
+  else if (!finished && room.gameOverAt) room.gameOverAt = null;
+}
+function sweepRooms(now = Date.now(), opts = {}) {
+  const c = { ...CLEANUP, ...opts };
+  const out = { rooms: [], seats: 0 };
+  const idleFor = (p) => now - (p.lastSeen || 0);
+  const allIdle = (humans, ms) => !humans.some((p) => idleFor(p) < ms);
+  const evict = (code) => { rooms.delete(code); out.rooms.push(code); };
   for (const [code, room] of [...rooms]) {
-    const finished = room.match && room.match.gameOver;
-    if (room.started && !finished) {
-      // Active game: only evict if every human has been idle past GAME_IDLE_EVICT_MS.
+    if (room.gone) { evict(code); continue; }
+    noteGameOver(room, now);
+    const finished = !!(room.match && room.match.gameOver);
+    if (!room.started) {
+      // Waiting room: drop departed seats first.
+      const before = room.players.length;
+      room.players = room.players.filter((p) => p.isBot || idleFor(p) < c.WAITING_SEAT_IDLE_MS);
+      const removed = before - room.players.length;
+      if (removed) {
+        out.seats += removed;
+        room.players.forEach((p, i) => { p.seat = i; });
+        if (!room.players.some((p) => p.id === room.hostId)) {
+          const next = room.players.find((p) => !p.isBot);
+          room.hostId = next ? next.id : null;
+        }
+      }
       const humans = humanSeats(room);
-      const anyAlive = humans.length > 0 && humans.some((p) => now - (p.lastSeen || 0) < GAME_IDLE_EVICT_MS);
-      if (!anyAlive) rooms.delete(code);
+      if (!humans.length || allIdle(humans, c.ROOM_IDLE_MS)) evict(code);
       continue;
     }
     const humans = humanSeats(room);
-    const anyAlive = humans.length > 0 && humans.some((p) => now - (p.lastSeen || 0) < ROOM_IDLE_EVICT_MS);
-    if (!anyAlive) rooms.delete(code);
+    if (finished) {
+      const expired = !room.pending && now - room.gameOverAt >= c.FINISHED_TTL_MS;
+      if (expired || !humans.length || allIdle(humans, c.ROOM_IDLE_MS)) evict(code);
+      continue;
+    }
+    // Game in progress.
+    const ms = room.mode === 'solo' || room.tutorial ? c.SOLO_IDLE_MS : c.GAME_IDLE_MS;
+    if (!humans.length || allIdle(humans, ms)) evict(code);
   }
+  return out;
 }
 
 // Periodic cleanup: drop lobby members who haven't interacted in
-// LOBBY_IDLE_EVICT_MS (30 min). Prevents the lobby from filling with
+// CLEANUP.LOBBY_IDLE_MS (30 min). Prevents the lobby from filling with
 // ghost names from users who closed their tab without leaving.
-function sweepLobby(now = Date.now()) {
+function sweepLobby(now = Date.now(), opts = {}) {
+  const ms = opts.LOBBY_IDLE_MS || CLEANUP.LOBBY_IDLE_MS;
+  let removed = 0;
   for (const [token, member] of [...lobby.members]) {
-    if (now - (member.lastSeen || member.at || 0) > LOBBY_IDLE_EVICT_MS) {
+    if (now - (member.lastSeen || member.at || 0) > ms) {
       lobby.members.delete(token);
+      removed++;
     }
   }
+  return removed;
+}
+
+// One cleanup pass (the server runs it every CLEANUP.SWEEP_INTERVAL_MS and
+// once at boot after restoring the state file). Anything removed is written
+// to CHINCHON_STATE_FILE right away, so evicted rooms don't come back after a
+// restart. `file` is injectable for tests.
+function runCleanup(now = Date.now(), opts = {}, file = STATE_FILE) {
+  const r = sweepRooms(now, opts);
+  const lobbyRemoved = sweepLobby(now, opts);
+  const changed = r.rooms.length > 0 || r.seats > 0 || lobbyRemoved > 0;
+  if (changed && file) safeSave(file);
+  return { ...r, lobby: lobbyRemoved, saved: changed && !!file };
 }
 
 // ---------------------------------------------------------------- persistence
@@ -580,6 +642,7 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
     shiftTime(room.waiting, 'since', gap);
     shiftTime(room, 'hostGraceSince', gap);
     shiftTime(room, 'startedAt', gap);
+    shiftTime(room, 'gameOverAt', gap);
     for (const p of room.players) shiftTime(p, 'lastSeen', gap);
     if (!Array.isArray(room.chat)) room.chat = [];
     if (!Array.isArray(room.banned)) room.banned = [];
@@ -744,6 +807,7 @@ function serialize(room, seatId, since) {
   }
   const { state, match, players } = room;
   if (room.gone) return { gone: true, code: room.code };
+  noteGameOver(room);
   if (!state) {
       const viewer = players.find((p) => p.id === seatId);
       const viewerSeat = viewer ? viewer.seat : 0;
@@ -1619,7 +1683,7 @@ function createServer() {
       res.end(data);
     });
   });
-  const sweepTimer = setInterval(() => { sweepRooms(); sweepLobby(); }, 5 * 60 * 1000);
+  const sweepTimer = setInterval(() => { runCleanup(); }, CLEANUP.SWEEP_INTERVAL_MS);
   srv.on('close', () => clearInterval(sweepTimer));
   return srv;
 }
@@ -1628,6 +1692,8 @@ if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   const restored = loadRooms();
   if (STATE_FILE) console.log(`State file ${STATE_FILE}: restored ${restored} room(s), ${lobby.members.size} lobby member(s)`);
+  const boot = runCleanup();
+  if (STATE_FILE) console.log(`Cleanup at boot: ${boot.rooms.length} stale room(s), ${boot.seats} departed seat(s), ${boot.lobby} idle lobby member(s) removed`);
   startPersistence();
   const srv = createServer();
   let shuttingDown = false;
@@ -1644,4 +1710,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary } };
