@@ -29,32 +29,34 @@ test('waiting screen keeps the room code and the Copy button', () => {
   assert.match(room, /id="btn-copy-code"/);
 });
 
-function phoneBlock() {
-  const i = css.indexOf('@media (max-width: 640px)');
-  assert.ok(i !== -1);
-  // Walk braces to the end of the media block.
-  let depth = 0;
-  for (let j = css.indexOf('{', i); j < css.length; j++) {
-    if (css[j] === '{') depth++;
-    else if (css[j] === '}' && --depth === 0) return css.slice(i, j + 1);
-  }
-  throw new Error('unterminated media block');
-}
+// Oct 23, 2026 (Dannel): the in-game chat sat right under the hand, so it
+// looked like part of playing the cards. It is now a round bubble floating over
+// a free corner of the table on every screen size; tapping it opens the chat
+// as a panel over the table. The old collapsed strip under the hand is gone.
 
-test('phone: collapsed chat is in the page flow (cannot cover the hand); expanded is a bottom sheet', () => {
-  const block = phoneBlock();
-  const collapsed = block.match(/#chat\.collapsed\s*\{([^}]*)\}/);
-  assert.ok(collapsed, 'phone block styles #chat.collapsed');
-  assert.match(collapsed[1], /position:\s*static/);
-  assert.ok(!/position:\s*(fixed|absolute|sticky)/.test(collapsed[1]));
-  const expanded = block.match(/\n\s*#chat\s*\{([^}]*)\}/);
-  assert.match(expanded[1], /position:\s*fixed/);
-  assert.match(expanded[1], /bottom:\s*0/);
-  assert.match(expanded[1], /safe-area-inset-bottom/);
-  // The DOM puts the chat after the hand, so in-flow means "below the hand".
-  assert.ok(html.indexOf('id="chat"') > html.indexOf('id="hand"'));
+test('in-game chat is a floating bubble + overlay panel (no strip under the hand)', () => {
+  assert.match(html, /<button id="chat-bubble"[^>]*aria-controls="chat"/);
+  assert.match(html, /id="chat-badge"/);
+  assert.match(html, /id="btn-chat-close"/);
+  for (const id of ['chat', 'chat-log', 'chat-input', 'btn-chat-send']) assert.match(html, new RegExp(`id="${id}"`));
+  const bubble = css.match(/\n\.chat-bubble\s*\{([^}]*)\}/)[1];
+  assert.match(bubble, /position:\s*fixed/);
+  assert.match(bubble, /border-radius:\s*50%/);
+  assert.match(bubble, /width:\s*52px;\s*height:\s*52px/);
+  const panel = css.match(/\n#chat\s*\{([^}]*)\}/)[1];
+  assert.match(panel, /position:\s*fixed/);
+  assert.match(panel, /display:\s*none/, 'closed until the bubble is tapped');
+  assert.match(css, /#chat\.open:not\(\.hidden\)\s*\{\s*display:\s*flex/);
+  assert.ok(!/#chat\.collapsed|chat-head::after/.test(css), 'old collapsed strip CSS removed');
+  assert.ok(!/classList\.(add|toggle)\('collapsed'\)/.test(js), 'no collapse toggling left');
 });
 
-test('desktop chat float is unchanged', () => {
-  assert.match(css, /#chat \{ position: absolute; top: 56px; right: 14px; width: 230px;/);
+test('bubble is pinned to the table corner; X, bubble and Esc close; unread badge', () => {
+  assert.match(js, /function placeChatBubble\(\)/);
+  assert.match(js, /\$\('table'\)/);
+  assert.match(js, /--cb-right/);
+  assert.match(js, /\$\('chat-bubble'\)\.addEventListener\('click', \(\) => setChatOpen\(!chatIsOpen\(\)\)\)/);
+  assert.match(js, /\$\('btn-chat-close'\)\.addEventListener\('click', \(\) => setChatOpen\(false\)\)/);
+  assert.match(js, /e\.key === 'Escape' && chatIsOpen\(\)/);
+  assert.match(js, /if \(fresh && !chatIsOpen\(\) && m\.name !== myName\) _chatUnread\+\+;/);
 });

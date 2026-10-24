@@ -1510,9 +1510,17 @@ function renderStatusBanner(v) {
 function renderChat(v) {
   const box = $('chat');
   const log = $('chat-log');
-  if (!v.started) { box.classList.add('hidden'); return; }
+  const bubble = $('chat-bubble');
+  if (!v.started) { box.classList.add('hidden'); bubble.classList.add('hidden'); setChatOpen(false); return; }
   box.classList.remove('hidden');
+  bubble.classList.remove('hidden');
+  bubble.setAttribute('aria-label', t('roomChat'));
   const msgs = v.chat || [];
+  // Messages already there when we first see this room are history, not unread.
+  const fresh = _chatRoom === state.code;
+  _chatRoom = state.code;
+  const me = (v.opponents || []).find((o) => o.isYou);
+  const myName = me ? me.name : null;
   // Reset view if the server cleared (rematch) or we rejoined a shorter log.
   if (_animState.chatSeen > msgs.length) _animState.chatSeen = 0;
   for (let i = _animState.chatSeen; i < msgs.length; i++) {
@@ -1523,12 +1531,59 @@ function renderChat(v) {
     row.querySelector('.chat-name').textContent = m.name + ': ';
     row.querySelector('.chat-text').textContent = m.text;
     log.appendChild(row);
+    if (fresh && !chatIsOpen() && m.name !== myName) _chatUnread++;
   }
   _animState.chatSeen = msgs.length;
   // Keep at most 10 rows visible (server caps at 10 too).
   while (log.children.length > 10) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
+  renderChatBadge();
+  placeChatBubble();
 }
+
+// ---- Chat bubble: a round button over a free corner of the table (the felt
+// is an oval, so its box corners are empty); the chat panel floats above the
+// table next to it. Closed by the X, the bubble again, or Esc.
+let _chatUnread = 0;
+let _chatRoom = null;
+function chatIsOpen() { return $('chat').classList.contains('open'); }
+function renderChatBadge() {
+  const badge = $('chat-badge');
+  badge.textContent = _chatUnread > 9 ? '9+' : String(_chatUnread);
+  badge.classList.toggle('hidden', _chatUnread === 0);
+}
+function setChatOpen(open) {
+  const box = $('chat');
+  box.classList.toggle('open', open);
+  $('chat-bubble').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('chat-bubble').classList.toggle('active', open);
+  if (open) {
+    _chatUnread = 0;
+    renderChatBadge();
+    placeChatBubble();
+    const log = $('chat-log');
+    log.scrollTop = log.scrollHeight;
+    $('chat-input').focus({ preventScroll: true });
+  }
+}
+// Pin the bubble to the bottom-right corner of the table box (fixed, so the
+// page layout is untouched); the open panel sits above it, right-aligned.
+function placeChatBubble() {
+  const table = $('table');
+  const bubble = $('chat-bubble');
+  if (!table || bubble.classList.contains('hidden')) return;
+  const r = table.getBoundingClientRect();
+  if (!r.width) return;
+  const root = document.documentElement.style;
+  root.setProperty('--cb-right', Math.max(4, Math.round(window.innerWidth - r.right + 6)) + 'px');
+  root.setProperty('--cb-bottom', Math.max(4, Math.round(window.innerHeight - r.bottom + 6)) + 'px');
+}
+window.addEventListener('resize', placeChatBubble);
+if (window.ResizeObserver) new ResizeObserver(placeChatBubble).observe($('table'));
+$('chat-bubble').addEventListener('click', () => setChatOpen(!chatIsOpen()));
+$('btn-chat-close').addEventListener('click', () => setChatOpen(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && chatIsOpen()) setChatOpen(false); });
+
 // Seat index -> player name, for the whose-turn marker. `lobby` is
 // players.map(...) on the server, so its index IS the seat.
 function seatName(seat) {
@@ -1537,7 +1592,7 @@ function seatName(seat) {
   return l[seat].name || '';
 }
 
-// Phones in portrait (narrow) or landscape (short): compact seat arc, chat starts collapsed.
+// Phones in portrait (narrow) or landscape (short): compact seat arc.
 const COMPACT_MQ = '(max-width: 640px), (orientation: landscape) and (max-height: 500px)';
 
 // ---- Table layout (seats around an oval felt) ----
@@ -1758,13 +1813,6 @@ async function sendChat() {
 }
 $('btn-chat-send').onclick = sendChat;
 $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
-// Tap the chat header to collapse/expand (mostly for the mobile bottom dock).
-$('chat').querySelector('.chat-head').addEventListener('click', (e) => {
-  if (e.target.id === 'btn-chat-send') return; // don't toggle when tapping Send
-  $('chat').classList.toggle('collapsed');
-});
-// Start collapsed on small screens (phones in portrait or landscape) so the board is clear on load.
-if (window.matchMedia(COMPACT_MQ).matches) $('chat').classList.add('collapsed');
 
 // Discard; to close, also send the melds the player laid out (card ids, one
 // array per meld). The server judges them: valid closes the round, invalid is a

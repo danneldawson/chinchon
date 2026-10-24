@@ -349,13 +349,37 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 #share-link { flex: 1 1 auto; min-width: 0; margin: 0; }
 #share-link-row button { margin: 0; flex: 0 0 auto; }
 
-/* Per-room chat — floats top-right, under the turn banner */
+/* Per-room chat: a round bubble pinned (fixed) to the bottom-right corner of
+   the table box, outside the oval felt, so it never covers the hand, the
+   piles or the controls. --cb-right / --cb-bottom are set from the table's
+   box by placeChatBubble(). Tapping it opens the chat as a panel floating
+   above the table, right-aligned with the bubble. z 60 > game-over (50). */
 #game { position: relative; }
-#chat { position: absolute; top: 56px; right: 14px; width: 230px; z-index: 60; /* above the game-over overlay so chat stays usable */
-  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
-  background: rgba(26, 29, 36, 0.55); backdrop-filter: blur(2px); }
+.chat-bubble {
+  position: fixed; right: var(--cb-right, 12px); bottom: var(--cb-bottom, 12px); z-index: 60;
+  width: 52px; height: 52px; margin: 0; padding: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #1a1d24; border: 2px solid rgba(255,255,255,.35);
+  box-shadow: 0 4px 14px rgba(0,0,0,.45); cursor: pointer;
+}
+.chat-bubble.active { box-shadow: 0 0 0 3px rgba(255,207,77,.45), 0 4px 14px rgba(0,0,0,.45); }
+.chat-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 10px; background: #e74c3c; color: #fff; border: 2px solid #1a1d24;
+  font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; box-sizing: border-box;
+}
+#chat { position: fixed; z-index: 60; display: none;
+  right: var(--cb-right, 12px); bottom: calc(var(--cb-bottom, 12px) + 60px);
+  width: min(320px, calc(100vw - 16px)); max-height: calc(100dvh - var(--cb-bottom, 12px) - 68px);
+  flex-direction: column; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px;
+  background: rgba(26, 29, 36, 0.96); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+#chat.open:not(.hidden) { display: flex; }
+.chat-close { margin: 0 0 0 6px; padding: 0 8px; font-size: 1.3em; line-height: 1.2; background: transparent; border: 0; color: var(--ink); cursor: pointer; }
+#chat .chat-head > span { flex: 1 1 auto; }
+#chat #btn-chat-send { margin: 0; }
 .chat-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
-#chat-log { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 0.9em; }
+#chat-log { max-height: 140px; min-height: 0; flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 0.9em; }
 .chat-msg { line-height: 1.3; }
 .chat-name { color: var(--accent); font-weight: 600; }
 .chat-text { color: var(--ink); }
@@ -506,29 +530,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   #close-options { display: flex; flex-wrap: wrap; gap: 6px; }
   #close-options .close-btn, #close-options .close-cancel { flex: 1 1 auto; margin: 0; }
 
-  /* Chat starts collapsed. COLLAPSED it is a normal bar in the page flow,
-     right below the hand/controls, so it can never cover the hand (it used to
-     be fixed to the bottom of the screen and sat on top of the last cards).
-     EXPANDED (tap the header) it becomes a bottom sheet over the board so the
-     log and input are always reachable; tap the header again to put it away.
-     (Desktop keeps the top-right float.) */
   #game { position: static; }
-  #chat {
-    position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
-    z-index: 60; border-radius: 14px 14px 0 0; max-height: 45vh; /* 60 > gameover overlay (50) */
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    background: rgba(26, 29, 36, 0.96);
-  }
-  #chat.collapsed {
-    position: static; border-radius: 12px; max-height: none; overflow: hidden;
-    margin: 12px 0 calc(8px + env(safe-area-inset-bottom, 0px)); padding-bottom: 10px;
-  }
-  #chat.collapsed .chat-head { margin-bottom: 0; }
-  #chat.collapsed #chat-log, #chat.collapsed #chat-input { display: none; }
-  .chat-head { cursor: pointer; }
-  .chat-head::after { content: ' ▲'; opacity: .7; }
-  #chat.collapsed .chat-head::after { content: ' ▼'; }
-  #chat-log { max-height: 28vh; }
 
   /* Global lobby */
   .lobby-enter { display: flex; flex-direction: column; gap: 12px; align-items: stretch; justify-content: center; margin: 14px 0; max-width: 360px; }
@@ -691,7 +693,7 @@ button, .card, .pile, input { touch-action: manipulation; }
 /* ======================================================================
    Fit to the viewport (Oct 5, 2026). The game screen never scrolls the
    page: on desktop and on phones in portrait AND landscape the whole board
-   (header, scores, turn marker, table, hand, collapsed chat) sits inside
+   (header, scores, turn marker, table, hand) sits inside
    100dvh. Layout/sizing only: the table flexes, and the piles, seats and
    hand cards scale with the space they get (container query units), so the
    look is unchanged. The lobby, landing and waiting screens fit too.
@@ -776,23 +778,15 @@ button, .card, .pile, input { touch-action: manipulation; }
 /* Game over / seat-reconnected cards stay reachable on short screens. */
 .go-card { max-height: calc(100dvh - 16px); overflow-y: auto; }
 
-/* Desktop with room beside the board: the chat floats in the right margin,
-   next to the board instead of over it. */
-@media (min-width: 1280px) and (min-height: 501px) {
-  #chat { position: fixed; top: 64px; right: auto; left: calc(50% + 376px); }
-}
-
 /* Phones, portrait. */
 @media (max-width: 640px) {
   #app:has(> #game:not(.hidden)) { padding: 4px; }
   #game { max-height: calc(100vh - 8px); max-height: calc(100dvh - 8px); padding: 8px 6px; }
   #game > #table { flex-basis: 420px; margin: 4px auto 16px; }
-  /* Collapsed chat: a compact bar at the foot of the column, under the hand. */
-  #chat.collapsed { margin: 4px 0 env(safe-area-inset-bottom, 0px); padding: 6px 12px; }
 }
 
 /* Phones, landscape (short screens): table on the left, everything else on
-   the right; the collapsed chat bar sits at the bottom of the right column. */
+   the right. */
 @media (orientation: landscape) and (max-height: 500px) {
   #app:has(> #game:not(.hidden)) {
     max-width: none;
@@ -818,23 +812,6 @@ button, .card, .pile, input { touch-action: manipulation; }
   #close-options .close-prompt { margin: 2px 0 0; }
   #close-options .close-btn, #close-options .close-cancel { margin: 0; padding: 6px 10px; font-size: 0.9em; }
 
-  /* Chat: collapsed = bar in the layout; expanded = a sheet over the right column. */
-  #chat {
-    position: fixed; top: auto; bottom: 0; right: 0; left: auto;
-    width: min(440px, 55vw); max-height: calc(100dvh - 8px); z-index: 60;
-    border-radius: 14px 0 0 0; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    background: rgba(26, 29, 36, 0.96);
-  }
-  #game > #chat.collapsed {
-    position: static; grid-row: 13; align-self: end; width: auto; max-height: none;
-    border-radius: 12px; overflow: hidden; margin: 4px 0 0; padding: 6px 12px;
-  }
-  #chat.collapsed .chat-head { margin-bottom: 0; }
-  #chat.collapsed #chat-log, #chat.collapsed #chat-input { display: none; }
-  #chat .chat-head { cursor: pointer; }
-  #chat .chat-head::after { content: ' ▲'; opacity: .7; }
-  #chat.collapsed .chat-head::after { content: ' ▼'; }
-  #chat-log { max-height: calc(100dvh - 120px); }
 }
 
 /* ---- Lobby: fills the viewport; the player list, matches and chat log

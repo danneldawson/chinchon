@@ -70,14 +70,13 @@ test('hand is one row; cards size to the row (36-66px) so 8 cards + the arrow fi
   assert.match(rule(fit, '#your-area'), /container:\s*hand \/ inline-size/);
 });
 
-test('phones (portrait): collapsed chat is a compact in-flow bar under the hand', () => {
+test('phones (portrait): game column capped to the viewport', () => {
   const phone = block(fit, '@media (max-width: 640px)');
   assert.match(rule(phone, '#game'), /max-height:\s*calc\(100dvh - 8px\)/);
-  assert.match(rule(phone, '#chat.collapsed'), /margin:\s*4px 0 env\(safe-area-inset-bottom, 0px\)/);
-  assert.ok(html.indexOf('id="chat"') > html.indexOf('id="hand"'), 'chat is after the hand in the DOM');
+  assert.ok(!/#chat/.test(phone), 'chat is a floating bubble, not part of the column');
 });
 
-test('phones (landscape): table left, the rest right; chat bar at the foot of the right column', () => {
+test('phones (landscape): table left, the rest right', () => {
   const land = block(fit, '@media (orientation: landscape) and (max-height: 500px)');
   const game = rule(land, '#game');
   assert.match(game, /display:\s*grid/);
@@ -85,27 +84,17 @@ test('phones (landscape): table left, the rest right; chat bar at the foot of th
   assert.match(game, /grid-template-columns:\s*minmax\(0, 45fr\) minmax\(0, 55fr\)/);
   assert.match(rule(land, '#game > *'), /grid-column:\s*2/);
   assert.match(rule(land, '#game > #table'), /grid-column:\s*1;\s*grid-row:\s*1 \/ -1/);
-  const collapsed = rule(land, '#game > #chat.collapsed');
-  assert.match(collapsed, /position:\s*static/);
-  assert.match(collapsed, /grid-row:\s*13/);
-  assert.match(rule(land, '#chat'), /position:\s*fixed/, 'expanded chat is an overlay sheet');
-  // The arrow hint only on the room chat, not the lobby chat head.
-  assert.match(land, /#chat \.chat-head::after/);
-  assert.ok(!/\n\s*\.chat-head::after/.test(land));
+  assert.ok(!/#chat/.test(land), 'chat is a floating bubble, not in the grid');
 });
 
-test('JS: landscape phones count as compact (seat arc + chat starts collapsed)', () => {
+test('JS: landscape phones count as compact (seat arc)', () => {
   assert.match(js, /const COMPACT_MQ = '\(max-width: 640px\), \(orientation: landscape\) and \(max-height: 500px\)';/);
   assert.match(js, /const narrow = window\.matchMedia && window\.matchMedia\(COMPACT_MQ\)\.matches;/);
-  assert.match(js, /if \(window\.matchMedia\(COMPACT_MQ\)\.matches\) \$\('chat'\)\.classList\.add\('collapsed'\);/);
-  // Defined before the top-level chat-collapse line runs.
-  assert.ok(js.indexOf('const COMPACT_MQ') < js.indexOf("matchMedia(COMPACT_MQ).matches) $('chat')"));
 });
 
-test('wide desktop: the chat floats in the margin beside the board, not over it', () => {
-  const wide = block(fit, '@media (min-width: 1280px) and (min-height: 501px)');
-  assert.match(rule(wide, '#chat'), /position:\s*fixed;\s*top:\s*64px;\s*right:\s*auto;\s*left:\s*calc\(50% \+ 376px\)/);
-  assert.match(css, /#app \{ max-width: 760px;/, 'board width the gutter maths relies on');
+test('wide desktop: no separate chat float beside the board (same bubble everywhere)', () => {
+  assert.ok(!/left:\s*calc\(50% \+ 376px\)/.test(css));
+  assert.match(css, /#app \{ max-width: 760px;/);
 });
 
 test('lobby fills the viewport; its list and chat log scroll inside their panels', () => {

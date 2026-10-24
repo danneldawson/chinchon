@@ -233,11 +233,18 @@
 
       <p id="status" class="msg"></p>
 
-      <!-- Per-room chat: short gameplay notes, last 10 messages, cleared on rematch -->
-      <div id="chat" class="hidden">
+      <!-- Per-room chat: short gameplay notes, last 10 messages, cleared on rematch.
+           A round bubble floats over a free corner of the table (never over the
+           hand, the piles or the controls); tapping it opens the chat panel. -->
+      <button id="chat-bubble" class="chat-bubble hidden" type="button" aria-label="Room chat" aria-expanded="false" aria-controls="chat">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11c0 2.2 1.1 4.2 2.9 5.6L4 21l4.6-2.4c1.1.3 2.2.4 3.4.4 5.5 0 10-3.6 10-8s-4.5-8-10-8z"/></svg>
+        <span id="chat-badge" class="chat-badge hidden"></span>
+      </button>
+      <div id="chat" class="hidden" role="dialog" aria-modal="false">
         <div class="chat-head">
           <span data-i18n="roomChat">Room chat</span>
           <button id="btn-chat-send" class="small primary" data-i18n="send">Send</button>
+          <button id="btn-chat-close" class="chat-close" type="button" aria-label="Close">&times;</button>
         </div>
         <div id="chat-log"></div>
         <input id="chat-input" type="text" maxlength="160" data-i18n-placeholder="quickNote" placeholder="Quick note to the table…" />
