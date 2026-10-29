@@ -33,7 +33,6 @@ h1 { margin: 0; letter-spacing: 2px; color: var(--accent); }
 #title { font-size: min(64px, 14vw); }
 /* Landing tagline under the CHINCHON title: same yellow, smaller. Spanish in both languages (not translated). */
 .tagline { margin: 4px 0 12px; color: var(--accent); font-size: 0.85em; font-weight: 600; }
-.sub { color: var(--dim); margin: 4px 0 18px; }
 
 label { display: block; margin: 12px 0 6px; color: var(--dim); font-size: 0.85em; }
 input {
@@ -226,17 +225,6 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .card.disabled { opacity: 0.5; cursor: default; filter: grayscale(0.2); }
 .card.disabled:hover { border-color: #d8cfb8; transform: none; }
 
-/* Smallest card used for inline mini previews (meld chips etc.). */
-.card-mini {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 52px; border-radius: 8px; background: #f7f3e9;
-  border: 1px solid #d8cfb8; font-weight: 800; font-size: 1.2em; color: #1a1d24;
-}
-.card-mini.oros { color: #c9971b; }
-.card-mini.copas { color: #d23b3b; }
-.card-mini.espadas { color: #2f6fd0; }
-.card-mini.bastos { color: #2f9e54; }
-
 /* Discard pile: one full-size FACE-UP card (never a card back), in the same
    66x96 box as the stock, so both piles read as the same size. */
 .discard-stack { position: relative; width: 66px; height: 96px; }
@@ -264,24 +252,14 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .pile.disabled-pile .discard-top { opacity: 0.5; cursor: default; filter: grayscale(0.2); }
 .pile.disabled-pile .discard-top:hover { border-color: #d8cfb8; transform: none; }
 
-#meld-list { margin-top: 10px; }
 .meld { color: var(--dim); font-size: 0.9em; margin: 2px 0; }
-.meld-chip { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
-.meld-chip .emblem { width: 18px; height: 18px; }
-.meld-chip.oros { color: var(--oros); }
-.meld-chip.copas { color: var(--copas); }
-.meld-chip.espadas { color: var(--espadas); }
-.meld-chip.bastos { color: var(--bastos); }
 
 #controls { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 #close-options .close-btn { background: #2e7d32; color: #fff; }
 .close-prompt { width: 100%; color: var(--accent); font-weight: 700; margin: 6px 0 2px; }
 .close-cancel { background: #3a3f4a; color: var(--ink); border: 1px dashed var(--accent); }
 
-/* Lobby sub-tabs + language selector */
-.sub-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.sub-tab { background: #2a2f3a; color: var(--ink); }
-.sub-tab.active { background: var(--accent); color: #1a1d24; font-weight: 700; }
+/* Lobby language selector and text links */
 .sub-tab-link { background: none; border: none; color: var(--dim); text-decoration: underline; margin-top: 10px; }
 .lang-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .lang-btn { background: #2a2f3a; color: var(--ink); padding: 4px 12px; border-radius: 14px; font-size: 0.85em; }
@@ -332,7 +310,6 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 /* Connection status dots on the scoreboard */
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .dot-green { background: #2ecc71; box-shadow: 0 0 6px rgba(46,204,113,.6); }
-.dot-yellow { background: #f1c40f; box-shadow: 0 0 6px rgba(241,196,15,.6); }
 .dot-red { background: #e74c3c; box-shadow: 0 0 6px rgba(231,76,60,.6); }
 
 .banner { margin: 10px 0; padding: 10px 14px; border-radius: 10px; font-size: 0.95em; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -385,12 +362,6 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 .chat-text { color: var(--ink); }
 #chat-input { width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(17, 22, 29, 0.7); color: var(--ink); }
 
-/* Suit-coloured inline labels (compact fallback: colour of each kind, no icon) */
-.lbl.oros, .card-mini.oros { color: var(--oros); }
-.lbl.copas, .card-mini.copas { color: var(--copas); }
-.lbl.espadas, .card-mini.espadas { color: var(--espadas); }
-.lbl.bastos, .card-mini.bastos { color: var(--bastos); }
-
 /* ---------- animations (transform/opacity only, edge-triggered) ---------- */
 .card { transition: transform .12s ease, box-shadow .12s ease; }
 .card.clickable:hover { transform: translateY(-6px); box-shadow: 0 6px 14px rgba(0,0,0,.28); }
@@ -408,7 +379,6 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 .hand.deal-anim .card:nth-child(7) { animation-delay: .24s; }
 
 @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
-.card-mini.slide-in { animation: slideIn .22s ease both; }
 /* Discard top: any NEW top slides in (this selector was missing, so opponent
    discards animated nothing); YOUR OWN discard gets a throw-pop instead. Both
    are transform/opacity only and edge-triggered from render() via onceAnimate. */
@@ -424,7 +394,6 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
    7-8 cards x every seat. The layer is created on class-add and dropped on
    animationend (onceAnimate removes the class). */
 .hand.deal-anim .card,
-.card-mini.slide-in,
 .discard-top.slide-in,
 .discard-top.thrown,
 .close-options.appear,
@@ -448,7 +417,6 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
   font-weight: 600;
   font-size: 0.95em;
 }
-.run-hint .run-cards { letter-spacing: 4px; margin-left: 6px; }
 /* 10s lifespan: hold full for 8s, fade over the last 2s, then JS hides it. */
 @keyframes runHintLife {
   0% { opacity: 0; transform: translateY(-6px); }
@@ -467,23 +435,13 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
   background: rgba(124, 77, 255, 0.16);
   animation: none; /* persist while the close is available */
 }
-.run-hint.learning .run-hint-title {
-  font-size: 1.05em;
-  margin-bottom: 6px;
-  color: var(--accent);
-}
-.run-hint.learning .run-hint-line {
-  font-weight: 600;
-  line-height: 1.5;
-  margin: 2px 0;
-}
 @media (prefers-reduced-motion: reduce) {
   .run-hint.learning { animation: none !important; opacity: 1 !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   #turn-marker.mine,
-  .card, button, .hand.deal-anim .card, .card-mini.slide-in,
+  .card, button, .hand.deal-anim .card,
   .discard-top.slide-in, .discard-top.thrown, .seat.turn, .seat.turn::before,
   .close-options.appear, #layoff-area.appear, #gameover.appear, .meld.glow { animation: none !important; transition: none !important; will-change: auto; }
   /* The run hint must still be readable without motion: show it statically. */
@@ -535,8 +493,6 @@ button, .card, .pile, input { touch-action: manipulation; }
   /* Global lobby */
   .lobby-enter { display: flex; flex-direction: column; gap: 12px; align-items: stretch; justify-content: center; margin: 14px 0; max-width: 360px; }
   .lobby-enter input { margin-top: 0; }
-  .arrow-btn { font-size: 1.05em; letter-spacing: 0.5px; }
-  .arrow-btn:hover { transform: translateX(3px); }
   /* Three separate stacked panels instead of one cramped square. */
   .lobby-panel {
     background: rgba(255,255,255,0.03); border: 1px solid var(--border);
@@ -606,10 +562,6 @@ button, .card, .pile, input { touch-action: manipulation; }
   /* Room-setup: create choices, private dialogue, room-info waiting view */
   #create-choices { display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
   #create-choices .primary { width: 100%; }
-  .dialogue-q { font-weight: 600; margin: 12px 0 6px; }
-  .dialogue-answers { display: flex; gap: 10px; }
-  .pd-answer { padding: 8px 18px; border-radius: 8px; background: var(--accent); color: #1a1d24; font-weight: 700; cursor: pointer; }
-  .pd-answer:hover { opacity: 0.9; }
 
   /* Close/Continue offer (human's discard turn, when a legal close exists). */
   .close-offer {
