@@ -353,3 +353,14 @@ test('client (Oct 8 clean-up): no "N cards" under seat names and no standing clo
   assert.ok(!/closeHelp/.test(js), 'closeHelp instruction removed');
   assert.match(js, /if \(cm\.msg\) \{\n\s+const help = document\.createElement\('div'\);/);
 });
+
+test('client (Oct 29 clean-up): no standing lay-off instruction line; a message only after a wrong tap', () => {
+  const lay = js.slice(js.indexOf('function renderLayoff('), js.indexOf('function toggleSelect('));
+  // Your turn with nothing selected: the status line is empty (just the buttons).
+  assert.match(lay, /\? `\$\{state\.selected\.size\} selected`\s*: '';/);
+  assert.ok(!/attachHelp/.test(lay), 'attachHelp is no longer the standing lay-off text');
+  // Wrong taps still explain themselves, and the message survives the 1.2s poll re-render.
+  const attach = js.slice(js.indexOf('function attachTo('), js.indexOf('function renderFalseClose('));
+  assert.match(attach, /state\.layoffMsg = \{ text: t\('attachHelp'\), until: Date\.now\(\) \+ 4000 \};/);
+  assert.match(js, /state\.layoffMsg = \{ text: t\('selectLay'\), until: Date\.now\(\) \+ 4000 \};/);
+});

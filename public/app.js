@@ -1461,7 +1461,12 @@ window.addEventListener('resize', () => fitFelt(document.getElementById('felt-me
 
 // Lay-off tap-to-attach: one selected card + tap a table meld.
 function attachTo(meldIndex) {
-  if (state.selected.size !== 1) { $('layoff-status').textContent = t('attachHelp'); return; }
+  // Only after a wrong tap (no standing lay-off instructions, Oct 29, 2026).
+  if (state.selected.size !== 1) {
+    state.layoffMsg = { text: t('attachHelp'), until: Date.now() + 4000 };
+    $('layoff-status').textContent = t('attachHelp');
+    return;
+  }
   doLayoffAction('attach', { cardId: [...state.selected][0], meldIndex });
 }
 
@@ -1763,9 +1768,11 @@ function renderLayoff(lo) {
   } else if (state.layoffMsg && Date.now() < state.layoffMsg.until) {
     $('layoff-status').textContent = state.layoffMsg.text;
   } else {
+    // No standing lay-off instructions (Oct 29, 2026, same as close mode in
+    // 842ec5c): just the buttons; a short message only after a wrong tap.
     $('layoff-status').textContent = state.selected.size
       ? `${state.selected.size} selected`
-      : t('attachHelp');
+      : '';
   }
 }
 
@@ -1883,7 +1890,10 @@ $('discard').onclick = () => { if (state.view && state.view.isYourTurn && state.
 // Lay selected (l): send the currently-selected cards as one meld.
 $('btn-layoff-lay').onclick = () => {
   if (state.selected.size >= 3) doLayoffAction('lay', { cardIds: [...state.selected] });
-  else $('layoff-status').textContent = t('selectLay');
+  else {
+    state.layoffMsg = { text: t('selectLay'), until: Date.now() + 4000 };
+    $('layoff-status').textContent = t('selectLay');
+  }
 };
 $('btn-layoff-ready').onclick = () => doLayoffAction('ready', {});
 // "Not yet": stay in the lay-off rotation without being counted.

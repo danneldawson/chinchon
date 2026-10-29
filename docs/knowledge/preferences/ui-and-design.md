@@ -110,6 +110,9 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
   - **Suggest and Auto were removed** (buttons and their API routes). Bots still play
     their lay-off automatically on the server.
   - The marker shows whose lay-off turn it is.
+  - **No standing instruction line (Oct 29, 2026),** same as close mode (`842ec5c`):
+    on your lay-off turn the status line is empty (or "N selected"); "To attach…" and
+    "Select at least 3…" show only after a wrong tap, for 4s.
   - **No lay-off timer:** no nudge and no timeout for slow players (house rule R39,
     confirmed Oct 2, 2026).
   - ~~[decided, Sep 14, unbuilt] Show **Auto + Ready** up front, and put Lay / Suggest /
