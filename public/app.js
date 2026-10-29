@@ -467,13 +467,18 @@ function applyLang() {
   if (state.view) render();
 }
 
-// Language selector
+// Language selector. One function for every .lang-btn (landing and the Rules
+// screen): set the language, light the matching button in BOTH toggles, translate
+// the page, and re-draw the rules text if the Rules screen is open.
+function setLang(l) {
+  lang = l === 'es' ? 'es' : 'en';
+  document.querySelectorAll('.lang-btn').forEach((x) => x.classList.toggle('active', x.dataset.lang === lang));
+  applyLang();
+  const rules = $('gameplay');
+  if (rules && !rules.classList.contains('hidden')) renderGameplayRules();
+}
 document.querySelectorAll('.lang-btn').forEach((b) => {
-  b.onclick = () => {
-    lang = b.dataset.lang;
-    document.querySelectorAll('.lang-btn').forEach((x) => x.classList.toggle('active', x === b));
-    applyLang();
-  };
+  b.onclick = () => setLang(b.dataset.lang);
 });
 
 let creatingRoom = false;
@@ -2248,10 +2253,9 @@ $('btn-gameplay').onclick = () => {
   clearInterval(lobbyTimer);
   createRoom('private', 2, false, false, 'solo');
 };
-// Language is handled globally by the .lang-btn handler (lobby + gameplay share
-// the same lang state), so the gameplay toggle just needs the rules re-render.
-$('btn-lang-en').onclick = () => renderGameplayRules();
-$('btn-lang-es').onclick = () => renderGameplayRules();
+// The Rules screen's English/Español buttons use the global .lang-btn handler
+// (setLang). Do NOT assign their onclick again here: that used to replace the
+// handler, so the tap re-drew the rules in the OLD language and nothing changed.
 $('btn-gameplay-close').onclick = () => {
   show($('globby'));
   $('lobby-main').classList.remove('hidden');
