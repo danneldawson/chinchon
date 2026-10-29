@@ -352,10 +352,7 @@ $('btn-create-private').onclick = () => createRoomLocked('private', 0);
 async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
   const status = $('create-status');
   const name = state.lobbyName || 'Host';
-  const res = await fetch('/api/room/new', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }),
-  }).then((r) => r.json()).catch(() => null);
+  const res = await postJson('/api/room/new', { mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
   state.seatId = res.seatId;
@@ -394,11 +391,7 @@ function wireHostStart() {
   startBtn.disabled = false; // a previous room may have left it disabled
   startBtn.onclick = async () => {
     startBtn.disabled = true;
-    const res2 = await fetch('/api/room/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: state.code, seat: state.seatId }),
-    }).then((r) => r.json()).catch(() => ({ error: t('startFailed') }));
+    const res2 = await postJson('/api/room/start', { code: state.code, seat: state.seatId }).then((r) => r.json()).catch(() => ({ error: t('startFailed') }));
     if (res2.error) {
       $('room-waiting').textContent = res2.error;
       startBtn.disabled = false;
@@ -454,10 +447,7 @@ $('btn-join').onclick = () => {
 // A bad, expired or full code shows the server's error on the join pane.
 async function joinByCode(code) {
   const name = state.lobbyName || $('lobby-name').value.trim() || t('player');
-  const res = await fetch('/api/room/join', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
-  }).then((r) => r.json());
+  const res = await postJson('/api/room/join', { code, name, lobbyToken: state.lobbyToken }).then((r) => r.json());
   if (res.error) {
     clearInterval(lobbyTimer);
     show($('lobby'));
@@ -1633,10 +1623,7 @@ function toggleSelect(id) {
 
 async function doLayoffAction(kind, payload) {
   const body = { code: state.code, seat: state.seatId, ...payload };
-  const res = await fetch(`/api/layoff/${kind}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
+  const res = await postJson(`/api/layoff/${kind}`, body).then((r) => r.json());
   // Keep a rejection (e.g. "that card does not fit") on screen for a moment;
   // the next render would otherwise replace it straight away.
   state.layoffMsg = res.error ? { text: res.error, until: Date.now() + 4000 } : null;
@@ -1649,20 +1636,23 @@ async function doLayoffAction(kind, payload) {
 // ----------------------------------------------------------- actions
 
 async function doDraw(from) {
-  const res = await fetch('/api/draw', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId, from }),
-  }).then((r) => r.json());
-  if (res.error) $('status').textContent = res.error;
-  await poll();
+  await apiPost('/api/draw', { from });
 }
 
-// Generic POST for room control actions (wait/continue/rematch).
-async function apiPost(path) {
-  const res = await fetch(path, {
+// POST a JSON body. Returns the raw fetch promise, so each caller keeps its
+// own response and error handling exactly as before.
+function postJson(path, body) {
+  return fetch(path, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  }).then((r) => r.json());
+    body: JSON.stringify(body),
+  });
+}
+
+// Generic POST for a game or room-control action (draw, wait, continue) for
+// this seat: show any server error in the status line,
+// then refresh the table. `extra` adds fields after code and seat.
+async function apiPost(path, extra = {}) {
+  const res = await postJson(path, { code: state.code, seat: state.seatId, ...extra }).then((r) => r.json());
   if (res.error) $('status').textContent = res.error;
   await poll();
 }
@@ -1673,10 +1663,7 @@ async function sendChat() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  await fetch('/api/room/chat', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId, text }),
-  }).then((r) => r.json()).catch(() => null);
+  await postJson('/api/room/chat', { code: state.code, seat: state.seatId, text }).then((r) => r.json()).catch(() => null);
   await poll();
 }
 $('btn-chat-send').onclick = sendChat;
@@ -1691,10 +1678,7 @@ async function doDiscard(card, close = false, melds = null) {
   // Mark this as OUR discard so the next render plays the throw-pop on the new
   // discard top (see render's discard block). One-shot; cleared when it fires.
   _animState.pendingThrow = true;
-  const res = await fetch('/api/discard', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }).then((r) => r.json());
+  const res = await postJson('/api/discard', body).then((r) => r.json());
   // On a rejected discard the top never changes, so clear the flag now — else it
   // would leak and mis-fire the throw on the next player's (opponent's) discard.
   if (res.error) { $('status').textContent = res.error; _animState.pendingThrow = false; }
@@ -1705,18 +1689,12 @@ async function doDiscard(card, close = false, melds = null) {
 // server to advance the rule queue and unpause; render() will hide the prompt.
 $('btn-tutorial-continue').onclick = async () => {
   if (!state.code || !state.seatId) return;
-  await fetch('/api/tutorial/ack', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  }).catch(() => null);
+  await postJson('/api/tutorial/ack', { code: state.code, seat: state.seatId }).catch(() => null);
   if (state.view) render(state.view);
 };
 $('btn-alone-ok').onclick = async () => {
   clearInterval(state.pollTimer);
-  await fetch('/api/room/leave', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  }).catch(() => null);
+  await postJson('/api/room/leave', { code: state.code, seat: state.seatId }).catch(() => null);
   clearSeat(state.code);
   clearPlaying();
   state.code = null;
@@ -1748,18 +1726,12 @@ $('btn-layoff-pass').onclick = () => doLayoffAction('pass', {});
 
 // ---- Game over (Slice 3) ----
 $('btn-rematch').onclick = async () => {
-  await fetch('/api/room/rematch', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  });
+  await postJson('/api/room/rematch', { code: state.code, seat: state.seatId });
   state.selected.clear();
   await poll();
 };
 $('btn-hold').onclick = async () => {
-  await fetch('/api/room/rematch/hold', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  });
+  await postJson('/api/room/rematch/hold', { code: state.code, seat: state.seatId });
   await poll();
 };
 // Host kick: send a player back to the lobby (all-human games only; the
@@ -1769,10 +1741,7 @@ $('scoreboard').addEventListener('click', (e) => {
   if (!btn) return;
   if (!window.confirm('Kick this player out of the match?')) return;
   const target = btn.getAttribute('data-kick');
-  fetch('/api/room/kick', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId, target }),
-  }).then(() => poll()).catch(() => null);
+  postJson('/api/room/kick', { code: state.code, seat: state.seatId, target }).then(() => poll()).catch(() => null);
 });
 
 // Leave the current match (with confirmation) and return to the lobby.
@@ -1785,10 +1754,7 @@ $('btn-leave-match').onclick = async () => {
     ? 'Leave this match? This will end the game for everyone.'
     : 'Leave this match? You’ll go back to the lobby.';
   if (!window.confirm(msg)) return;
-  const res = await fetch('/api/room/leave', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  }).then((r) => r.json()).catch(() => null);
+  const res = await postJson('/api/room/leave', { code: state.code, seat: state.seatId }).then((r) => r.json()).catch(() => null);
   if (res && res.error) { alert(res.error); return; }
   // Return to the LOBBY (players/rooms view), not the global landing screen.
   clearInterval(state.pollTimer);
@@ -1804,10 +1770,7 @@ $('btn-leave-match').onclick = async () => {
 };
 $('btn-tolobby').onclick = async () => {
   // Leave the room server-side (room + code + chat stay for the others).
-  await fetch('/api/room/leave', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: state.code, seat: state.seatId }),
-  }).catch(() => null);
+  await postJson('/api/room/leave', { code: state.code, seat: state.seatId }).catch(() => null);
   clearInterval(state.pollTimer);
   clearSeat(state.code);
   clearPlaying();
@@ -1849,10 +1812,7 @@ async function enterLobby() {
   const name = $('lobby-name').value.trim();
   if (!name) { $('lobby-name').focus(); enteringLobby = false; return; }
   $('btn-lobby-enter').disabled = true;
-  const res = await fetch('/api/lobby/enter', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
-  }).then((r) => r.json()).catch(() => null);
+  const res = await postJson('/api/lobby/enter', { name }).then((r) => r.json()).catch(() => null);
   $('btn-lobby-enter').disabled = false;
   enteringLobby = false;
   if (!res || res.error) {
@@ -1892,10 +1852,7 @@ async function lobbyPoll() {
   // visible instead of showing "Players here (0)". Guard against a loop.
   if (!lobbyPoll._healing && state.lobbyName && !res.members.some((m) => m.name === state.lobbyName)) {
     lobbyPoll._healing = true;
-    const r2 = await fetch('/api/lobby/enter', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: state.lobbyName }),
-    }).then((r) => r.json()).catch(() => null);
+    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName }).then((r) => r.json()).catch(() => null);
     if (r2 && r2.token) {
       state.lobbyToken = r2.token;
       state.lobbyName = r2.name;
@@ -1973,10 +1930,7 @@ function renderLobbyMatches(matches) {
 async function joinPublicOrRematch(code, isFresh) {
   if (isFresh) {
     const name = state.lobbyName || $('lobby-name').value.trim() || 'Player';
-    const res = await fetch('/api/room/join', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, name, lobbyToken: state.lobbyToken }),
-    }).then((r) => r.json());
+    const res = await postJson('/api/room/join', { code, name, lobbyToken: state.lobbyToken }).then((r) => r.json());
     if (res.error) { alert(res.error); return; }
     state.code = code;
     state.seatId = res.seatId;
@@ -1996,10 +1950,7 @@ async function joinPublicOrRematch(code, isFresh) {
 }
 
 async function joinRematch(code) {
-  const res = await fetch('/api/room/join-rematch', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, name: state.lobbyName || $('lobby-name').value.trim() || 'Player' }),
-  }).then((r) => r.json());
+  const res = await postJson('/api/room/join-rematch', { code, name: state.lobbyName || $('lobby-name').value.trim() || 'Player' }).then((r) => r.json());
   if (res.error) { alert(res.error); return; }
   state.code = res.code;
   state.seatId = res.seatId;
@@ -2020,10 +1971,7 @@ $('btn-lobby-chat-send').onclick = async () => {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  await fetch('/api/lobby/chat', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: state.lobbyToken, text }),
-  }).catch(() => null);
+  await postJson('/api/lobby/chat', { token: state.lobbyToken, text }).catch(() => null);
   await lobbyPoll();
 };
 $('lobby-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-lobby-chat-send').click(); });
@@ -2145,10 +2093,7 @@ $('btn-gameplay-tutorial').onclick = () => {
 // localStorage, stop polling, and return to the landing (name-entry) screen.
 $('btn-leave-lobby').onclick = async () => {
   if (!window.confirm('Leave the lobby? You’ll go back to the start screen.')) return;
-  await fetch('/api/lobby/leave', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: state.lobbyToken }),
-  }).catch(() => null);
+  await postJson('/api/lobby/leave', { token: state.lobbyToken }).catch(() => null);
   clearInterval(lobbyTimer);
   clearLobby();
   state.lobbyToken = null;
