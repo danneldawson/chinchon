@@ -16,7 +16,7 @@ worked with Dannel on the game from **Aug 2 to Sep 14, 2026**. The sources were:
 
 Everything was rewritten into clean documents. Where sources disagreed, the newest
 statement from Dannel wins, and the disagreement is recorded. Four rulings Dannel made
-on **Oct 2, 2026**, after Hermes was retired, have been added (house rules R37–R40).
+on **Oct 2, 2026**, after Hermes was retired, have been added (house rules R37–R40), and his Oct 29, 2026 ruling R41.
 
 **Public and private parts.** This public copy holds the rules, design notes,
 engineering docs, scripts and the decision log. The session transcripts and the
@@ -74,7 +74,7 @@ On Oct 2, 2026 Dannel settled four rule questions. **All four are in the code no
 |---|---|
 | `README.md` | This index, provenance and the caveats above |
 | **rules/** | |
-| `rules/house-rules.md` | **THE authoritative family ruleset**: 40 numbered rules (R1–R40, including the Oct 2, 2026 rulings R37–R40), quick-reference table, code map, open question Q3 and resolved conflicts (C1–C15) |
+| `rules/house-rules.md` | **THE authoritative family ruleset**: 41 numbered rules (R1–R41, including the Oct 2, 2026 rulings R37–R40 and the Oct 29, 2026 ruling R41), quick-reference table, code map, open question Q3 and resolved conflicts (C1–C15) |
 | `rules/lobby-and-session.md` | Landing, lobby, room types (solo/public/private/tutorial), room codes and SeatIDs, start/leave/kick, chat, reconnect/away rule, rematch/Hold, sweeps, open questions |
 | **preferences/** | |
 | `preferences/ui-and-design.md` | Cards and suit emblems, theme, piles and card-back photo, hand interaction, close/lay-off UI, animation rules, mobile, i18n, family-bot roster, the Sep 14 redesign spec, deferred/cancelled items |

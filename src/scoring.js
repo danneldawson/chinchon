@@ -175,18 +175,23 @@ function allCloseSplits(hand) {
 
 // Can this hand legally close the round?
 //   - Two combinations covering all 7 cards, nothing left over  -> -10
-//   - Two combinations of 3 + 3, one leftover card of value <= 5 -> leftover counts
+//   - Two 3-card combinations, or one 6-card combination, plus one leftover
+//     card of value <= 5 -> the leftover's value (R19, R41: a 6-card meld counts
+//     as 3 + 3)
 //   - A chinchon (all 7 in one meld) -> wins the whole game
 //
-// Note: this judges only bestSplit's ONE decomposition and requires two melds,
-// so it does not accept the "single 6-card meld + 1 leftover <= 5" close that
-// allCloseSplits lists. The Close button (server closeAvailable) uses
-// allCloseSplits; a player's own declared close is judged by
-// validateDeclaredClose. canClose is the engine/bot fallback when no
-// declaration is given.
-function canClose(hand) {
-  const split = bestSplit(hand);
+// Single source of truth for "is this a close": a hand closes exactly when
+// allCloseSplits finds a legal close, the same check the Close button uses
+// (server closeAvailable). bestSplit only chooses WHICH melds an engine close
+// shows: its least-deadwood split is kept when that split is itself a legal
+// close, so every close this accepted before is unchanged. When the least-
+// deadwood split is not a close (e.g. one 5-card meld with two low cards left)
+// but another split is, the best legal close (lowest score) is used instead.
+// A player's own declared close is judged by validateDeclaredClose; canClose is
+// used by the bots and by engine paths with no declaration.
+const CLOSE_REASON = { chinchon: 'chinchon', clean: 'closed clean', leftover: 'closed with leftover' };
 
+function judgeSplit(split) {
   if (split.chinchon) {
     return { ok: true, reason: 'chinchon', score: 0, split };
   }
@@ -213,6 +218,23 @@ function canClose(hand) {
   }
 
   return { ok: false, reason: 'too many leftover cards', split };
+}
+
+function canClose(hand) {
+  const verdict = judgeSplit(bestSplit(hand));
+  if (verdict.ok) return verdict;
+
+  const closes = allCloseSplits(hand);
+  if (closes.length === 0) return verdict; // not a close: same reason as always
+
+  const best = closes[0]; // sorted best-first
+  const split = {
+    melds: best.melds,
+    leftovers: best.leftovers,
+    deadwood: deadwoodValue(best.leftovers),
+    chinchon: best.kind === 'chinchon',
+  };
+  return { ok: true, reason: CLOSE_REASON[best.kind], score: best.score, split };
 }
 
 // ---------------------------------------------------------------------------

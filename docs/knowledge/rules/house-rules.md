@@ -12,6 +12,7 @@ test that asserted the wrong behaviour.
 - Dannel's own words in the chat history (the transcripts, kept in a separate private
   repo, danneldawson/chinchon-transcripts).
 - Dannel's rulings of Oct 2, 2026 (R37–R40).
+- Dannel's ruling of Oct 29, 2026 (R41).
 
 **When sources disagree,** the newest statement from Dannel wins, and the disagreement
 is listed under [Open questions & resolved conflicts](#open-questions--resolved-conflicts).
@@ -178,7 +179,7 @@ over** (a 4 and a 3), you score **−10** for the round.
   legal. Dannel confirmed this on Sep 12, and a test pins it. In the family's words:
   "6 card meld is a legal close but normally people don't close but wait for the needed
   card to Chinchon and win the game."
-- Don't "tidy" this into a two-melds-only rule.
+- Don't "tidy" this into a two-melds-only rule. Re-confirmed Oct 29, 2026 as **R41**.
 
 **R20. When you can't close.** A leftover worth **6 or more**, or **more than one**
 leftover card, blocks the close completely.
@@ -325,7 +326,23 @@ are in `lobby-and-session.md` §3. *Code status:* implemented in `6ef221e`
 (`PUBLIC_COUNTDOWN_MS` / `PRIVATE_HUMAN_COUNTDOWN_MS` = 60s in `server.js`; the
 separate rematch window, `REMATCH_COUNTDOWN_MS`, is still 90s).
 
-**Total: 40 numbered house rules (R1–R40).** Presentation rules (suit emblems, colours,
+### I. Ruling confirmed by Dannel on Oct 29, 2026
+
+**R41. A 6-card meld closes as 3 + 3.** One 6-card meld (run or set) plus **one
+leftover card worth 5 or less** is a valid close: the 6-card meld counts as two
+3-card melds, so it scores exactly like any other 3 + 3 + leftover close (the
+closer pays the leftover's value, or 0 if they shed it in the lay-off, R29).
+Dannel's words, Oct 29, 2026: "of course, it would be silly since one more card would
+be needed to win the game but yes that 6 card meld can close as split 3 and 3". This
+restates R19. A 6-card run may use the wild (one per meld, R5); a 6-card set is
+possible because two decks give 8 copies of each rank.
+*Code status:* branch `close-6meld`. Every judge already accepted this hand. The same
+work made `canClose` (bots and engine) agree with the Close button's check
+(`allCloseSplits`) in every case: before, it missed rare closes whose least-deadwood
+split was not itself a close (e.g. one 5-card meld with two low cards left, when a
+3 + 3 + leftover close also existed). Tests: `test/close-6meld.test.js`.
+
+**Total: 41 numbered house rules (R1–R41).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
 room and session behaviour is in `lobby-and-session.md`.
 
