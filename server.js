@@ -1095,6 +1095,21 @@ function handleApi(req, res, url) {
   const p = url.pathname;
   const method = req.method;
 
+  // Shared start of most POST routes: read the JSON body, look up body.code,
+  // and answer 404 if the room is missing. The messages match what each route
+  // used to send on its own.
+  const withRoom = (handler) => readBody(req).then((body) => {
+    const room = rooms.get(body.code);
+    if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return handler(body, room);
+  });
+  // Same, for routes that also need a dealt game (room.state).
+  const withRoomState = (handler) => readBody(req).then((body) => {
+    const room = rooms.get(body.code);
+    if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+    return handler(body, room);
+  });
+
   // ---- global lobby ----------------------------------------------------
   if (method === 'POST' && p === '/api/lobby/enter') {
     return readBody(req).then((body) => {
@@ -1207,9 +1222,7 @@ function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && p === '/api/room/join') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       // Reserve ".Bot" usernames for our official bots only.
       if (isReservedName(body.name)) return sendJson(res, 400, { error: 'that name is reserved for bots' });
 
@@ -1254,9 +1267,7 @@ function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && p === '/api/room/start') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       if (room.started) return sendJson(res, 400, { error: 'already started' });
       if (body.seat !== room.hostId) return sendJson(res, 403, { error: 'only the host can start' });
       const humans = room.players.filter((pl) => !pl.isBot);
@@ -1283,9 +1294,7 @@ function handleApi(req, res, url) {
   // Host controls when a player is away: wait/extend, or continue without them
   // (the away player becomes a spectator for the rest of the match).
   if (method === 'POST' && p === '/api/room/wait') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.id !== room.hostId) return sendJson(res, 403, { error: 'only the host can wait' });
       if (room.waiting) room.waiting.since = Date.now(); // extend the window
@@ -1295,9 +1304,7 @@ function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && p === '/api/room/continue') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.id !== room.hostId) return sendJson(res, 403, { error: 'only the host can continue' });
       if (!room.waiting) return sendJson(res, 400, { error: 'nobody is waiting' });
@@ -1317,9 +1324,7 @@ function handleApi(req, res, url) {
 
   // Play again: same room, same players, fresh match from scratch.
   if (method === 'POST' && p === '/api/room/rematch') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only a player can rematch' });
       if (room.players.length < 2) return sendJson(res, 400, { error: 'need 2+ players to rematch' });
@@ -1334,9 +1339,7 @@ function handleApi(req, res, url) {
   // Lobby watchers (or anyone not yet in the room) join a rematch during its
   // pending window. Same rules as a normal join: humans only, cap 7.
   if (method === 'POST' && p === '/api/room/join-rematch') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       if (!room.pending) return sendJson(res, 403, { error: 'no rematch pending' });
       if (room.players.filter((pl) => !pl.isBot).length >= 7) return sendJson(res, 400, { error: 'room full (7 humans)' });
       const seat = room.players.length;
@@ -1416,9 +1419,7 @@ function handleApi(req, res, url) {
 
   // A player leaves the room. Allowed any time.
   if (method === 'POST' && p === '/api/room/leave') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer) return sendJson(res, 404, { error: 'not in this room' });
       const humansBefore = room.players.filter((pl) => !pl.isBot).length;
@@ -1439,9 +1440,7 @@ function handleApi(req, res, url) {
   // Host kicks another player (human or bot). The kicked player is sent back to
   // the lobby. A bot host is NEVER allowed to kick — only a human host.
   if (method === 'POST' && p === '/api/room/kick') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const host = room.players.find((pl) => pl.id === room.hostId);
       if (!host || host.isBot) return sendJson(res, 403, { error: 'only a human host can kick' });
       if (body.seat !== room.hostId) return sendJson(res, 403, { error: 'only the host can kick' });
@@ -1462,9 +1461,7 @@ function handleApi(req, res, url) {
   // game proceed. Advances the rule queue by one; when all rules are read the
   // room stops pausing and play continues to the end on its own.
   if (method === 'POST' && p === '/api/tutorial/ack') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       if (!room.tutorial) return sendJson(res, 400, { error: 'not a tutorial room' });
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only the player can ack' });
@@ -1481,9 +1478,7 @@ function handleApi(req, res, url) {
   // Per-room chat: short gameplay notes only, capped at the last 10 messages.
   // Available while the room is up; cleared on rematch (fresh match).
   if (method === 'POST' && p === '/api/room/chat') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room) return sendJson(res, 404, { error: 'no such room' });
+    return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || viewer.isBot) return sendJson(res, 403, { error: 'only players can chat' });
       const text = String(body.text || '').trim().slice(0, 160);
@@ -1495,9 +1490,7 @@ function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && p === '/api/draw') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+    return withRoomState((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'draw') return sendJson(res, 400, { error: 'not the draw phase' });
@@ -1514,9 +1507,7 @@ function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && p === '/api/discard') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+    return withRoomState((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'discard') return sendJson(res, 400, { error: 'not the discard phase' });
@@ -1642,9 +1633,7 @@ function handleApi(req, res, url) {
   // reach a close on demand. It only exists when the server is started with
   // CHINCHON_TEST_HOOKS=1; production never sets it, so there it is a 404.
   if (method === 'POST' && p === '/api/test/rig' && process.env.CHINCHON_TEST_HOOKS === '1') {
-    return readBody(req).then((body) => {
-      const room = rooms.get(body.code);
-      if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+    return withRoomState((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
       if (!viewer) return sendJson(res, 404, { error: 'no such seat' });
       const ok = rigHand(room.state, viewer.seat, body.cardIds || []);
