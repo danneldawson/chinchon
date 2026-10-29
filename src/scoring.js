@@ -1,6 +1,6 @@
 'use strict';
 
-const { isWild, cardValue } = require('./cards');
+const { cardValue } = require('./cards');
 const { isValidMeld, deadwoodValue } = require('./melds');
 
 // Chinchon close-scoring: bestSplit (auto) plus allCloseSplits (player choice).

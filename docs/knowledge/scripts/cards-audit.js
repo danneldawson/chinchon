@@ -155,12 +155,18 @@ check('the last suit is reached via `default:` (silent fallback)',
   /default:/.test(emblemSrc),
   'an unknown/misspelled suit silently renders the fallback emblem');
 
+// SUIT_ICON / cardLabel were removed from the client as unused (Oct 29 cleanup);
+// check them only if a project still has them.
 const iconLine = (appSrc.match(/const SUIT_ICON = \{[^}]*\}/) || [''])[0];
-for (const suit of cards.SUITS) check(`SUIT_ICON has ${suit}`, iconLine.includes(`${suit}:`));
-check('cardLabel cannot print ? for a real suit',
-  cards.SUITS.every((s) => iconLine.includes(`${s}:`)));
+if (iconLine) {
+  for (const suit of cards.SUITS) check(`SUIT_ICON has ${suit}`, iconLine.includes(`${suit}:`));
+  check('cardLabel cannot print ? for a real suit',
+    cards.SUITS.every((s) => iconLine.includes(`${s}:`)));
+}
 
+// .card-mini and .meld-chip are optional (removed as unused CSS on Oct 29).
 for (const cls of ['.card', '.card-mini', '.discard-top', '.meld-chip']) {
+  if (cls !== '.card' && cls !== '.discard-top' && !cssSrc.includes(cls)) continue;
   const missing = cards.SUITS.filter((s) => !cssSrc.includes(`${cls}.${s.toLowerCase()}`));
   check(`CSS colours all 4 suits for ${cls}`, missing.length === 0, missing.join(','));
 }

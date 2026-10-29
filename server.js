@@ -20,9 +20,7 @@ const turn = require('./src/turn');
 const scoring = require('./src/scoring');
 const matchMod = require('./src/match');
 const bot = require('./src/bot');
-const layoffCore = require('./src/layoff');
 const layoffInteractive = require('./src/layoff-interactive');
-const cards = require('./src/cards');
 const steps = require('./src/steps');
 const visitorsMod = require('./src/visitors');
 
@@ -223,7 +221,6 @@ function startPendingMatch(room) {
 
 
 const rooms = new Map();
-let roomSeq = 0;
 
 function makeCode() {
   // A real 4-letter word, English or Spanish, so the code can be read aloud
@@ -333,7 +330,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
 // Advance the round state by auto-playing any bot seats. Returns when the
 // next actor is a human, or the round phase is no longer 'draw'/'discard'.
 function runBotTurns(room) {
-  const { state, match, players } = room;
+  const { state, players } = room;
   // Tutorial: arm the pause if the human is about to start their turn. Done
   // here (before the loop) so it also covers the case where the human is the
   // very first actor and the loop returns immediately.
@@ -948,7 +945,6 @@ function serialize(room, seatId, since) {
   // Tutorial gating: room.tutorialPaused is a real flag maintained by
   // maybePauseForTutorial() at each turn transition (see runBotTurns / ack).
   // While paused, the human cannot act; the client shows the current rule.
-  const TUTORIAL_RULES_TOTAL = 8;
   const tutorialActive = room.tutorial && state && !match.gameOver;
   const tutorialPaused = !!room.tutorialPaused && tutorialActive;
 
@@ -1030,19 +1026,6 @@ function isReservedName(name) {
   return typeof name === 'string' && /\.Bot$/i.test(name.trim());
 }
 
-// Tutorial rooms: exactly one bot plays with its hand face-up (visible to all),
-// the other plays hidden and is revealed only at game over. Which is which is
-// chosen at random so the lesson isn't tied to a fixed seat.
-function assignTutorialReveals(players) {
-  const bots = players.filter((p) => p.isBot);
-  // Fixed, genderless personas: Pro.Bot (older English professor) and Dee.Bot
-  // (young American). Which one plays open vs hidden is random per the brief.
-  const names = ['Pro.Bot', 'Dee.Bot'];
-  bots.forEach((b, i) => { b.name = names[i % names.length]; });
-  if (bots.length < 2) { bots.forEach((b) => { b.reveal = true; }); return; }
-  const openIdx = Math.floor(Math.random() * bots.length);
-  bots.forEach((b, i) => { b.reveal = i === openIdx; });
-}
 //   1. An explicit tunnel URL dropped into .tunnel-url (local dev via cloudflared).
 //   2. The actual Host the request arrived on (correct for any deployed host
 //      like Railway, which listens on a non-3000 port behind its own domain).

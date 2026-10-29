@@ -7,13 +7,12 @@ window.addEventListener('error', (e) => {
     const msg = '⚠ ' + (e.message || e.error || 'client error');
     if (box && box.textContent !== msg) box.textContent = msg;
     console.error('uncaught', e.message, e.error);
-  } catch (_) {}
+  } catch (_) { /* never let the error reporter itself throw */ }
 });
 
 // Chinchon browser client. Talks to the server via fetch and renders state.
 // State lives server-side; we only ever send our seat's actions.
 
-const SUIT_ICON = { Oros: '●', Copas: '♥', Espadas: '♠', Bastos: '♣' };
 
 // ----------------------------------------------------------- i18n
 const I18N = {
@@ -363,9 +362,6 @@ const $ = (id) => {
 // room code on the same phone.
 function persistSeat(code, seatId) {
   try { localStorage.setItem('chinchon:' + code, seatId); } catch { /* ignore */ }
-}
-function loadSeat(code) {
-  try { return localStorage.getItem('chinchon:' + code) || null; } catch { return null; }
 }
 function clearSeat(code) {
   try { localStorage.removeItem('chinchon:' + code); } catch { /* ignore */ }
@@ -905,10 +901,6 @@ async function poll() {
   state.view = res;
   ingestSteps(res);
   render();
-}
-
-function cardLabel(c) {
-  return `${c.rank}${SUIT_ICON[c.suit] || '?'}`;
 }
 
 // Original Spanish-deck suit emblems (Fournier-STYLE, not the copyrighted art):

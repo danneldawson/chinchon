@@ -9,7 +9,7 @@
 //   - 'cautious'  : only dumps chinchon or a clean -10; otherwise holds.
 
 const { cardValue, rankIndex, RANKS } = require('./cards');
-const { bestSplit, canClose } = require('./scoring');
+const { bestSplit } = require('./scoring');
 const { canAttach } = require('./layoff');
 const { closeOptions, topOfDiscard } = require('./turn');
 
