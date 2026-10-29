@@ -83,7 +83,11 @@ function stepsFor(room, sinceRaw, viewerSeat) {
   const oldest = room.steps.length ? room.steps[0].seq : last + 1;
   if (!room.steps.length || since < oldest - 1) return { stepSeq: last, steps: [], snap: true };
   const raw = room.steps.filter((s) => s.seq > since);
-  const play = raw.filter((s) => s.type === 'draw' || s.type === 'discard' || s.type === 'close' || s.type === 'falseClose');
+  // A circuit is each seat drawing and discarding once. A close or false close
+  // rides on its discard, so it does not count: a bot that closes right after
+  // your discard is replayed, not snapped (that was a 1-in-5 flake in
+  // watch-turns.test.js, and a missed replay in real games).
+  const play = raw.filter((s) => s.type === 'draw' || s.type === 'discard');
   if (play.length > 2 * n) return { stepSeq: last, steps: [], snap: true };
   return {
     stepSeq: last,

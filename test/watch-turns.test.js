@@ -165,8 +165,12 @@ test('HTTP: a bot close records the melds, then one lay-off step per lay and Rea
   const bot = v.scoreboard.find((p) => p.isBot);
   const rig = await api('POST', '/api/test/rig', { code, seat: bot.id, cardIds: CLEAN });
   assert.strictEqual(rig.status, 200, rig.json.error || 'rig');
-  const card = v.yourHand[v.yourHand.length - 1];
-  await api('POST', '/api/discard', { code, seat, cardId: card.id });
+  // The rig may swap one of those cards out of OUR hand, so re-read it and throw
+  // a card we still hold (this was a ~15% flake: the discard 400'd).
+  v = await state(code, seat, cursor);
+  const card = v.yourHand.slice().reverse().find((c) => !CLEAN.includes(c.id));
+  const thrown = await api('POST', '/api/discard', { code, seat, cardId: card.id });
+  assert.strictEqual(thrown.status, 200, thrown.json.error || 'discard');
   const after = await state(code, seat, cursor);
   assert.strictEqual(after.snap, false, 'a close plus one lay-off is not a whole round behind');
   const close = after.steps.find((s) => s.type === 'close');
