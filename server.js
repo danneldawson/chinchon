@@ -1076,13 +1076,32 @@ function sendJson(res, code, obj) {
   res.end(body);
 }
 
+// Read a POST body as a JSON object. Anything that is not a JSON object
+// (bad JSON, or valid JSON such as null, an array, a number or a string) reads
+// as {}, so every handler can rely on body.x without a null check; each one
+// already answers 400/404 for missing fields. A body over 1 MB is refused with
+// 413 (via the catch in createServer) instead of hanging the request.
+const MAX_BODY_CHARS = 1e6;
 function readBody(req) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 1e6) req.destroy(); });
-    req.on('end', () => {
-      try { resolve(data ? JSON.parse(data) : {}); } catch { resolve({}); }
+    let tooBig = false;
+    req.on('data', (c) => {
+      if (tooBig) return;
+      data += c;
+      if (data.length > MAX_BODY_CHARS) {
+        tooBig = true;
+        data = '';
+        reject(Object.assign(new Error('request body too large'), { status: 413 }));
+      }
     });
+    req.on('end', () => {
+      if (tooBig) return;
+      let body = {};
+      try { body = data ? JSON.parse(data) : {}; } catch { body = {}; }
+      resolve(body && typeof body === 'object' && !Array.isArray(body) ? body : {});
+    });
+    req.on('error', (e) => reject(e));
   });
 }
 
@@ -1659,7 +1678,17 @@ function createServer() {
     } catch { /* counting must never break a request */ }
     if (url.pathname.startsWith('/api/')) {
       noteStateChange(req.method === 'POST');
-      return handleApi(req, res, url);
+      // One bad request must never take the server (and every match) down: a
+      // throw or rejected promise inside a handler answers 500 (or 413 for an
+      // oversized body) and is logged, and the process keeps running.
+      return Promise.resolve()
+        .then(() => handleApi(req, res, url))
+        .catch((e) => {
+          const status = (e && e.status) || 500;
+          if (status === 500) console.error('API error', req.method, url.pathname, e && e.stack ? e.stack : e);
+          if (!res.headersSent) sendJson(res, status, { error: status === 413 ? 'request body too large' : 'server error' });
+          else res.end();
+        });
     }
     // Serve static files from public/.
     let rel = url.pathname === '/' ? '/index.html' : url.pathname;
