@@ -49,26 +49,24 @@ const I18N = {
     roomChat: 'Room chat',
     quickNote: 'Quick note to the table…',
     reshuffle: 'Stock reshuffled',
-    chinchon: 'CHINCHON — win!',
     close: 'Close',
     makeMeld: 'Make meld',
     discardClose: 'Discard & close',
     cancel: 'Cancel',
-    pickOneDiscard: 'Select the one card to throw',
+    pickOneDiscard: 'Select one card to discard',
     needMeld: 'Make at least one meld first',
     falseClose: 'False close',
     handShown: 'hand shown to everyone',
-    attachHelp: 'To attach: select one card, then tap a meld on the table',
-    discard: 'discard',
+    attachHelp: 'Select one card, then tap a meld on the table to attach it',
     out: 'OUT',
     soloName: 'Your name',
     soloBots: 'Number of bots (1–6)',
     startSolo: 'Start solo game',
-    layoffTitle: 'Lay-off — reveal your combinations',
+    layoffTitle: 'Lay-off — show your melds',
     table: 'Table',
     yourCards: 'Your remaining cards',
     laySelected: 'Lay selected',
-    ready: 'Ready — count me',
+    ready: 'Ready — score my hand',
     waitingLayoff: 'Waiting for others to lay off…',
     pass: 'Not yet',
     goTitle: 'Match over',
@@ -84,6 +82,7 @@ const I18N = {
     resume: 'Resume',
     startNow: 'Start now',
     // Lobby (global landing) strings — these were previously hardcoded English.
+    rules: 'Rules',
     lobbyTitle: 'LOBBY',
     playersHere: 'Players here',
     activeMatches: 'Active matches',
@@ -112,10 +111,10 @@ const I18N = {
     subJoin: 'Have a code? Join',
     learnSessionShort: 'Learning session',
     learnSessionShortDesc: 'Practice with up to 3 players (and bots). No pressure — learn the game.',
-    waitExtend: 'Wait / extend',
+    waitExtend: 'Wait longer',
     continueWithout: 'Continue without them',
-    spectating: 'You are spectating — you rejoin the next match.',
-    selectLay: 'Select ≥3 cards to lay',
+    spectating: 'You’re watching — you’ll rejoin in the next match.',
+    selectLay: 'Select at least 3 cards to lay down',
     layLabel: 'Lay:',
     shedLabel: 'Shed:',
     tutorialContinue: 'Continue',
@@ -152,9 +151,9 @@ const I18N = {
     enterRoomCodeMsg: 'Enter the room code.',
     createRoomError: 'Could not create the room. Try again.',
     // Reclaim-flow strings
-    seatReconnectedMsg: 'This seat was reconnected from another device.',
-    makeANewGame: 'Make a new game',
-    shareCodeNote: 'Share this code with the other players however you like.',
+    seatReconnectedMsg: 'Your seat was opened on another device.',
+    makeANewGame: 'Start a new game',
+    shareCodeNote: 'Send this code to the other players so they can join.',
     playersJoined: 'Players joined:',
     joinCodePlaceholder: 'e.g. LUNA',
   },
@@ -188,7 +187,6 @@ const I18N = {
     roomChat: 'Chat de sala',
     quickNote: 'Nota rápida para la mesa…',
     reshuffle: 'Mazo rebarajado',
-    chinchon: 'CHINCHON — ¡ganas!',
     close: 'Cerrar',
     makeMeld: 'Formar jugada',
     discardClose: 'Descartar y cerrar',
@@ -198,7 +196,6 @@ const I18N = {
     falseClose: 'Cierre falso',
     handShown: 'mano a la vista de todos',
     attachHelp: 'Para añadir: selecciona una carta y toca una jugada de la mesa',
-    discard: 'descartar',
     out: 'FUERA',
     soloName: 'Tu nombre',
     soloBots: 'Número de bots (1–6)',
@@ -216,7 +213,6 @@ const I18N = {
     chinchon: 'Chinchon',
     rematch: 'Jugar otra (mismos jugadores)',
     toLobby: 'Salir',
-    leave: 'Salir de la sala',
     leaveMatch: 'Salir de la partida',
     matchEnded: 'Partida terminada',
     hold: 'Pausar',
@@ -307,17 +303,6 @@ const I18N = {
     // Reclaim-flow strings
     seatReconnectedMsg: 'Este asiento se reconecto desde otro dispositivo.',
     makeANewGame: 'Crear una partida nueva',
-    // EN mirror strings
-    waitingForEn: 'Waiting for {name}…',
-    phaseDrawEn: 'Draw',
-    phaseDiscardEn: 'Discard',
-    matchStartsInEn: 'Match starts in {s}s…',
-    waitingForMatchEn: 'Waiting for the match to start…',
-    enterRoomCodeMsgEn: 'Enter the room code.',
-    createRoomErrorEn: 'Could not create the room. Try again.',
-    // Reclaim-flow strings
-    seatReconnectedMsg: 'This seat was reconnected from another device.',
-    makeANewGame: 'Make a new game',
   },
 };
 
@@ -328,10 +313,10 @@ const I18N = {
 const RULES_EN = [
   { title: 'How to win', body: 'You win Chinchon by getting all 7 of your cards into melds, with nothing left over — that\'s a chinchon, and you win the hand outright. If you can\'t make a perfect hand, you win by having the lowest leftover points when the match ends.' },
   { title: 'The deck', body: 'We play with 80 cards: two Spanish decks of 40. Each suit — Oros (coins), Copas (cups), Espadas (swords), Bastos (clubs) — has ranks 1 through 7, plus 10, 11, and 12. The 1 of Oros is wild: it can stand in for any card in a meld (only one wild per meld), but it can also be used as a natural 1.' },
-  { title: 'Your hand', body: 'You will always hold seven cards. On your turn, draw one card from the stockpile or the discard pile, then you must discard one — so you always have seven cards in your hand.' },
-  { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchon win — but if two 1-of-Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be anyone, anywhere.' },
+  { title: 'Your hand', body: 'You will always hold seven cards. On your turn, draw one card from the stock or the discard pile, then discard one — so you always have seven cards in your hand.' },
+  { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchon win — but if two 1s of Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be any card, anywhere.' },
   { title: 'Sets', body: 'A set is three or more cards of the same rank, any suits — like three 10s.' },
-  { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. Or two 3-card melds with one leftover card worth 5 or less.' },
+  { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. You can also close with two 3-card melds and one leftover card worth 5 or less.' },
   { title: 'Scoring', body: 'The computer keeps the score — you never do. After everyone reveals their hands, the computer counts each player\'s leftover cards. Face cards 10, 11, 12 count as 10 each; the 1 of Oros counts as 0 (it\'s wild); other cards count their number. A clean close by the closer scores −10. The floor is −50 — but you don\'t win automatically at −50; it just means you\'re the farthest from the 101-out line.' },
   { title: 'Out and match', body: 'When a player reaches 101 or more points, they are out — eliminated on their own, by their own score. One player at a time is eliminated until only one stands. That last player, with the lowest total, wins the match. 2 to 7 players.' },
 ];
@@ -1007,7 +992,7 @@ function render() {
       // to the host. Bots (solo/tutorial) manage themselves — no kick option.
       const anyBots = v.scoreboard.some((p) => p.isBot);
       const kick = (v.isHost && !anyBots && p.kickSeatId && p.kickSeatId !== state.seatId)
-        ? ` <button class="kick" data-kick="${p.kickSeatId}" title="Kick to lobby">✕</button>`
+        ? ` <button class="kick" data-kick="${p.kickSeatId}" title="Send back to the lobby">✕</button>`
         : '';
       return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
     })
@@ -1102,8 +1087,8 @@ function render() {
     if (v.pending) {
       pendingEl.classList.remove('hidden');
       pendingEl.textContent = v.pending.hold
-        ? `HELD BY HOST ${v.pending.hostName} — waiting to start`
-        : `New game starts in ${v.pending.secondsLeft}s (room ${v.pending.code})`;
+        ? `On hold by the host, ${v.pending.hostName} — waiting to start`
+        : `Next game starts in ${v.pending.secondsLeft}s (room ${v.pending.code})`;
       const isStarter = v.pending.isStarter;
       holdBtn.classList.toggle('hidden', !isStarter);
       holdBtn.textContent = v.pending.hold ? t('resume') : t('hold');
@@ -1491,7 +1476,7 @@ function renderStatusBanner(v) {
   if (v.spectator) {
     el.classList.remove('hidden');
     el.className = 'banner spectator';
-    el.textContent = (lang === 'es') ? 'Estás como espectador; vuelves en la proxima partida.' : 'You are spectating — you rejoin the next match.';
+    el.textContent = (lang === 'es') ? 'Estás como espectador; vuelves en la proxima partida.' : 'You’re watching — you’ll rejoin in the next match.';
     return;
   }
   if (v.waiting) {
@@ -1505,7 +1490,7 @@ function renderStatusBanner(v) {
     if (v.isHost) {
       const wait = document.createElement('button');
       wait.className = 'small';
-      wait.textContent = (lang === 'es') ? 'Esperar más' : 'Wait / extend';
+      wait.textContent = (lang === 'es') ? 'Esperar más' : 'Wait longer';
       wait.onclick = () => apiPost('/api/room/wait');
       el.appendChild(wait);
       const cont = document.createElement('button');
@@ -1936,7 +1921,7 @@ $('btn-leave-match').onclick = async () => {
     : 0;
   const msg = humanCount <= 2
     ? 'Leave this match? This will end the game for everyone.'
-    : 'Leave this match? You will return to the lobby.';
+    : 'Leave this match? You’ll go back to the lobby.';
   if (!window.confirm(msg)) return;
   const res = await fetch('/api/room/leave', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2011,7 +1996,7 @@ async function enterLobby() {
   if (!res || res.error) {
     $('lobby-msg').textContent = res && res.error === 'name reserved'
       ? 'That name is reserved — pick another.'
-      : 'Could not enter the lobby. Try again.';
+      : 'Couldn’t enter the lobby. Try again.';
     return;
   }
   state.lobbyToken = res.token;
@@ -2102,16 +2087,16 @@ function renderLobbyMatches(matches) {
   let html = `<div class="mc-code">Room ${m.visibility === 'private' ? m.code.slice(0, 2) + '••' : m.code} · ${m.mode === 'solo' ? 'vs bots' : (m.visibility === 'public' ? 'public' : 'private')}</div>`;
   if (m.pending) {
     if (m.pending.hold) {
-      html += `<div class="mc-pending">HELD BY HOST ${m.pending.hostName}</div>`;
+      html += `<div class="mc-pending">On hold by the host, ${escapeHtml(m.pending.hostName)}</div>`;
     } else if (m.pending.type === 'fresh') {
       html += `<div class="mc-pending">${t('pendingMatch')} · ${m.pending.secondsLeft}s</div>`;
     } else {
-      html += `<div class="mc-pending">New game in ${m.pending.secondsLeft}s</div>`;
+      html += `<div class="mc-pending">Next game in ${m.pending.secondsLeft}s</div>`;
     }
   } else {
     html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
   }
-  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' (out)' : ''}</span><span>${p.total}</span></div>`).join('');
+  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' · ' + t('out') : ''}</span><span>${p.total}</span></div>`).join('');
   if (m.pending && m.visibility !== 'private') {
     const label = m.pending.type === 'fresh' ? t('joinThis') : 'Join rematch';
     html += `<button class="small" data-joinmatch="${m.code}">${label}</button>`;
@@ -2297,7 +2282,7 @@ $('btn-gameplay-tutorial').onclick = () => {
 // Leave the global lobby entirely: drop the name + token on the server, clear
 // localStorage, stop polling, and return to the landing (name-entry) screen.
 $('btn-leave-lobby').onclick = async () => {
-  if (!window.confirm('Leave the lobby? You will return to the landing page.')) return;
+  if (!window.confirm('Leave the lobby? You’ll go back to the start screen.')) return;
   await fetch('/api/lobby/leave', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: state.lobbyToken }),
