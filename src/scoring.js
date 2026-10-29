@@ -74,7 +74,9 @@ function bestSplit(hand) {
 
   const melds = allMelds(hand);
 
-  // Try one meld alone, then every compatible pair of melds.
+  // Try one meld alone, then every compatible pair of melds. Two is the most a
+  // 7-card hand can hold (three melds would need 9 cards). The second meld is
+  // searched only in the cards the first one left, so pairs never share a card.
   for (let i = 0; i < melds.length; i++) {
     const restAfterFirst = without(hand, melds[i]);
     const single = {
@@ -165,7 +167,8 @@ function allCloseSplits(hand) {
     }
   }
 
-  // De-dupe identical (score,key) noise; sort best-first (lowest score wins).
+  // Duplicates were already dropped in pushSplit (same meld set found in a
+  // different order). Sort best-first: lowest score wins.
   out.sort((a, b) => a.score - b.score);
   return out;
 }
@@ -174,6 +177,13 @@ function allCloseSplits(hand) {
 //   - Two combinations covering all 7 cards, nothing left over  -> -10
 //   - Two combinations of 3 + 3, one leftover card of value <= 5 -> leftover counts
 //   - A chinchon (all 7 in one meld) -> wins the whole game
+//
+// Note: this judges only bestSplit's ONE decomposition and requires two melds,
+// so it does not accept the "single 6-card meld + 1 leftover <= 5" close that
+// allCloseSplits lists. The Close button (server closeAvailable) uses
+// allCloseSplits; a player's own declared close is judged by
+// validateDeclaredClose. canClose is the engine/bot fallback when no
+// declaration is given.
 function canClose(hand) {
   const split = bestSplit(hand);
 

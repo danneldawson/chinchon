@@ -9,6 +9,8 @@
 const SUITS = ['Oros', 'Copas', 'Espadas', 'Bastos'];
 
 // Rank order for runs. Index position is what matters, not the printed number.
+// The Spanish deck has no 8s or 9s. Runs follow THIS array's order (see
+// rankIndex), which is why 7 -> 10 counts as consecutive.
 const RANKS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
 
 const WILD_SUIT = 'Oros';

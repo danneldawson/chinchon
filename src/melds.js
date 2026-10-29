@@ -54,10 +54,15 @@ function isValidRun(cards) {
   const idxs = natural.map((c) => rankIndex(c.rank));
   if (new Set(idxs).size !== idxs.length) return false;
 
+  // Positions are indexes into RANKS (not face values), so the missing 8 and 9
+  // never count as a gap: 6-7-10 is three consecutive slots.
+  //
   // The run occupies cards.length consecutive slots on the circular rank
   // order. It is valid if some window of that length, starting anywhere,
   // holds every natural; the wilds fill the remaining slots (inner gaps or
-  // an end).
+  // an end). With at most one wild, a window can hold at most one empty slot.
+  // Example: 5, 7 + wild -> window 5-6-7 (the wild is the 6). Example: 11, 1 +
+  // wild -> window 11-12-1, wrapping past 12.
   const n = RANKS.length;
   for (let start = 0; start < n; start++) {
     if (idxs.every((i) => (i - start + n) % n < cards.length)) return true;

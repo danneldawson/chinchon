@@ -44,8 +44,8 @@ function applyRound(match, roundResult) {
 
   roundResult.scores.forEach((score, i) => {
     if (match.players[i].out) return;
+    // Scores can go negative via -10 clean closes; floor at MIN_SCORE = -50.
     match.players[i].total = Math.max(MIN_SCORE, match.players[i].total + score);
-    // (Scores can go negative via -10 clean closes; floor at MIN_SCORE = -50.)
     if (isEliminated(match.players[i].total)) {
       match.players[i].out = true;
       match.eliminatedOrder.push(i); // earliest elimination first
@@ -57,7 +57,8 @@ function applyRound(match, roundResult) {
     match.winner = match.players.indexOf(remaining[0]);
     match.gameOver = true;
   } else if (remaining.length === 0) {
-    // Everyone busted in the same round: lowest total wins.
+    // Everyone busted in the same round: lowest total wins. On a tie the
+    // reduce keeps the earlier seat (`<=` keeps `a`).
     const best = match.players.reduce((a, b) => (a.total <= b.total ? a : b));
     match.winner = match.players.indexOf(best);
     match.gameOver = true;

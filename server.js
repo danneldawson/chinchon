@@ -785,6 +785,9 @@ function rigHand(state, seat, cardIds) {
 // Rules gate for the Close button: can this 8-card hand close at all, with any
 // discard? Only a yes/no ever leaves the server -- never a decomposition, so the
 // player still has to find and lay out their own melds (no hints).
+// The hand here is 8 cards (drawn, not yet discarded), so every possible
+// discard is tried. It uses allCloseSplits, the most permissive check, so the
+// button never hides a close the declared-close validator would accept.
 function closeAvailable(hand) {
   if (!Array.isArray(hand) || hand.length !== scoring.HAND_SIZE + 1) return false;
   for (let i = 0; i < hand.length; i++) {
