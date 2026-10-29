@@ -30,11 +30,11 @@ test('every data-i18n key used in index.html exists in English (t() falls back t
   assert.strictEqual(en.get('rules'), 'Rules');
 });
 
-test('no duplicate key in a table carries a different value (a later copy silently wins)', () => {
+test('no key is defined twice in a table (a later copy silently wins)', () => {
   for (const lang of ['en', 'es']) {
     const seen = new Map();
     for (const [k, v] of table(lang)) {
-      if (seen.has(k)) assert.strictEqual(v, seen.get(k), `${lang}.${k} is defined twice with different text`);
+      assert.ok(!seen.has(k), `${lang}.${k} is defined twice`);
       seen.set(k, v);
     }
   }
