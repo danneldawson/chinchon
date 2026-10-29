@@ -161,6 +161,12 @@ of the table and then snaps to the server. Your controls follow the server, so t
 unlock the moment it is your turn, and the moving card cannot take a tap or sit
 over the hand.
 
+**Oct 29, 2026 (Dannel, "go ahead with all your suggestions"):** the words wait for
+the replay. YOUR TURN (the banner, the DRAW/DISCARD pill and the marker over the
+table) shows only once the replay has finished (`window.__yourTurnShown`, no
+`state.shadow`); until then the marker reads "Waiting for *bot*…". The controls
+still follow the server as above. Guarded by `test/turn-banner-replay.test.js`.
+
 
 ### How it works today
 

@@ -720,6 +720,10 @@ function shownView(live) {
     layoff: sh.layoff,
   };
 }
+// Oct 29, 2026 (Dannel): YOUR TURN (banner, phase pill, marker over the table)
+// waits until the watched replay has finished, so it never shows while a bot is
+// still visibly moving. Controls still follow the server (§6a), only the words wait.
+window.__yourTurnShown = (live, replaying) => !!(live && live.isYourTurn) && !replaying;
 function mySeat() {
   const v = state.view;
   const me = v && v.opponents && v.opponents.find((o) => o.isYou);
@@ -984,6 +988,8 @@ function render() {
   const v = shownView(live);
   const canAct = !!live.isYourTurn;
   const phase = live.phase;
+  const replaying = !!state.shadow;
+  const mineShown = window.__yourTurnShown(live, replaying);
 
   // Room code shown on top of the scoreboard (localized "Room XXXX").
   $('room-code-tag').textContent = v.code ? `${t('roomCodeLabel')} ${v.code}` : '';
@@ -1010,7 +1016,7 @@ function render() {
   // Turn banner: include phase context so players know what to do next.
   if (v.gameOver) {
     $('turn-banner').textContent = `🏆 ${v.winner} ${t('gameOver')}`;
-  } else if (v.isYourTurn) {
+  } else if (mineShown) {
     const phaseLabel = phase === 'draw'
       ? (lang === 'es' ? '— Roba' : '— Draw')
       : phase === 'discard'
@@ -1018,7 +1024,7 @@ function render() {
         : '';
     $('turn-banner').textContent = `${t('yourTurn')} ${phaseLabel}`.trim();
   } else {
-    const wattee = v.waiting && v.waiting.name ? v.waiting.name : '';
+    const wattee = (v.waiting && v.waiting.name) || (replaying ? seatName(v.turnSeat) : '');
     const text = wattee
       ? (lang === 'es' ? `Esperando a ${wattee}…` : `Waiting for ${wattee}…`)
       : t('waiting');
@@ -1026,7 +1032,7 @@ function render() {
   }
 
   // Big whose-turn marker over the table (see renderTurnMarker).
-  renderTurnMarker(v);
+  renderTurnMarker(v, mineShown, replaying);
 
   // Connection / waiting / spectator banner
   renderStatusBanner(v);
@@ -1114,7 +1120,7 @@ function render() {
   const pill = $('phase-pill');
   if (!pill) {
     _animState.phasePill = null;
-  } else if (v.isYourTurn && !v.gameOver) {
+  } else if (mineShown && !v.gameOver) {
     const cls = phase === 'discard' ? 'discard' : 'draw';
     const text = lang === 'es'
       ? (phase === 'discard' ? 'Descarta' : 'Roba')
@@ -1122,7 +1128,7 @@ function render() {
     pill.textContent = text;
     pill.className = `phase-pill visible ${cls}`;
     _animState.phasePill = cls;
-  } else if (!v.isYourTurn || v.gameOver) {
+  } else if (!mineShown || v.gameOver) {
     if (_animState.phasePill) {
       pill.className = 'hidden';
       _animState.phasePill = null;
@@ -1691,7 +1697,7 @@ function renderDiscardTray(v) {
 // The big whose-turn marker over the table. It has to keep working through the
 // whole lay-off, where the turn comes from the lay-off ROTATION rather than
 // state.turn — and where the wrap-around turn is the entire point.
-function renderTurnMarker(v) {
+function renderTurnMarker(v, mineShown, replaying) {
   const el = $('turn-marker');
   if (!el) return;
   const lo = v.layoff && v.layoff.phase === 'layoff' ? v.layoff : null;
@@ -1699,13 +1705,16 @@ function renderTurnMarker(v) {
   el.classList.toggle('hidden', !inMatch);
   if (!inMatch) return;
 
-  const mine = lo ? !!lo.isYourTurn : !!v.isYourTurn;
+  // While a replay runs, `v` is the shadow table and its lay-off is never
+  // yours; outside the lay-off, mineShown already waits for the replay.
+  const mine = lo ? !!lo.isYourTurn && !replaying : !!mineShown;
   el.classList.toggle('mine', mine);
   if (mine) {
     el.textContent = t('yourTurn');
     return;
   }
-  const name = (lo ? seatName(lo.currentSeat) : (v.waiting && v.waiting.name)) || '';
+  const name = (lo ? seatName(lo.currentSeat)
+    : ((v.waiting && v.waiting.name) || (replaying ? seatName(v.turnSeat) : ''))) || '';
   el.textContent = name
     ? (lang === 'es' ? `Esperando a ${name}…` : `Waiting for ${name}…`)
     : t('waiting');
