@@ -5,7 +5,7 @@
 // Hosts playable rooms over HTTP. Reuses the existing engine EXACTLY as-is
 // (turn.js, scoring.js, match.js, bot.js, layoff-interactive.js, cards.js).
 //
-// RULES ENFORCED HERE (from BROWSER-PLAN.md):
+// RULES ENFORCED HERE (from docs/knowledge/history/BROWSER-PLAN.md):
 //   - MULTI mode: 2-7 humans, bots ALWAYS 0 (rejected at the API).
 //   - SOLO mode: 1 human + bots (1-6). Bots auto-play their turns. Chinchon
 //     needs at least 2 players, so a solo game is forced to have >= 1 bot.
