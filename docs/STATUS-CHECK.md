@@ -24,6 +24,11 @@ Standing skill: **Hosting upgrade status check**.
 
 **Where**
 
+- **Visitors (no login needed, Oct 29, 2026):** `GET /api/visitors` on the live URL, or
+  `node scripts/visitors.js` (add a number for more days). `activeNow` = distinct
+  browsers in the last 5 min; per Pacific day: `visitors` (opened the game), `players`
+  (entered the lobby or a room), `excluded` (script/bot/health-check requests, not
+  counted). Hashes only, no IPs; saved in `/data/visitors.json` beside `rooms.json`.
 - Project: `divine-fascination` / service `chinchon` on [railway.com](https://railway.com)
 - Historical URL: `https://chinchon-production.up.railway.app` (may change after recreate)
 

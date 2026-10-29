@@ -24,6 +24,7 @@ const layoffCore = require('./src/layoff');
 const layoffInteractive = require('./src/layoff-interactive');
 const cards = require('./src/cards');
 const steps = require('./src/steps');
+const visitorsMod = require('./src/visitors');
 
 const dealRng = Math.random;
 
@@ -662,9 +663,13 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
 }
 
 // Boot-time wiring for the real server process (not used by tests).
+// Visitor counter (src/visitors.js): visitors.json beside the rooms file, saved on
+// the same 15s tick and at shutdown. Hashes only; no IPs or names.
+const visitors = visitorsMod.createVisitorLog({ file: visitorsMod.defaultFile() });
+
 function startPersistence() {
-  if (!STATE_FILE) return null;
-  const tick = setInterval(() => { if (stateDirty) safeSave(); }, SAVE_INTERVAL_MS);
+  if (!STATE_FILE && !visitors.file) return null;
+  const tick = setInterval(() => { if (STATE_FILE && stateDirty) safeSave(); visitors.save(); }, SAVE_INTERVAL_MS);
   if (tick.unref) tick.unref();
   return tick;
 }
@@ -1127,6 +1132,11 @@ function handleApi(req, res, url) {
   }
   if (method === 'GET' && p === '/api/activity') {
     return sendJson(res, 200, activitySummary());
+  }
+  // Visitor counter: distinct real visitors per day (Pacific time) and who is
+  // here now. Read-only, counts only (see src/visitors.js). ?days=N (1-90).
+  if (method === 'GET' && p === '/api/visitors') {
+    return sendJson(res, 200, visitors.summary(Date.now(), url.searchParams.get('days')));
   }
 
   if (method === 'GET' && p === '/api/lobby/state') {
@@ -1644,6 +1654,9 @@ function handleApi(req, res, url) {
 function createServer() {
   const srv = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    try {
+      visitors.record({ method: req.method, path: url.pathname, userAgent: req.headers['user-agent'], ip: visitorsMod.clientIp(req) });
+    } catch { /* counting must never break a request */ }
     if (url.pathname.startsWith('/api/')) {
       noteStateChange(req.method === 'POST');
       return handleApi(req, res, url);
@@ -1691,6 +1704,7 @@ function createServer() {
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   const restored = loadRooms();
+  if (visitors.file) console.log(`Visitor counter ${visitors.file}: ${visitors.load() ? 'restored' : 'new'}`);
   if (STATE_FILE) console.log(`State file ${STATE_FILE}: restored ${restored} room(s), ${lobby.members.size} lobby member(s)`);
   const boot = runCleanup();
   if (STATE_FILE) console.log(`Cleanup at boot: ${boot.rooms.length} stale room(s), ${boot.seats} departed seat(s), ${boot.lobby} idle lobby member(s) removed`);
@@ -1701,6 +1715,7 @@ if (require.main === module) {
     if (shuttingDown) return;
     shuttingDown = true;
     if (STATE_FILE) console.log(`${sig}: saving state, saved=${safeSave()}`);
+    visitors.save();
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -1710,4 +1725,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
