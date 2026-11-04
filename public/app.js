@@ -26,7 +26,8 @@ const I18N = {
     copy: 'Copy',
     copyLink: 'Copy link',
     share: 'Share',
-    roomCodeLabel: 'Room code',
+    // In-game tag (Nov 3, 2026): past the waiting room the code is just the room's name.
+    roomNameLabel: 'Room:',
     joinRoom: 'Join room',
     player: 'Player',
     gameOver: 'wins!',
@@ -156,7 +157,7 @@ const I18N = {
     roomCode: 'Codigo de sala:',
     copy: 'Copiar',
     playersJoined: 'Jugadores unidos:',
-    roomCodeLabel: 'Codigo de sala',
+    roomNameLabel: 'Sala:',
     joinRoom: 'Unirse a sala',
     player: 'Jugador',
     soloVsBots: 'Jugar solo',
@@ -840,8 +841,9 @@ function render() {
   const replaying = !!state.shadow;
   const mineShown = window.__yourTurnShown(live, replaying);
 
-  // Room code shown on top of the scoreboard (localized "Room XXXX").
-  $('room-code-tag').textContent = v.code ? `${t('roomCodeLabel')} ${v.code}` : '';
+  // Room tag on top of the scoreboard ("Room: XXXX" / "Sala: XXXX"). Once a
+  // game has started the code is only the room's name, never "room code".
+  $('room-code-tag').textContent = v.code ? `${t('roomNameLabel')} ${v.code}` : '';
 
   // Scoreboard: order = join order (host first). Dot = live connection status.
   // Playing/eliminated show their score; a dropped (spectator) player shows "–".
