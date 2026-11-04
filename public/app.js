@@ -860,7 +860,7 @@ function render() {
       const kick = (v.isHost && !anyBots && p.kickSeatId && p.kickSeatId !== state.seatId)
         ? ` <button class="kick" data-kick="${p.kickSeatId}" title="Send back to the lobby">✕</button>`
         : '';
-      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)}: ${score}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
+      return `<div class="row ${p.out ? 'out' : ''}">${dotEl}${escapeHtml(p.name)} ${scoreBadge(score)}${p.out ? ' · ' + t('out') : ''}${kick}</div>`;
     })
     .join('');
 
@@ -932,9 +932,11 @@ function render() {
       name.className = 'go-name';
       name.textContent = (p.name === v.winner ? '🏆 ' : '') + p.name;
       const score = document.createElement('span');
-      score.className = 'go-score';
-      // Chinchon winner: no points shown (already in the header). Others: their total.
-      score.textContent = (p.name === v.winner && v.chinchonWin) ? '' : p.total;
+      // Chinchon winner: no points shown (already in the header). Others: their
+      // total, as a black number on a white badge (Nov 3, 2026).
+      const noPts = p.name === v.winner && v.chinchonWin;
+      score.className = noPts ? 'go-score' : 'go-score score-badge';
+      score.textContent = noPts ? '' : p.total;
       row.appendChild(name);
       row.appendChild(score);
       board.appendChild(row);
@@ -1935,7 +1937,7 @@ function renderLobbyMatches(matches) {
   } else {
     html += `<div class="mc-timer">⏱ Playtime ${mm}:${ss}</div>`;
   }
-  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' · ' + t('out') : ''}</span><span>${p.total}</span></div>`).join('');
+  html += m.scoreboard.map((p) => `<div class="mc-row"><span>${escapeHtml(p.name)}${p.out ? ' · ' + t('out') : ''}</span>${scoreBadge(p.total)}</div>`).join('');
   if (m.pending && m.visibility !== 'private') {
     const label = m.pending.type === 'fresh' ? t('joinThis') : 'Join rematch';
     html += `<button class="small" data-joinmatch="${m.code}">${label}</button>`;
@@ -1978,6 +1980,12 @@ async function joinRematch(code) {
   persistSeat(res.code, res.seatId);
   clearInterval(lobbyTimer);
   enterGame();
+}
+
+// Scores next to names (Nov 3, 2026, Dannel): the number is bold black on a
+// white circle, a different colour from the name, and a little bigger.
+function scoreBadge(n) {
+  return `<span class="score-badge">${escapeHtml(String(n))}</span>`;
 }
 
 function escapeHtml(s) {
