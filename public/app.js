@@ -206,7 +206,16 @@ const RULES_ES = [
 
 function rulesForLang(l) { return l === 'es' ? RULES_ES : RULES_EN; }
 
-let lang = 'en';
+// Each device keeps its own language. It is saved on this device (never sent
+// to the server), so a refresh or a phone reloading a backgrounded tab mid-hand
+// comes back in the same language. (Nov 3, 2026: before, `lang` reset to
+// English on every page load, so a Spanish table "switched" to English mid-round
+// after a reload and stayed that way.)
+const LANG_KEY = 'chinchonLang';
+function loadLang() {
+  try { return localStorage.getItem(LANG_KEY) === 'es' ? 'es' : 'en'; } catch { return 'en'; }
+}
+let lang = loadLang();
 const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key];
 
 const state = {
@@ -325,6 +334,7 @@ function applyLang() {
 // the page, and re-draw the rules text if the Rules screen is open.
 function setLang(l) {
   lang = l === 'es' ? 'es' : 'en';
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* private mode */ }
   document.querySelectorAll('.lang-btn').forEach((x) => x.classList.toggle('active', x.dataset.lang === lang));
   applyLang();
   const rules = $('gameplay');
@@ -2158,5 +2168,7 @@ $('btn-leave-lobby').onclick = async () => {
 // lobby, where the player picks Play solo / Multiplayer room / Join room.
 $('btn-go-lobby').onclick = enterLobby;
 
+// Light the saved language's buttons, then translate the page.
+document.querySelectorAll('.lang-btn').forEach((x) => x.classList.toggle('active', x.dataset.lang === lang));
 applyLang();
 
