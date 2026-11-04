@@ -27,6 +27,15 @@ test('the in-game, round-end and game-over markup never says room code', () => {
 
 test('the waiting room and join box still say room code (join unchanged)', () => {
   assert.match(APP, /roomCode: 'Room code:'/);
+  // Stays "Codigo": the UI carries no accented o by Dannel's standing request
+  // (encoding safety, test/server.test.js). It only shows in the waiting room.
   assert.match(APP, /roomCode: 'Codigo de sala:'/);
   assert.match(HTML, /<label>Room code/);
+});
+
+// Nov 3, 2026: Dannel's iPad (Spanish) still showed "Codigo de sala WAKE" in
+// the game header on the live build. In game the Spanish tag is "Sala: WAKE".
+test('Spanish in-game header reads "Sala: <code>", never "Código de sala"', () => {
+  assert.match(APP, /roomNameLabel: 'Sala:'/);
+  assert.match(APP, /\$\('room-code-tag'\)\.textContent = v\.code \? `\$\{t\('roomNameLabel'\)\} \$\{v\.code\}`/);
 });
