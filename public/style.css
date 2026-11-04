@@ -271,7 +271,14 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 #layoff-area h2 { margin: 6px 0; color: var(--accent); }
 #layoff-cards-label { color: var(--dim); margin: 12px 0 6px; font-size: 0.9em; }
 #layoff-hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 60px; margin: 8px 0; }
-.card.selected { outline: 3px solid var(--accent); transform: translateY(-4px); }
+/* Selected (Nov 3, 2026, Dannel: the old 4px lift was too subtle): bigger,
+   lifted, a thick gold outline with a white rim and a shadow. */
+.card.selected {
+  outline: 4px solid var(--accent); outline-offset: 1px;
+  transform: translateY(-12px) scale(1.1);
+  box-shadow: 0 0 0 2px #fff, 0 10px 20px rgba(0, 0, 0, 0.5);
+  position: relative; z-index: 2;
+}
 /* Reorderable hand: tap a card to pick it up, tap another to swap. */
 .card.reorderable { cursor: grab; }
 .card.reorderable:hover { border-color: var(--accent); }
@@ -969,7 +976,7 @@ button, .card, .pile, input { touch-action: manipulation; }
 /* Closing discard marker (Nov 3, 2026): the card Discard & close will throw. */
 .card.close-discard { position: relative; outline: 3px solid #e74c3c; transform: translateY(-8px); }
 .card.close-discard::after {
-  content: attr(data-tag); position: absolute; left: 50%; top: -11px; transform: translateX(-50%);
+  content: attr(data-tag); position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
   background: #e74c3c; color: #fff; font-size: 10px; font-weight: 800; padding: 1px 6px;
   border-radius: 8px; white-space: nowrap; pointer-events: none; letter-spacing: .02em;
 }
@@ -989,3 +996,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   50% { transform: translateX(-50%) scale(1.08); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 18px rgba(245,197,66,1); }
 }
 @media (prefers-reduced-motion: reduce) { .closing-badge { animation: none; } }
+/* Close mode: the hand row clips vertically (overflow-x scroll), so leave room
+   above for the lifted, scaled selected card and the marked discard. */
+#hand.close-mode { padding-top: 18px; padding-left: 6px; padding-right: 6px; }
+

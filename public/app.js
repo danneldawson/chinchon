@@ -1196,11 +1196,16 @@ function render() {
 
   // Locked 8th slot: the card just drawn. It IS discardable (you only learn its
   // identity after drawing, so it must be a valid throw) — but not reorderable.
+  // Close mode (Nov 3, 2026, Dannel): the 8th card is just another card in the
+  // row while you build your melds: no arrow, no gap, no dashed slot.
+  if (handWrap.classList) handWrap.classList.toggle('close-mode', !!cm);
   if (drawn && !grouped.has(drawn.id)) {
-    const sep = document.createElement('div');
-    sep.className = 'hand-sep';
-    sep.textContent = '⟶';
-    handWrap.appendChild(sep);
+    if (!cm) {
+      const sep = document.createElement('div');
+      sep.className = 'hand-sep';
+      sep.textContent = '⟶';
+      handWrap.appendChild(sep);
+    }
     const el = renderCardEl(drawn, {
       clickable: discarding,
       onClick: () => {
@@ -1208,7 +1213,7 @@ function render() {
         if (discarding) doDiscard(drawn, false);
       },
     });
-    el.classList.add('drawn-locked');
+    if (!cm) el.classList.add('drawn-locked');
     if (cm && cm.sel.has(drawn.id)) el.classList.add('selected');
     if (closeDiscardId === drawn.id) markCloseDiscard(el);
     handWrap.appendChild(el);
