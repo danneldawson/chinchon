@@ -80,6 +80,19 @@ function nextDealer(state) {
   return nextActiveFrom(state.active, state.dealer, state.hands.length);
 }
 
+// Deal the next round of a match. The deal passes one seat to the left (R12),
+// so the first player also moves on one seat: whoever played first last round
+// is not first again. Eliminated (or spectating) seats are skipped.
+// `prev` is the round that just ended; `active` the seats still playing.
+function startNextRound(prev, playerCount, rng = Math.random, active = null) {
+  if (active === null) {
+    active = Array.from({ length: playerCount }, (_, i) => i);
+  }
+  const from = Number.isInteger(prev && prev.dealer) ? prev.dealer % playerCount : playerCount - 1;
+  const dealer = nextActiveFrom(active, from, playerCount);
+  return startRound(playerCount, rng, dealer, active);
+}
+
 function topOfDiscard(state) {
   return state.discard[state.discard.length - 1] || null;
 }
@@ -197,6 +210,7 @@ function closeOptions(state) {
 module.exports = {
   HAND_SIZE,
   startRound,
+  startNextRound,
   topOfDiscard,
   replenishStock,
   nextDealer,

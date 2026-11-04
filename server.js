@@ -755,7 +755,8 @@ function maybeRedeal(room) {
   const { match, players, state } = room;
   if (match.gameOver) { room.state.phase = 'over'; return; }
   const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
-  room.state = turn.startRound(players.length, Math.random, state.dealer, active);
+  // The deal (and so the first turn) moves one seat to the left (R12).
+  room.state = turn.startNextRound(state, players.length, Math.random, active);
   runBotTurns(room);
 }
 
@@ -1729,4 +1730,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };

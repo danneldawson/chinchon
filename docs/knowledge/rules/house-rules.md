@@ -133,6 +133,10 @@ the stock.
 
 **R12. Rotation.** The deal moves **one seat to the left** after every round.
 Eliminated players are skipped.
+*Code status (Nov 3, 2026):* the engine had `nextDealer`, but the server re-dealt
+every round with the **same** dealer, so the same seat always started (Dannel's
+report, Nov 3). Fixed with `startNextRound` in `src/turn.js`; tests:
+`test/dealer-rotation.test.js`.
 
 **R13. The face-up card.**
 - After the deal, one card is turned **face up** beside the stock to start the discard
