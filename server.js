@@ -716,7 +716,7 @@ function runBotLayoffTurns(room) {
       progressed = false;
       const split = scoring.bestSplit(lo.remaining[seat]);
       for (const card of split.leftovers) {
-        const idx = bot.findAttach(lo.table, card);
+        const idx = bot.findAttach(lo.table, card, lo.locked);
         if (idx !== -1) {
           const r = layoffInteractive.attachCard(lo, card, idx);
           if (r.ok) {
@@ -928,6 +928,7 @@ function serialize(room, seatId, since) {
       phase: 'layoff',
       table: lo.table,
       owners: lo.owners || lo.table.map(() => lo.closerIndex),
+      locked: lo.locked || lo.table.map(() => false),
       currentSeat: cur,
       isYourTurn: layoffYourTurn,
       yourRemaining: lo.remaining[viewerSeat] || [],

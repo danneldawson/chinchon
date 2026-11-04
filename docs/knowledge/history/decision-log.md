@@ -322,6 +322,8 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
 - **D: a run stops at the 1 after the 12 (R43, refines R37).** *Reason:* Dannel: "it
   recognises 12-1-2 as a valid meld, it goes 11-12-1 and no further". The engine's
   rank order had been fully circular since `d8cc416`.
+- **D: no lay-off onto a −10 close (R42).** *Reason:* Dannel: "those two melds when
+  layed on the table no one should be able to lay cards on those".
 
 ## Bugs fixed (selected, with root causes)
 

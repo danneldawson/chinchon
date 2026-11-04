@@ -846,6 +846,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   padding: 3px 5px 5px; border-radius: 8px; background: rgba(8, 22, 14, 0.38);
 }
 .felt-meld.mine { background: rgba(8, 22, 14, 0.55); }
+.felt-meld.locked { opacity: 0.85; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
 .felt-meld.tappable { cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 207, 77, 0.55); }
 .fm-owner {
   font-size: clamp(9px, calc(var(--fm-w) * 0.27), 12px); line-height: 1.1; color: #f3efe2;

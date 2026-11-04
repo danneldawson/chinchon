@@ -46,7 +46,7 @@ file disagree, **ask Dannel** rather than "fixing" either one quietly.
 | Run | 3+ of the same suit in sequence; **7 → 10 is consecutive** (7‑10‑11‑12); runs may go **12 → 1** (11‑12‑1) **and no further**: 12‑1‑2 is not a run (R37, R43) |
 | Players | **2–7**; hands hidden until someone closes |
 | Turn | draw 1 (stock or face-up discard) → discard 1; a card just taken from the discard may be thrown straight back |
-| Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10** |
+| Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10**; nobody may lay off onto those two melds (R42) |
 | Close: leftover | 3+3 (or one 6-card meld) + one leftover card worth **≤5** → closer scores that card's value |
 | Can't close | leftover worth 6+, or more than one leftover |
 | Chinchon | all 7 cards in **one** meld → **wins the whole match on the spot**, no lay-off |
@@ -244,7 +244,8 @@ closer's chosen melds go **face-up on the table first**.
 
 **R27. What you can do on your lay-off turn.**
 - Lay down your own valid melds, which then become available to everyone after you.
-- Attach cards to **any** meld on the table, not just the closer's.
+- Attach cards to **any** meld on the table, not just the closer's, **except** the
+  closer's melds after a clean −10 close, which are locked (R42).
 - **Nobody is trusted:** every play goes through the same validator as the closer's.
   You can't lay junk, you can't lay cards you don't hold, and a card that doesn't fit
   is rejected.
@@ -350,6 +351,18 @@ split was not itself a close (e.g. one 5-card meld with two low cards left, when
 
 ### J. Rulings confirmed by Dannel on Nov 3, 2026
 
+**R42. No lay-off onto a −10 close.** When the closer goes out clean (all 7 cards in
+two melds, nothing left over, −10), those two melds are **locked**: during the
+lay-off nobody may attach cards to them. Melds that other players lay down during the
+lay-off stay open as usual (R27), and a close with a leftover is unchanged. Dannel's
+words, Nov 3, 2026: "when you close for the -10 play, those two melds when layed on
+the table no one should be able to lay cards on those".
+*Code status:* In code on branch `fixes-nov3` (not deployed): `locked` per table meld
+in `beginLayoff` / `attachCard` (`src/layoff-interactive.js`), the automatic resolver
+(`src/layoff.js`), the bots (`findAttach` in `src/bot.js`), and the felt view (locked
+melds show 🔒 and can't be tapped). Tests: `test/layoff-lock-r42.test.js`; four
+lay-off tests that attached onto a −10 close now use a close with a leftover.
+
 **R43. A run stops at the 1 after the 12 (refines R37).** A run may go 11‑12‑1 (and
 10‑11‑12‑1 and so on), but nothing continues past that 1: 12‑1‑2 and 12‑1‑2‑3 are
 **not** runs. Low runs that start at the 1 (1‑2‑3) are unchanged. A wild next to
@@ -361,7 +374,7 @@ bots), the bots' run-neighbour check in `src/bot.js`, and `scripts/cards-audit.j
 Tests: `test/run-wrap-r43.test.js`; the R37 tests in `test/rulings-oct2.test.js`
 that expected 12‑1‑2 to be a run were changed to this ruling.
 
-**Total: 41 numbered house rules (R1–R41).** Presentation rules (suit emblems, colours,
+**Total: 43 numbered house rules (R1–R43).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
 room and session behaviour is in `lobby-and-session.md`.
 
@@ -424,3 +437,4 @@ numbering is kept so older references still point at the right item.)
 | C14 | Lay-off timer (was Q4) | No timer; Hermes asked on Sep 12 whether Dannel wanted a nudge or timeout, with no answer | Oct 2, 2026, Dannel's ruling: **no timer, no nudge, no timeout** (R39). Matches current behaviour |
 | C15 | Pre-start countdown | Aug 18 decision: 60s. The code as described in Sep notes: about 90s | Oct 2, 2026, Dannel's ruling: **60s** (R40). Server changed in `6ef221e` |
 | C16 | Run past the 1 (12‑1‑2) | R37 (Oct 2) as coded: rank order fully circular, so 12‑1‑2 and 12‑1‑2‑3 were runs | Nov 3, 2026, Dannel: 11‑12‑1 and no further (R43) |
+| C17 | Lay-off onto a −10 close | R27: attach to **any** meld on the table | Nov 3, 2026, Dannel: the closer's −10 melds are locked (R42) |

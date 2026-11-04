@@ -3,7 +3,7 @@
 const { cardValue } = require('./cards');
 const { isValidMeld, orderRun } = require('./melds');
 const { canClose, bestSplit, validateDeclaredClose, CLOSE_BONUS } = require('./scoring');
-const { canAttach, layoffOrder } = require('./layoff');
+const { canAttach, isLocked, layoffOrder } = require('./layoff');
 
 // INTERACTIVE LAY-OFF
 //
@@ -101,6 +101,10 @@ function beginLayoff(hands, closerIndex, active = null, declared = null) {
     table: melds,
     // Seat that laid each table meld (parallel to `table`), for the felt view.
     owners: melds.map(() => closerIndex),
+    // R42 (Nov 3, 2026): after a clean close (-10, nothing left over) the
+    // closer's melds are locked and nobody may attach to them. Parallel to
+    // `table`; melds laid later in the lay-off are always open.
+    locked: melds.map(() => leftovers.length === 0),
     hands: hands.map((h) => [...h]),
     // Cards still in each hand. The closer's melds are already on the table,
     // so they hold only what they did not declare.
@@ -178,6 +182,7 @@ function layMeld(state, cards) {
 
   state.table.push(orderRun(cards));
   if (Array.isArray(state.owners)) state.owners.push(p);
+  if (Array.isArray(state.locked)) state.locked.push(false);
   state.remaining[p] = removeCards(state.remaining[p], cards);
   state.placed[p] += 1;
   return { ok: true, table: state.table };
@@ -195,6 +200,9 @@ function attachCard(state, card, meldIndex) {
   }
   const meld = state.table[meldIndex];
   if (!meld) return { ok: false, reason: 'no such combination on the table' };
+  if (isLocked(state.locked, meldIndex)) {
+    return { ok: false, reason: 'the closer went out for -10: nothing can be added to those melds' };
+  }
   if (!canAttach(meld, card)) {
     return { ok: false, reason: 'that card does not fit that combination' };
   }
@@ -246,6 +254,7 @@ function suggest(state, p) {
   const attachable = [];
   for (const card of split.leftovers) {
     for (let i = 0; i < state.table.length; i++) {
+      if (isLocked(state.locked, i)) continue;
       if (canAttach(state.table[i], card)) {
         attachable.push({ card, meldIndex: i });
         break;

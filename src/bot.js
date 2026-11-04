@@ -127,9 +127,11 @@ function planLayoff(state, playerIndex) {
   return { melds: split.melds, leftovers: split.leftovers };
 }
 
-// Find any table meld that accepts this card.
-function findAttach(table, card) {
+// Find any open table meld that accepts this card. `locked` (R42) marks the
+// closer's melds after a -10 close, which nobody may attach to.
+function findAttach(table, card, locked = null) {
   for (let i = 0; i < table.length; i++) {
+    if (Array.isArray(locked) && locked[i]) continue;
     if (canAttach(table[i], card)) return i;
   }
   return -1;

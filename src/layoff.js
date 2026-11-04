@@ -29,9 +29,17 @@ function canAttach(meld, card) {
   return isValidMeld([...meld, card]);
 }
 
-// Find the first table meld that accepts this card. Returns index or -1.
-function findAttachTarget(table, card) {
+// R42 (Dannel, Nov 3, 2026): after a clean close (-10, all 7 cards in melds)
+// the closer's melds are locked: nobody may lay cards onto them. `locked` is a
+// boolean per table meld (missing / false = open).
+function isLocked(locked, i) {
+  return Array.isArray(locked) && !!locked[i];
+}
+
+// Find the first open table meld that accepts this card. Returns index or -1.
+function findAttachTarget(table, card, locked = null) {
   for (let i = 0; i < table.length; i++) {
+    if (isLocked(locked, i)) continue;
     if (canAttach(table[i], card)) return i;
   }
   return -1;
@@ -39,7 +47,7 @@ function findAttachTarget(table, card) {
 
 // Greedily shed as many cards as possible onto the table.
 // Mutates `table` (melds grow). Returns the cards that could not be placed.
-function shedOnto(table, cards) {
+function shedOnto(table, cards, locked = null) {
   const remaining = [...cards];
   let progress = true;
 
@@ -48,7 +56,7 @@ function shedOnto(table, cards) {
   while (progress) {
     progress = false;
     for (let i = 0; i < remaining.length; i++) {
-      const idx = findAttachTarget(table, remaining[i]);
+      const idx = findAttachTarget(table, remaining[i], locked);
       if (idx !== -1) {
         table[idx] = [...table[idx], remaining[i]];
         remaining.splice(i, 1);
@@ -118,6 +126,8 @@ function resolveRound(hands, closerIndex, active = null, chosenMelds = null) {
     : [...closeCheck.split.leftovers];
 
   const table = melds.map((m) => [...m]);
+  // R42: a clean close (-10) locks the closer's melds; later melds stay open.
+  const locked = melds.map(() => closerLeftovers.length === 0);
 
   const scores = new Array(hands.length).fill(0);
   const laidOff = new Array(hands.length).fill(null);
@@ -127,10 +137,10 @@ function resolveRound(hands, closerIndex, active = null, chosenMelds = null) {
     const split = bestSplit(hands[p]);
 
     // Their own combinations go face-up, becoming available to everyone after.
-    for (const meld of split.melds) table.push([...meld]);
+    for (const meld of split.melds) { table.push([...meld]); locked.push(false); }
 
     // Then they shed whatever leftovers they can.
-    const stuck = shedOnto(table, split.leftovers);
+    const stuck = shedOnto(table, split.leftovers, locked);
 
     laidOff[p] = {
       melds: split.melds,
@@ -141,7 +151,7 @@ function resolveRound(hands, closerIndex, active = null, chosenMelds = null) {
   }
 
   // Closer's final chance to dump their leftover into a gap someone opened.
-  const closerStuck = shedOnto(table, closerLeftovers);
+  const closerStuck = shedOnto(table, closerLeftovers, locked);
 
   if (closerLeftovers.length === 0) {
     scores[closerIndex] = -10; // clean close, all seven cards used
@@ -162,6 +172,7 @@ function resolveRound(hands, closerIndex, active = null, chosenMelds = null) {
     chinchon: false,
     closerIndex,
     table,
+    locked,
     scores,
     laidOff,
     gameOver: false,
@@ -170,6 +181,7 @@ function resolveRound(hands, closerIndex, active = null, chosenMelds = null) {
 
 module.exports = {
   canAttach,
+  isLocked,
   findAttachTarget,
   shedOnto,
   layoffOrder,

@@ -125,13 +125,19 @@ test('a player holding pure junk is charged full deadwood', () => {
 });
 
 test('a player sheds onto the closer table and pays less', () => {
-  // Opponent holds 3 Copas which extends the closer run 4-5-6-7 Copas.
+  // Opponent holds 3 Copas which extends the closer run 4-5-6 Copas. The closer
+  // keeps a leftover (1 de Bastos): after a clean -10 close the closer's melds
+  // would be locked (R42).
+  const openCloser = [
+    c(4, 'Copas'), c(5, 'Copas'), c(6, 'Copas'),
+    c(11, 'Oros'), c(11, 'Espadas'), c(11, 'Bastos'), c(1, 'Bastos'),
+  ];
   const opponent = [
     c(3, 'Copas'),
     c(2, 'Espadas'), c(10, 'Bastos'), c(12, 'Espadas'),
     c(10, 'Copas'), c(12, 'Bastos'), c(2, 'Bastos'),
   ];
-  const result = resolveRound([closingHand(), opponent], 0);
+  const result = resolveRound([openCloser, opponent], 0);
   const shed = result.laidOff[1].shed.map((x) => x.rank);
   assert.ok(shed.includes(3), 'the 3 de Copas should have been laid off');
 });

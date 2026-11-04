@@ -48,6 +48,7 @@ const I18N = {
     falseClose: 'False close',
     handShown: 'hand shown to everyone',
     attachHelp: 'Select one card, then tap a meld on the table to attach it',
+    meldLocked: 'Closed for −10: no cards can be added here',
     out: 'OUT',
     layoffTitle: 'Lay-off — show your melds',
     table: 'Table',
@@ -119,6 +120,7 @@ const I18N = {
     falseClose: 'Cierre falso',
     handShown: 'mano a la vista de todos',
     attachHelp: 'Para añadir: selecciona una carta y toca una jugada de la mesa',
+    meldLocked: 'Cierre de −10: aquí no se pueden añadir cartas',
     out: 'FUERA',
     layoffTitle: 'Descarte — muestra tus combinaciones',
     table: 'Mesa',
@@ -1240,13 +1242,18 @@ function renderFelt(v, cm, lo) {
     }));
   } else {
     const myTurn = !!lo.isYourTurn && !lo.done;
-    groups = (lo.table || []).map((m, i) => ({
-      cards: m,
-      owner: Array.isArray(lo.owners) ? lo.owners[i] : lo.closerIndex,
-      tap: myTurn ? () => attachTo(i) : null,
-    }));
+    // R42: the closer's melds after a -10 close are locked (no attaching).
+    groups = (lo.table || []).map((m, i) => {
+      const locked = Array.isArray(lo.locked) && !!lo.locked[i];
+      return {
+        cards: m,
+        owner: Array.isArray(lo.owners) ? lo.owners[i] : lo.closerIndex,
+        locked,
+        tap: myTurn && !locked ? () => attachTo(i) : null,
+      };
+    });
   }
-  const key = (cm ? 'cm|' : 'lo|') + lang + '|' + groups.map((g) => `${g.owner}:${g.tap ? 1 : 0}:${g.cards.map((c) => c.id).join(',')}`).join('|');
+  const key = (cm ? 'cm|' : 'lo|') + lang + '|' + groups.map((g) => `${g.owner}:${g.tap ? 1 : 0}${g.locked ? 'L' : ''}:${g.cards.map((c) => c.id).join(',')}`).join('|');
   if (felt.dataset.key === key) return;
   felt.dataset.key = key;
   felt.innerHTML = '';
@@ -1258,11 +1265,12 @@ function renderFelt(v, cm, lo) {
   }
   groups.forEach((g, i) => {
     const d = document.createElement('div');
-    d.className = 'felt-meld' + (g.tap ? ' tappable' : '') + (g.owner === mySeat ? ' mine' : '');
+    d.className = 'felt-meld' + (g.tap ? ' tappable' : '') + (g.owner === mySeat ? ' mine' : '') + (g.locked ? ' locked' : '');
+    if (g.locked) d.title = t('meldLocked');
     d.dataset.meldIndex = String(i);
     const owner = (v.opponents || []).find((o) => o.seat === g.owner);
     const name = owner ? owner.name : '';
-    d.innerHTML = `<div class="fm-owner">${g.owner === mySeat ? '★ ' : ''}${escapeHtml(name)}</div>` +
+    d.innerHTML = `<div class="fm-owner">${g.locked ? '🔒 ' : ''}${g.owner === mySeat ? '★ ' : ''}${escapeHtml(name)}</div>` +
       `<div class="fm-cards">${g.cards.map(feltCard).join('')}</div>`;
     if (g.tap) d.onclick = g.tap;
     felt.appendChild(d);
