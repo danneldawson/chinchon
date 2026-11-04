@@ -878,6 +878,23 @@ function closeAvailable(hand) {
   return false;
 }
 
+// Nov 3, 2026 (Dannel: "place a distinctive marker when someone is in the
+// process of closing"). A player in close mode tells the server; everyone sees
+// a "Closing…" badge on that seat. It only counts while that player is still
+// on their discard turn, so a close, a discard or a turn change clears it.
+function closingSeatOf(room) {
+  const c = room && room.closing;
+  const st = room && room.state;
+  if (!c || !st || room.layoff) return null;
+  if (st.turn !== c.seat || st.phase !== 'discard') return null;
+  // Same turn only: the hand changes with every draw and discard.
+  if (handKeyOf(st.hands[c.seat]) !== c.handKey) return null;
+  return c.seat;
+}
+function handKeyOf(hand) {
+  return (hand || []).map((c) => c.id).sort().join(',');
+}
+
 function serialize(room, seatId, since) {
   // Auto-start a pending room once its window elapses (no hold). Handles both
   // rematch pending and a freshly created room's countdown.
@@ -993,6 +1010,7 @@ function serialize(room, seatId, since) {
     // (revealed only at game over). Non-tutorial rooms: never reveal a bot hand.
     reveal: !!p.reveal && room.tutorial && !match.gameOver,
     isYou: p.id === seatId,
+    closing: closingSeatOf(room) === i,
   }));
 
   const split = scoring.bestSplit(hand);
@@ -1055,6 +1073,7 @@ function serialize(room, seatId, since) {
     isHost: !!viewer && viewer.id === room.hostId,
     spectator: !!viewer && !!viewer.spectator,
     voiceLink: room.voiceLink || null,
+    closingSeat: closingSeatOf(room),
     waiting: room.waiting
       ? {
           seat: room.waiting.seat,
@@ -1607,6 +1626,22 @@ function handleApi(req, res, url) {
       steps.pushStep(room, { type: 'draw', seat: viewer.seat, from: fromDiscard ? 'discard' : 'stock', card: r.card });
       runBotTurns(room);
       return sendJson(res, 200, serialize(room, body.seat));
+    });
+  }
+
+  // Close mode on/off for the seat whose discard turn it is (the "Closing…"
+  // marker the other players see). Nothing about the hand is revealed.
+  if (method === 'POST' && p === '/api/close-intent') {
+    return withRoomState((body, room) => {
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!body.closing) {
+        if (viewer && room.closing && room.closing.seat === viewer.seat) room.closing = null;
+        return sendJson(res, 200, { closingSeat: closingSeatOf(room) });
+      }
+      if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
+      if (room.state.phase !== 'discard' || room.layoff) return sendJson(res, 400, { error: 'not the discard phase' });
+      room.closing = { seat: viewer.seat, handKey: handKeyOf(room.state.hands[viewer.seat]), at: Date.now() };
+      return sendJson(res, 200, { closingSeat: viewer.seat });
     });
   }
 

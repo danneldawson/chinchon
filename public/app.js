@@ -70,6 +70,7 @@ const I18N = {
     cancel: 'Cancel',
     pickOneDiscard: 'Select one card to discard',
     closeDiscardTag: 'Discard',
+    closingBadge: '🔒 Closing…',
     needMeld: 'Make at least one meld first',
     falseClose: 'False close',
     handShown: 'hand shown to everyone',
@@ -143,6 +144,7 @@ const I18N = {
     cancel: 'Cancelar',
     pickOneDiscard: 'Selecciona la carta que vas a tirar',
     closeDiscardTag: 'Tirar',
+    closingBadge: '🔒 Cerrando…',
     needMeld: 'Primero forma al menos una jugada',
     falseClose: 'Cierre falso',
     handShown: 'mano a la vista de todos',
@@ -644,6 +646,8 @@ function shownView(live) {
     opponents: sh.opponents,
     falseClose: sh.falseClose,
     layoff: sh.layoff,
+    // A bot's close replays with a short "Closing…" beat on its seat first.
+    closingSeat: sh.closingSeat != null ? sh.closingSeat : (live.closingSeat != null ? live.closingSeat : null),
   };
 }
 // Oct 29, 2026 (Dannel): YOUR TURN (banner, phase pill, marker over the table)
@@ -768,6 +772,15 @@ async function playWatch() {
       if (step.type === 'draw') state.shadow.phase = 'draw';
       render();
       const travel = reducedMotion() ? 0 : Math.round(delay * 0.55);
+      if (step.type === 'close') {
+        // Closing marker (Nov 3, 2026): the seat shows "Closing…" for a beat
+        // before its melds land, the same badge a human closer gets live.
+        state.shadow.closingSeat = step.seat;
+        render();
+        await new Promise((r) => setTimeout(r, reducedMotion() ? 300 : Math.max(700, delay)));
+        if (!state.watchPlaying || !state.shadow) break;
+        state.shadow.closingSeat = null;
+      }
       if (step.type === 'draw') {
         const from = step.from === 'discard' ? $('discard') : $('stock');
         await flyCard(from, seatEl(step.seat), step.card, step.from === 'stock' && !step.card, travel);
@@ -1287,6 +1300,7 @@ function render() {
   // every meld on the table during the lay-off (with the seat that laid it).
   renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : null);
   state.shownTable = cloneTable(v);
+  syncCloseIntent();
 }
 
 // ---- Card-based close (Oct 8, 2026) ----
@@ -1607,6 +1621,24 @@ function seatAngle(i, n, maxSpan = 160) {
   return 270 - span / 2 + (span * i) / (n - 1);
 }
 
+// Is this seat in the middle of closing (close mode / laying its closing
+// melds)? From the server (a human in close mode) or the replay (a bot's close).
+function isClosingSeat(v, o) {
+  if (!v || !o || o.isYou || v.gameOver) return false;
+  return v.closingSeat === o.seat || !!o.closing;
+}
+
+// Tell the server when we enter or leave close mode, so the other players see
+// the "Closing…" marker on our seat. Sent only when the state changes.
+function syncCloseIntent() {
+  const closing = !!state.closeMode;
+  if (state.closeIntentSent === closing || !state.code) return;
+  state.closeIntentSent = closing;
+  try {
+    postJson('/api/close-intent', { code: state.code, seat: state.seatId, closing }).catch(() => {});
+  } catch (_) { /* best effort: the marker is cosmetic */ }
+}
+
 function renderTableSeats(v) {
   const wrap = $('opponents');
   if (!wrap || !Array.isArray(v.opponents)) return;
@@ -1642,7 +1674,10 @@ function renderTableSeats(v) {
     const avatar = o.botEmoji
       ? `<span class="bot-avatar" style="background:${o.botColor || '#7c4dff'}">${o.botEmoji}</span>`
       : '';
+    const closing = isClosingSeat(v, o);
+    if (closing) el.classList.add('closing');
     el.innerHTML =
+      (closing ? `<div class="closing-badge">${t('closingBadge')}</div>` : '') +
       `<div class="seat-fan">${fan}</div>` +
       `<div class="seat-name">${avatar}${escapeHtml(o.name)}</div>` +
       (o.out ? `<div class="seat-count">${t('out')}</div>` : '');

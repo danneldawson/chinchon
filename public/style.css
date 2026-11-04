@@ -974,3 +974,18 @@ button, .card, .pile, input { touch-action: manipulation; }
   border-radius: 8px; white-space: nowrap; pointer-events: none; letter-spacing: .02em;
 }
 
+/* Closing marker (Nov 3, 2026, Dannel: "place a distinctive marker when someone
+   is in the process of closing"). Pulsing gold badge over the closing seat. */
+.seat.closing .seat-name { box-shadow: 0 0 0 2px #f5c542, 0 0 14px rgba(245, 197, 66, 0.8); border-radius: 999px; }
+.closing-badge {
+  position: absolute; left: 50%; top: -22px; transform: translateX(-50%);
+  white-space: nowrap; padding: 2px 9px; border-radius: 999px;
+  background: #f5c542; color: #1c1300; font-weight: 800; font-size: 0.78rem;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245, 197, 66, 0.9);
+  animation: closing-pulse 1.1s ease-in-out infinite; z-index: 3; pointer-events: none;
+}
+@keyframes closing-pulse {
+  0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 6px rgba(245,197,66,.6); }
+  50% { transform: translateX(-50%) scale(1.08); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 18px rgba(245,197,66,1); }
+}
+@media (prefers-reduced-motion: reduce) { .closing-badge { animation: none; } }
