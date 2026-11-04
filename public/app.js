@@ -28,6 +28,7 @@ const I18N = {
     share: 'Share',
     // In-game tag (Nov 3, 2026): past the waiting room the code is just the room's name.
     roomNameLabel: 'Room:',
+    idleRemoved: 'You were idle in the lobby for 30 minutes, so you were taken out. Enter your name to come back.',
     joinRoom: 'Join room',
     player: 'Player',
     gameOver: 'wins!',
@@ -158,6 +159,7 @@ const I18N = {
     copy: 'Copiar',
     playersJoined: 'Jugadores unidos:',
     roomNameLabel: 'Sala:',
+    idleRemoved: 'Estuviste inactivo en el lobby 30 minutos y saliste. Escribe tu nombre para volver.',
     joinRoom: 'Unirse a sala',
     player: 'Jugador',
     soloVsBots: 'Jugar solo',
@@ -1882,8 +1884,11 @@ async function enterLobby() {
 
 async function lobbyPoll() {
   if (!state.lobbyToken) return;
-  const res = await fetch(`/api/lobby/state?token=${state.lobbyToken}`).then((r) => r.json()).catch(() => null);
+  const res = await fetch(`/api/lobby/state?token=${state.lobbyToken}${actQ('lobby')}`).then((r) => r.json()).catch(() => null);
   if (!res) return;
+  // Removed for being idle 30 min (Nov 3, 2026): back to the start screen,
+  // with a note, instead of the self-heal below quietly re-entering.
+  if (res.removed === 'idle') { backToLanding(t('idleRemoved')); return; }
   // Self-heal: if we have a token but the server no longer lists us (e.g. the
   // free instance restarted and wiped the in-memory lobby), re-enter so we stay
   // visible instead of showing "Players here (0)". Guard against a loop.
@@ -2137,6 +2142,13 @@ $('btn-gameplay-tutorial').onclick = () => {
 $('btn-leave-lobby').onclick = async () => {
   if (!window.confirm('Leave the lobby? You’ll go back to the start screen.')) return;
   await postJson('/api/lobby/leave', { token: state.lobbyToken }).catch(() => null);
+  backToLanding('');
+  $('lobby-name').focus();
+};
+
+// Leave the lobby on this device: stop polling, forget the name + token and
+// show the landing (name-entry) screen with an optional note.
+function backToLanding(msg) {
   clearInterval(lobbyTimer);
   clearLobby();
   state.lobbyToken = null;
@@ -2145,9 +2157,8 @@ $('btn-leave-lobby').onclick = async () => {
   $('lobby-main').classList.add('hidden');
   $('lobby-enter').classList.remove('hidden');
   $('lobby-name').value = '';
-  $('lobby-msg').textContent = '';
-  $('lobby-name').focus();
-};
+  $('lobby-msg').textContent = msg || '';
+}
 
 // ----------------------------------------------------------- boot
 // ALWAYS start on the landing page (name + language) first, never auto-resume

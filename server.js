@@ -42,6 +42,10 @@ const DISCARD_HISTORY_N = 5; // discards exposed to clients for the table's disc
 const lobby = {
   members: new Map(), // token -> { token, name, at, lastSeen, lobbyCode }
   chat: [],
+  // Tokens the sweeper removed for being idle (token -> when), so that tab is
+  // told "removed: idle" and goes back to the start screen instead of
+  // silently re-entering (Nov 3, 2026). Capped; not persisted.
+  idleRemoved: new Map(),
 };
 
 // Cleanup timings (see sweepRooms). "Idle" = no /api poll from that human.
@@ -73,7 +77,8 @@ function lobbyEnter(name) {
   while (taken.has(finalName.toLowerCase())) finalName = `${clean}${n++}`;
   const token = newSessionToken();
   const lobbyCode = String(Math.floor(100 + Math.random() * 900)); // 3-digit unique-ish code
-  lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now(), lobbyCode });
+  lobby.members.set(token, { token, name: finalName, at: Date.now(), lastSeen: Date.now(), lastActive: Date.now(), lobbyCode });
+  lobby.idleRemoved.delete(token);
   return { token, name: finalName, lobbyCode };
 }
 
@@ -579,18 +584,42 @@ function sweepLobbyChat(now = Date.now(), opts = {}) {
   return before - lobby.chat.length;
 }
 
-// Periodic cleanup: drop lobby members who haven't interacted in
-// CLEANUP.LOBBY_IDLE_MS (30 min). Prevents the lobby from filling with
-// ghost names from users who closed their tab without leaving.
+// Periodic cleanup: drop lobby members with no input (tap, key, chat, enter)
+// for CLEANUP.LOBBY_IDLE_MS (30 min), even if their lobby tab is still open
+// (Nov 3, 2026, Dannel: "an idle user in the lobby for more than 30 min can be
+// removed"). A member seated in a match that is still running is never
+// removed (that used to happen after 30 min of play, because a seated player
+// polls the game, not the lobby, and it broke SeatID rejoin); input at their
+// table counts as activity for their lobby name too.
+const IDLE_REMOVED_CAP = 500;
 function sweepLobby(now = Date.now(), opts = {}) {
   const ms = opts.LOBBY_IDLE_MS || CLEANUP.LOBBY_IDLE_MS;
+  const seatsByToken = new Map();
+  for (const room of rooms.values()) {
+    const live = !(room.match && room.match.gameOver) && !room.gone;
+    for (const p of room.players) {
+      if (p.isBot || !p.lobbyToken) continue;
+      const e = seatsByToken.get(p.lobbyToken) || { live: false, input: 0, poll: 0 };
+      if (live) e.live = true;
+      e.input = Math.max(e.input, p.lastActive || p.lastSeen || 0);
+      e.poll = Math.max(e.poll, p.lastSeen || 0);
+      seatsByToken.set(p.lobbyToken, e);
+    }
+  }
   let removed = 0;
   for (const [token, member] of [...lobby.members]) {
-    if (now - (member.lastSeen || member.at || 0) > ms) {
+    const seat = seatsByToken.get(token);
+    if (seat && seat.live) continue; // never kick a player in a running match
+    // Gone (no poll: tab closed) or idle (polling, but no input): either way.
+    const lastPoll = Math.max(member.lastSeen || member.at || 0, seat ? seat.poll : 0);
+    const lastInput = Math.max(member.lastActive || member.lastSeen || member.at || 0, seat ? seat.input : 0);
+    if (now - lastPoll > ms || now - lastInput > ms) {
       lobby.members.delete(token);
+      lobby.idleRemoved.set(token, now);
       removed++;
     }
   }
+  while (lobby.idleRemoved.size > IDLE_REMOVED_CAP) lobby.idleRemoved.delete(lobby.idleRemoved.keys().next().value);
   return removed;
 }
 
@@ -695,6 +724,7 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
   for (const m of members) {
     if (!m || !m.token) continue;
     shiftTime(m, 'lastSeen', gap);
+    shiftTime(m, 'lastActive', gap);
     shiftTime(m, 'at', gap);
     lobby.members.set(m.token, m);
   }
@@ -1170,6 +1200,7 @@ function handleApi(req, res, url) {
       const member = lobby.members.get(body.token);
       if (!member) return sendJson(res, 403, { error: 'not in lobby' });
       member.lastSeen = Date.now();
+      member.lastActive = member.lastSeen;
       lobbyChatPush(member.name, body.text);
       return sendJson(res, 200, { ok: true });
     });
@@ -1210,7 +1241,12 @@ function handleApi(req, res, url) {
     const token = url.searchParams.get('token');
     if (token) {
       const member = lobby.members.get(token);
-      if (member) member.lastSeen = Date.now();
+      if (member) {
+        member.lastSeen = Date.now();
+        if (url.searchParams.get('act') === '1') member.lastActive = member.lastSeen;
+      } else if (lobby.idleRemoved.has(token)) {
+        return sendJson(res, 200, { ...lobbyState(), removed: 'idle' });
+      }
     }
     return sendJson(res, 200, lobbyState());
   }
