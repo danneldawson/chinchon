@@ -759,6 +759,8 @@ function beginLayoffForRoom(room) {
   room.pendingCloseChoice = null;
   const lo = layoffInteractive.beginLayoff(state.hands, state.closerIndex, active, chosen);
   if (!lo.valid) { state.phase = 'discard'; return; }
+  // R44: the closer's melds were their turn; play moves straight on.
+  layoffInteractive.openPastCloser(lo);
   room.layoff = lo;
   room.state.phase = 'layoff';
   runBotLayoffTurns(room);

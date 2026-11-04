@@ -289,6 +289,28 @@ function validateDeclaredClose(kept, groups) {
   return { ok: false, reason: 'too many leftover cards' };
 }
 
+// Default closing discard (Nov 3, 2026, Dannel). Once the closer has laid
+// their melds, the discard is the HIGHEST-value leftover that still leaves a
+// legal close: one leftover worth <= 5, or none (-10). E.g. 6-6-6, 4-4-4, 7, 1:
+// discard the 7, keep the 1. When the highest card can't go (the card left
+// behind would be worth more than 5) a lower one is tried. Ties go by card id
+// so the choice is stable. `hand` is the 8 cards held; `groups` the declared
+// melds (arrays of cards). Returns the card, or null when no discard makes a
+// legal close of those melds.
+function byDiscardPreference(a, b) {
+  return cardValue(b) - cardValue(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+function defaultCloseDiscard(hand, groups) {
+  if (!Array.isArray(hand) || !Array.isArray(groups) || !groups.length) return null;
+  const used = new Set(groups.flat().map((c) => c.id));
+  const leftovers = hand.filter((c) => !used.has(c.id)).sort(byDiscardPreference);
+  for (const card of leftovers) {
+    const kept = hand.filter((c) => c.id !== card.id);
+    if (validateDeclaredClose(kept, groups).ok) return card;
+  }
+  return null;
+}
+
 // Score a non-closing player at the end of a round: their unmelded deadwood.
 function scoreHand(hand) {
   return bestSplit(hand).deadwood;
@@ -303,6 +325,8 @@ module.exports = {
   isChinchon,
   bestSplit,
   allCloseSplits,
+  defaultCloseDiscard,
+  byDiscardPreference,
   canClose,
   scoreHand,
   splitKey,

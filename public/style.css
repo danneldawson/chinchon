@@ -959,3 +959,11 @@ button, .card, .pile, input { touch-action: manipulation; }
   display: inline-block; padding: 3px 10px; border-radius: 14px; font-size: 0.82em; font-weight: 700;
   background: #2ecc71; color: #0f1115; text-decoration: none; white-space: nowrap;
 }
+/* Closing discard marker (Nov 3, 2026): the card Discard & close will throw. */
+.card.close-discard { position: relative; outline: 3px solid #e74c3c; transform: translateY(-8px); }
+.card.close-discard::after {
+  content: attr(data-tag); position: absolute; left: 50%; top: -11px; transform: translateX(-50%);
+  background: #e74c3c; color: #fff; font-size: 10px; font-weight: 800; padding: 1px 6px;
+  border-radius: 8px; white-space: nowrap; pointer-events: none; letter-spacing: .02em;
+}
+

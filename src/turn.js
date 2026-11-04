@@ -1,7 +1,7 @@
 'use strict';
 
 const { buildDeck, shuffle } = require('./cards');
-const { canClose } = require('./scoring');
+const { canClose, byDiscardPreference } = require('./scoring');
 
 // TURN ENGINE
 //
@@ -204,6 +204,9 @@ function closeOptions(state) {
     const check = canClose(kept);
     if (check.ok) options.push({ discard: hand[i], reason: check.reason, score: check.score });
   }
+  // Best close first: lowest score, then (Nov 3, 2026) the HIGHEST-value
+  // discard among equal closes, so a bot throws the 7 and keeps the 1.
+  options.sort((a, b) => a.score - b.score || byDiscardPreference(a.discard, b.discard));
   return options;
 }
 

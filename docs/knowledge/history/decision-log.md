@@ -343,7 +343,20 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
   "Join voice call" / "Unirse a la llamada" (new tab). Server accepts only https
   links to call.whatsapp.com, chat.whatsapp.com or facetime.apple.com, max 300
   characters (`src/voice-link.js`); the button shows the domain.
-- **Not done: "the closing structure is off"** — waiting for Dannel's screenshots.
+- **D: the closer's turn ends with their melds (R44).** *Reason:* Dannel: "once this
+  step of laying down melds is done, the turn should pass to the next player without
+  the closer having to do anything else". The closer used to land on a lay-off turn
+  with "Ready — score my hand" / "Not yet" (his iPad screenshot, room WAKE). Their
+  last word on the wrap (R29) is now played for them.
+- **D: default closing discard = highest leftover that still closes.** *Reason:*
+  Dannel's hand 6‑6‑6, 4‑4‑4, 7, 1 must throw the 7. Nothing chose the discard
+  before: the player had to tap exactly one card and nothing showed which.
+- **D: "Closing…" / "Cerrando…" pulsing gold badge** on the seat of a player in close
+  mode, for everyone (bots in the replay too). **D: −10-locked melds get a red edge
+  and glow** as well as the 🔒.
+- **D: "Script error." is not ours.** Safari reports any error from another origin's
+  script (extensions, injected code) that way; the page loads only `/app.js`, so the
+  on-screen error line now shows only our own errors, with file:line.
 
 ## Bugs fixed (selected, with root causes)
 

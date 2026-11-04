@@ -128,6 +128,26 @@ function beginLayoff(hands, closerIndex, active = null, declared = null) {
   };
 }
 
+// R44 (Nov 3, 2026, Dannel: "once this step of laying down melds is done, the
+// turn should pass to the next player without the closer having to do
+// anything else"). The game uses this right after beginLayoff: laying the
+// melds was the closer's turn, so play moves straight to the next player and
+// the closer never presses Ready / Not yet (lo.autoCloser, see advance()).
+// Open the lay-off past the closer. A clean close (-10) is counted at
+// once; otherwise the closer stays in the rotation for their last word (R29),
+// which advance() plays for them when the rotation wraps back.
+function openPastCloser(lo) {
+  if (!lo || !lo.valid || lo.phase !== 'layoff') return lo;
+  const c = lo.closerIndex;
+  lo.autoCloser = true;
+  if (lo.closerLeftovers.length === 0) {
+    lo.ready[c] = true;
+    lo.scores[c] = CLOSE_BONUS;
+  }
+  advance(lo);
+  return lo;
+}
+
 function currentPlayer(state) {
   if (state.phase !== 'layoff') return null;
   const seat = state.order[state.turnPointer];
@@ -139,15 +159,44 @@ function currentPlayer(state) {
 // keeps returning to anyone holding their turn open (see passTurn).
 function advance(state) {
   const n = state.order.length;
+  const from = state.turnPointer;
   for (let step = 1; step <= n; step++) {
-    const i = (state.turnPointer + step) % n;
-    if (!state.ready[state.order[i]]) {
-      state.turnPointer = i;
-      return state.order[i];
-    }
+    const i = (from + step) % n;
+    const seat = state.order[i];
+    if (state.ready[seat]) continue;
+    state.turnPointer = i;
+    // R44: the closer never takes a turn by hand. Their last word on the wrap
+    // (R29) is played for them: every leftover that fits an open meld is shed,
+    // then they are counted, and the rotation moves on.
+    if (state.autoCloser && seat === state.closerIndex) { closerLastWord(state); continue; }
+    return seat;
   }
   state.phase = 'done';
   return null;
+}
+
+function closerLastWord(state) {
+  const p = state.closerIndex;
+  ensureWorking(state, p);
+  const shed = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const card of state.remaining[p]) {
+      const idx = state.table.findIndex((m, i) => !isLocked(state.locked, i) && canAttach(m, card));
+      if (idx === -1) continue;
+      state.table[idx] = orderRun([...state.table[idx], card]);
+      state.remaining[p] = removeCards(state.remaining[p], [card]);
+      shed.push({ card, meldIndex: idx });
+      progressed = true;
+      break;
+    }
+  }
+  state.ready[p] = true;
+  state.scores[p] = closerLeftoversOf(state).length === 0
+    ? CLOSE_BONUS
+    : state.remaining[p].reduce((s, c) => s + cardValue(c), 0);
+  state.closerAuto = { shed, score: state.scores[p] };
 }
 
 // The closer's leftover as fixed at the close. (A lay-off restored from a save
@@ -266,6 +315,7 @@ function suggest(state, p) {
 
 module.exports = {
   beginLayoff,
+  openPastCloser,
   currentPlayer,
   advance,
   layMeld,

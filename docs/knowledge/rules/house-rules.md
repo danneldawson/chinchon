@@ -51,7 +51,7 @@ file disagree, **ask Dannel** rather than "fixing" either one quietly.
 | Can't close | leftover worth 6+, or more than one leftover |
 | Chinchon | all 7 cards in **one** meld → **wins the whole match on the spot**, no lay-off |
 | False close | nobody scores, round doesn't advance, closer's hand is exposed, play continues |
-| Lay-off | rotation that starts with the closer and wraps; explicit **Ready**, optional **Not yet**; **no timer**, nudge or timeout (R39) |
+| Lay-off | rotation that starts with the closer's melds and wraps; the next player acts first and the closer presses nothing (R44); others use explicit **Ready**, optional **Not yet**; **no timer**, nudge or timeout (R39) |
 | Elimination | **≥101 is out for good** (100 survives); no buy-back |
 | Score floor | totals never go below **−50** |
 | Winner | last player standing (or a chinchon); exactly one winner |
@@ -374,7 +374,28 @@ bots), the bots' run-neighbour check in `src/bot.js`, and `scripts/cards-audit.j
 Tests: `test/run-wrap-r43.test.js`; the R37 tests in `test/rulings-oct2.test.js`
 that expected 12‑1‑2 to be a run were changed to this ruling.
 
-**Total: 43 numbered house rules (R1–R43).** Presentation rules (suit emblems, colours,
+**R44. The closer's turn ends with their melds (refines R26, R28, R29).** Once the
+closer confirms their melds and their discard, the close is done and the lay-off
+starts with the **next** player. The closer never presses Ready or Not yet and sees no
+lay-off buttons, only "Waiting for others" / "Esperando a los demás". A clean −10
+close is counted at once. With a leftover, the closer keeps their last word (R29):
+when the rotation wraps back to them, the game sheds that leftover for them if it now
+fits an open meld (scoring 0), otherwise counts it, and play moves on. The default
+closing discard is the highest-value leftover that still leaves a legal close; a tap
+on another card overrides it (Dannel's example: 6‑6‑6, 4‑4‑4, 7, 1 throws the 7 and
+keeps the 1). Dannel's words, Nov 3, 2026: "once this step of laying down melds is
+done, the turn should pass to the next player without the closer having to do
+anything else" and "the buttons should clear while the next players lay their melds".
+*Code status:* In code on branch `fixes-nov3` (not deployed): `openPastCloser` and
+the closer's automatic last word in `advance` (`src/layoff-interactive.js`), called
+from `beginLayoffForRoom` (`server.js`); `defaultCloseDiscard` (`src/scoring.js`),
+the bots' tie-break in `closeOptions` (`src/turn.js`), and the marked default card in
+close mode (`closeDiscardFor` in `public/app.js`). Tests:
+`test/close-discard-nov3.test.js`, and the HTTP lay-off test in
+`test/card-close.test.js`. *Open for Dannel:* whether the automatic last word should
+always shed a fitting leftover (it can only lower the closer's score).
+
+**Total: 44 numbered house rules (R1–R44).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
 room and session behaviour is in `lobby-and-session.md`.
 

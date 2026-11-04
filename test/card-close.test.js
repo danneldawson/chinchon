@@ -232,18 +232,19 @@ test('HTTP: declared melds go on the table exactly as declared; tap-to-attach, N
   // Opponent view: the same table, owner seats included.
   const ov = await state(code, other);
   assert.deepStrictEqual(ov.layoff.table.map(ids), l.table.map(ids));
-  // Closer: Not yet (used to crash the server: `room` was undefined).
-  assert.strictEqual((await api('POST', '/api/layoff/pass', { code, seat: me })).status, 200);
+  // R44 (Nov 3, 2026): laying the melds was the closer's turn; play moved
+  // straight on to the other player. The closer has nothing to press.
+  assert.strictEqual(l.isYourTurn, false, 'closer is not asked to act');
+  assert.strictEqual((await api('POST', '/api/layoff/pass', { code, seat: me })).status, 400, 'no Not yet for the closer');
+  assert.strictEqual(ov.layoff.isYourTurn, true, 'the next player is up at once');
   assert.strictEqual((await api('POST', '/api/layoff/lay', { code, seat: other, cardIds: ['2-Espadas-0', '2-Oros-0', '2-Copas-0'] })).status, 200);
   const bad = await api('POST', '/api/layoff/attach', { code, seat: other, cardId: '12-Bastos-0', meldIndex: 0 });
   assert.strictEqual(bad.status, 400, 'a card that does not fit is rejected');
   assert.strictEqual((await api('POST', '/api/layoff/attach', { code, seat: other, cardId: '4-Copas-0', meldIndex: 0 })).status, 200);
-  const ready = await api('POST', '/api/layoff/ready', { code, seat: other });
-  assert.strictEqual(ready.status, 200, 'Ready works (used to crash the server)');
-  assert.strictEqual((await api('POST', '/api/layoff/attach', { code, seat: me, cardId: '2-Bastos-0', meldIndex: 2 })).status, 200);
-  const done = await api('POST', '/api/layoff/ready', { code, seat: me });
-  assert.strictEqual(done.status, 200);
-  // Closer shed their leftover on the wrap (R29): 0. Ana kept 11C + 12B + 10O = 30.
+  const done = await api('POST', '/api/layoff/ready', { code, seat: other });
+  assert.strictEqual(done.status, 200, 'Ready works (used to crash the server)');
+  // On the wrap the closer's last word (R29) is played for them: the 2 de
+  // Bastos fits the 2-2-2 just laid, so the closer scores 0 and the round ends.
   const totals = Object.fromEntries(done.json.scoreboard.map((p) => [p.id === me ? 'closer' : 'other', p.total]));
   assert.deepStrictEqual(totals, { closer: 0, other: 30 });
 });

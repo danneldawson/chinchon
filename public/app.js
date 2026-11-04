@@ -51,6 +51,7 @@ const I18N = {
     discardClose: 'Discard & close',
     cancel: 'Cancel',
     pickOneDiscard: 'Select one card to discard',
+    closeDiscardTag: 'Discard',
     needMeld: 'Make at least one meld first',
     falseClose: 'False close',
     handShown: 'hand shown to everyone',
@@ -123,6 +124,7 @@ const I18N = {
     discardClose: 'Descartar y cerrar',
     cancel: 'Cancelar',
     pickOneDiscard: 'Selecciona la carta que vas a tirar',
+    closeDiscardTag: 'Tirar',
     needMeld: 'Primero forma al menos una jugada',
     falseClose: 'Cierre falso',
     handShown: 'mano a la vista de todos',
@@ -1131,6 +1133,9 @@ function render() {
   if (state.closeMode && (!discarding || !v.canClose || state.closeMode.handKey !== handKey)) state.closeMode = null;
   const cm = state.closeMode;
   const grouped = new Set(cm ? cm.groups.flat() : []);
+  // The card "Discard & close" will throw (marked on the hand): the one tapped,
+  // else the default (highest-value leftover that still closes). Nov 3, 2026.
+  const closeDiscardId = cm ? closeDiscardFor(cm, v.yourHand) : null;
 
   const reorderable = !cm && (!canAct || phase === 'draw'); // not while discarding
   for (const c of ordered) {
@@ -1154,6 +1159,7 @@ function render() {
     if (reorderable && state.swapPick === c.id) el.classList.add('picked');
     if (reorderable) el.classList.add('reorderable');
     if (cm && cm.sel.has(c.id)) el.classList.add('selected');
+    if (closeDiscardId === c.id) markCloseDiscard(el);
     handWrap.appendChild(el);
   }
 
@@ -1173,6 +1179,7 @@ function render() {
     });
     el.classList.add('drawn-locked');
     if (cm && cm.sel.has(drawn.id)) el.classList.add('selected');
+    if (closeDiscardId === drawn.id) markCloseDiscard(el);
     handWrap.appendChild(el);
   }
 
@@ -1289,12 +1296,45 @@ function discardAndClose() {
   const cm = state.closeMode;
   if (!cm || !state.view) return;
   if (!cm.groups.length) { cm.msg = t('needMeld'); render(); return; }
-  if (cm.sel.size !== 1) { cm.msg = t('pickOneDiscard'); render(); return; }
-  const card = state.view.yourHand.find((c) => c.id === [...cm.sel][0]);
+  const discardId = closeDiscardFor(cm, state.view.yourHand);
+  if (!discardId) { cm.msg = t('pickOneDiscard'); render(); return; }
+  const card = state.view.yourHand.find((c) => c.id === discardId);
   if (!card) return;
   const melds = cm.groups.map((g) => [...g]);
   state.closeMode = null;
   doDiscard(card, true, melds);
+}
+
+// Closing discard (Nov 3, 2026, Dannel: 6-6-6, 4-4-4, 7, 1 must throw the 7).
+// Mirrors scoring.defaultCloseDiscard: among the cards not in a meld, the
+// highest value whose removal leaves a legal close (no leftover, or one worth
+// <= 5); ties by id. The melds themselves are judged by the server and don't
+// change with the choice, so only the leftovers matter here.
+function closeCardValue(c) {
+  if (c.suit === 'Oros' && c.rank === 1) return 0; // the wild
+  return c.rank <= 7 ? c.rank : 10;
+}
+function defaultDiscardAmong(leftovers) {
+  const sorted = leftovers.slice().sort((a, b) => closeCardValue(b) - closeCardValue(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const c of sorted) {
+    const rest = sorted.filter((x) => x.id !== c.id);
+    if (rest.length === 0 || (rest.length === 1 && closeCardValue(rest[0]) <= 5)) return c;
+  }
+  return null;
+}
+// One card tapped = the player's choice. Nothing tapped (and at least one meld
+// laid) = the default. Two or more tapped = still building a meld: no discard.
+function closeDiscardFor(cm, hand) {
+  if (!cm || !cm.groups.length) return null;
+  if (cm.sel.size === 1) return [...cm.sel][0];
+  if (cm.sel.size > 1) return null;
+  const grouped = new Set(cm.groups.flat());
+  const d = defaultDiscardAmong(hand.filter((c) => !grouped.has(c.id)));
+  return d ? d.id : null;
+}
+function markCloseDiscard(el) {
+  el.classList.add('close-discard');
+  el.dataset.tag = t('closeDiscardTag');
 }
 
 // A small face-up card for the felt (melds) and the false-close banner.
