@@ -71,7 +71,8 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
 #table {
   position: relative; width: 100%; max-width: 780px; height: 430px; margin: 12px auto 22px;
   border-radius: 50% / 50%;
-  background: radial-gradient(ellipse at 50% 42%, #2e7a4d 0%, #23633d 55%, #194a2d 100%);
+  /* Blue felt (Nov 3, 2026, Dannel: "make the table cloth blue instead"). */
+  background: radial-gradient(ellipse at 50% 42%, #2f6aa8 0%, #23558c 55%, #183d66 100%);
   box-shadow:
     inset 0 0 0 9px #6e4524, inset 0 0 0 12px #3f2713,
     inset 0 0 46px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.45);
@@ -81,7 +82,7 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
   position: absolute; transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 5px 9px 4px; border-radius: 16px; min-width: 74px; max-width: 120px;
-  background: rgba(8, 22, 14, 0.42); color: #f3efe2; text-align: center;
+  background: rgba(8, 16, 32, 0.42); color: #f3efe2; text-align: center;
 }
 .seat-fan { position: relative; width: 70px; height: 34px; }
 .mini-back {
@@ -94,13 +95,13 @@ ul#lobby-players { padding-left: 18px; color: var(--ink); }
   font-weight: 700; font-size: 0.82em; line-height: 1.15; max-width: 108px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.seat-count { font-size: 0.7em; color: #c9d6cc; }
+.seat-count { font-size: 0.7em; color: #c9d3e0; }
 .seat.out { opacity: .55; }
 .seat .bot-avatar { margin-right: 3px; }
 /* You, at the near rim (your full hand is below the table). */
 .me-seat {
   left: 50%; top: 100%; min-width: 0; padding: 4px 14px;
-  background: #1c2a20; border: 1px solid #3f2713;
+  background: #1c2536; border: 1px solid #3f2713;
 }
 
 /* Turn ring: a bright arc that orbits the active seat; faster + pulsing while
@@ -843,9 +844,9 @@ button, .card, .pile, input { touch-action: manipulation; }
 #table.melds-mode #center { display: none; }
 .felt-meld {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 3px 5px 5px; border-radius: 8px; background: rgba(8, 22, 14, 0.38);
+  padding: 3px 5px 5px; border-radius: 8px; background: rgba(8, 16, 32, 0.38);
 }
-.felt-meld.mine { background: rgba(8, 22, 14, 0.55); }
+.felt-meld.mine { background: rgba(8, 16, 32, 0.55); }
 .felt-meld.locked { opacity: 0.85; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
 .felt-meld.tappable { cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 207, 77, 0.55); }
 .fm-owner {
