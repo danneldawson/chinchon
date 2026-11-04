@@ -819,6 +819,9 @@ function finishLayoff(room) {
   // lo.scores is indexed by player seat (same shape as hands), so pass it
   // straight through. Nulls (shouldn't happen at 'done') become 0.
   const scores = lo.scores.map((s) => (s == null ? 0 : s));
+  // Game over over the table (Nov 3, 2026): the last round's melds stay on
+  // the felt under the final-scores panel, "messy, like a real table".
+  room.lastTable = { table: lo.table, owners: lo.owners || null, locked: lo.locked || null, closerIndex: lo.closerIndex };
   matchMod.applyRound(match, {
     valid: true,
     chinchon: lo.chinchon,
@@ -1074,6 +1077,7 @@ function serialize(room, seatId, since) {
     spectator: !!viewer && !!viewer.spectator,
     voiceLink: room.voiceLink || null,
     closingSeat: closingSeatOf(room),
+    finalTable: match.gameOver && room.lastTable ? room.lastTable : null,
     waiting: room.waiting
       ? {
           seat: room.waiting.seat,

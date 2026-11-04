@@ -996,7 +996,24 @@ button, .card, .pile, input { touch-action: manipulation; }
   50% { transform: translateX(-50%) scale(1.08); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 18px rgba(245,197,66,1); }
 }
 @media (prefers-reduced-motion: reduce) { .closing-badge { animation: none; } }
+
 /* Close mode: the hand row clips vertically (overflow-x scroll), so leave room
    above for the lifted, scaled selected card and the marked discard. */
 #hand.close-mode { padding-top: 18px; padding-left: 6px; padding-right: 6px; }
 
+/* Game over OVER the table (Nov 3, 2026, Dannel): no full-screen backdrop, no
+   cut away. The panel floats on the felt; the last melds, the piles, your hand
+   and the chat bubble stay visible and usable around it. */
+#table > #gameover {
+  position: absolute; inset: 0; z-index: 40; background: none;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+#table > #gameover.hidden { display: none; }
+#table > #gameover .go-card {
+  pointer-events: auto; width: min(88%, 380px); max-height: 94%; overflow-y: auto;
+  padding: 14px 18px; background: rgba(22, 26, 34, 0.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+#table > #gameover .go-card h2 { margin: 0 0 4px; }
+#table > #gameover .go-board { margin: 6px 0 8px; }
+#table > #gameover #go-eliminated { margin-bottom: 10px; }

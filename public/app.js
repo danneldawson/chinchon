@@ -85,6 +85,7 @@ const I18N = {
     waitingLayoff: 'Waiting for others to lay off…',
     pass: 'Not yet',
     goTitle: 'Match over',
+    playAgain: 'Play again',
     eliminated: 'Eliminated',
     leave: 'Leave',
     leaveMatch: 'Leave match',
@@ -159,6 +160,7 @@ const I18N = {
     waitingLayoff: 'Esperando a los demás…',
     pass: 'Todavía no',
     goTitle: 'Partida terminada',
+    playAgain: 'Jugar otra vez',
     eliminated: 'Eliminados',
     leaveMatch: 'Salir de la partida',
     hold: 'Pausar',
@@ -1000,7 +1002,13 @@ function render() {
 
   // Game-over panel (Slice 3)
   const go = $('gameover');
+  // Game over sits OVER the table (Nov 3, 2026, Dannel): the last hand's cards
+  // and melds stay where they were, chat stays open; no separate screen.
+  const tableEl = $('table');
+  if (tableEl && go && go.parentNode !== tableEl && tableEl.appendChild) tableEl.appendChild(go);
   if (v.gameOver) {
+    $('btn-rematch').textContent = t('playAgain');
+    $('btn-tolobby').textContent = t('leave');
     if (!_animState.gameover) onceAnimate(go, 'appear');
     _animState.gameover = true;
     go.classList.remove('hidden');
@@ -1303,7 +1311,11 @@ function render() {
   if (inLayoff) renderLayoff(live.layoff);
   // Melds face up on the felt: the closer's groups while building them, then
   // every meld on the table during the lay-off (with the seat that laid it).
-  renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : null);
+  // At game over the last round's melds stay on the felt, untouched.
+  const finalLo = !inLayoff && v.gameOver && v.finalTable
+    ? { ...v.finalTable, phase: 'done', done: true, isYourTurn: false }
+    : null;
+  renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : finalLo);
   state.shownTable = cloneTable(v);
   syncCloseIntent();
 }
