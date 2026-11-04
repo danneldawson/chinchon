@@ -324,6 +324,26 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
   rank order had been fully circular since `d8cc416`.
 - **D: no lay-off onto a −10 close (R42).** *Reason:* Dannel: "those two melds when
   layed on the table no one should be able to lay cards on those".
+- **D: the deal moves one seat after every round (R12, already the rule).** The
+  server re-dealt with the same dealer; fixed in `maybeRedeal`.
+- **D: cleanup by input, not by polling.** An open tab polls forever, so tables,
+  held rematches and lobby names lingered. Rooms now also go after 30 min with no
+  tap, key or seat action (`INPUT_IDLE_MS`); a held rematch after `ROOM_IDLE_MS`
+  with no input. Lobby system lines about rooms that are gone, system lines older
+  than 2 h and any lobby line older than 24 h are pruned.
+- **D: lobby users with no input for 30 min are removed**, and told so (back to the
+  start screen). A player seated in a running match is never removed.
+- **D: blue felt; scores as bold black numbers on a white badge** (scoreboard, game
+  over, lobby match cards).
+- **D: each device keeps its own language across a reload** (localStorage).
+- **D: "room code" stays in the lobby, join box and waiting room.** In game the tag
+  reads "Room: X" / "Sala: X". Joining is unchanged.
+- **D: optional voice-call link.** The host pastes it in the waiting room ("Voice
+  chat link (optional)" / "Enlace de llamada (opcional)"); in game every player gets
+  "Join voice call" / "Unirse a la llamada" (new tab). Server accepts only https
+  links to call.whatsapp.com, chat.whatsapp.com or facetime.apple.com, max 300
+  characters (`src/voice-link.js`); the button shows the domain.
+- **Not done: "the closing structure is off"** — waiting for Dannel's screenshots.
 
 ## Bugs fixed (selected, with root causes)
 
