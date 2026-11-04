@@ -1,14 +1,32 @@
 'use strict';
 
 // Surface uncaught client errors on-screen so they aren't silent (diagnostic).
-window.addEventListener('error', (e) => {
+// Nov 3, 2026: Dannel's iPad showed "⚠ Script error." during a close. That
+// text is what Safari reports for an error thrown by a script from ANOTHER
+// origin (a Safari extension's content script, an in-app browser's injected
+// code): no file, no line, no detail. Our page loads only /app.js, so such an
+// error is never ours and must not overwrite the game's status line. Only
+// errors from this page's own scripts are shown, with their file:line.
+function isOwnClientError(e) {
+  if (!e) return false;
+  const msg = String(e.message || '');
+  if (/^script error\.?$/i.test(msg.trim())) return false; // opaque cross-origin
+  const file = String(e.filename || '');
+  if (!file) return false; // no source: injected / extension code
+  try { return new URL(file, location.href).origin === location.origin; } catch (_) { return false; }
+}
+function reportClientError(e) {
   try {
+    console.error('uncaught', e && e.message, e && e.error, e && e.filename);
+    if (!isOwnClientError(e)) return false;
     const box = document.getElementById('status') || document.body;
-    const msg = '⚠ ' + (e.message || e.error || 'client error');
+    const where = e.lineno ? ` (${String(e.filename).split('/').pop()}:${e.lineno})` : '';
+    const msg = '⚠ ' + (e.message || e.error || 'client error') + where;
     if (box && box.textContent !== msg) box.textContent = msg;
-    console.error('uncaught', e.message, e.error);
-  } catch (_) { /* never let the error reporter itself throw */ }
-});
+    return true;
+  } catch (_) { return false; /* never let the error reporter itself throw */ }
+}
+window.addEventListener('error', reportClientError);
 
 // Chinchon browser client. Talks to the server via fetch and renders state.
 // State lives server-side; we only ever send our seat's actions.
