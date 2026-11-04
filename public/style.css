@@ -857,7 +857,14 @@ button, .card, .pile, input { touch-action: manipulation; }
   padding: 3px 5px 5px; border-radius: 8px; background: rgba(8, 16, 32, 0.38);
 }
 .felt-meld.mine { background: rgba(8, 16, 32, 0.55); }
-.felt-meld.locked { opacity: 0.85; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
+/* R42 (Nov 3, 2026, Dannel: "the -10 melds make the around it red so people
+   know that those are the melds no one could feed"). Only the -10-locked melds;
+   full opacity and a bright red edge plus glow so it reads on the blue felt. */
+.felt-meld.locked {
+  border: 2px solid #ff3b30;
+  box-shadow: 0 0 0 1px rgba(255, 59, 48, 0.55), 0 0 12px 2px rgba(255, 59, 48, 0.55);
+}
+.felt-meld.locked .fm-owner { color: #ffd6d3; }
 .felt-meld.tappable { cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 207, 77, 0.55); }
 .fm-owner {
   font-size: clamp(9px, calc(var(--fm-w) * 0.27), 12px); line-height: 1.1; color: #f3efe2;
