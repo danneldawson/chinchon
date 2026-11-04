@@ -423,7 +423,7 @@ function wireHostStart() {
 async function watchRoom() {
   let res;
   try {
-    res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}`).then((r) => r.json());
+    res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}${actQ('game')}`).then((r) => r.json());
   } catch { return; }
   if (!res || typeof res !== 'object') return;
   if (res.gone) { goToLobby(); return; }
@@ -741,13 +741,28 @@ function ingestSteps(v) {
   if (!state.watchPlaying) playWatch();
 }
 
+// Real input since the last poll (Nov 3, 2026). The server keeps a table alive
+// only while someone actually taps or types; a tab left open on an abandoned
+// game just polls, and the sweeper may now clear it. One flag per poller.
+const inputSeen = { game: false, lobby: false };
+if (typeof window !== 'undefined' && window.addEventListener) {
+  for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+    window.addEventListener(ev, () => { inputSeen.game = true; inputSeen.lobby = true; }, { passive: true, capture: true });
+  }
+}
+function actQ(which) {
+  if (!inputSeen[which]) return '';
+  inputSeen[which] = false;
+  return '&act=1';
+}
+
 async function poll() {
   // If we've already left the room (code cleared), don't fetch or redirect.
   // A poll in-flight when Leave was clicked must not call goToLobby().
   if (!state.code) return;
   const since = stepCursor();
   const sinceQ = since == null ? '' : `&since=${encodeURIComponent(since)}`;
-  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}${sinceQ}`).then((r) => r.json());
+  const res = await fetch(`/api/state?code=${state.code}&seat=${state.seatId}${sinceQ}${actQ('game')}`).then((r) => r.json());
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
   // Match on the player id the server returns in scoreboard entries — not on
   // p.seat, which the server never sends (the old code assumed it did).

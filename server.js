@@ -53,6 +53,14 @@ const CLEANUP = {
   FINISHED_TTL_MS: 15 * 60 * 1000,       // finished match (no rematch pending) goes this long after game over
   GAME_IDLE_MS: 15 * 60 * 1000,          // multiplayer game in progress with every human idle this long goes
   SOLO_IDLE_MS: 30 * 60 * 1000,          // solo / tutorial game in progress with its human idle this long goes
+  // Nov 3, 2026 (Dannel: "past games and abandoned tables and users stay
+  // lingering"). A tab left open keeps polling, so "no poll" alone never fires
+  // for it. lastActive is stamped only by real input (a tap/key reported with
+  // the poll as act=1, or any seat action). A room whose humans have all had no
+  // input this long goes even if a tab is still open.
+  INPUT_IDLE_MS: 30 * 60 * 1000,
+  LOBBY_SYSTEM_TTL_MS: 2 * 60 * 60 * 1000, // lobby "Room X started." lines older than this go
+  LOBBY_CHAT_TTL_MS: 24 * 60 * 60 * 1000,  // any lobby chat line older than this goes
 };
 
 function lobbyEnter(name) {
@@ -83,8 +91,10 @@ function lobbyChatPush(name, text) {
   if (lobby.chat.length > LOBBY_CHAT_CAP) lobby.chat = lobby.chat.slice(-LOBBY_CHAT_CAP);
 }
 
-function lobbySystem(text) {
-  lobby.chat.push({ name: 'CHINCHON', text, at: Date.now(), system: true });
+function lobbySystem(text, room) {
+  // `room` tags the line with its room code so the sweeper can drop it once
+  // that room is gone (no more "Room ARMY started." weeks later).
+  lobby.chat.push({ name: 'CHINCHON', text, at: Date.now(), system: true, ...(room ? { room } : {}) });
   if (lobby.chat.length > LOBBY_CHAT_CAP) lobby.chat = lobby.chat.slice(-LOBBY_CHAT_CAP);
 }
 
@@ -202,7 +212,7 @@ function startFreshMatch(room) {
   room.pending = null;
   room.started = true;
   room.startedAt = Date.now();
-  lobbySystem(`Room ${room.code} started.`);
+  lobbySystem(`Room ${room.code} started.`, room.code);
   runBotTurns(room);
   return true;
 }
@@ -215,7 +225,7 @@ function startPendingMatch(room) {
   room.startedAt = Date.now();
   room.started = true;
   // Chat is kept across rematches (same room, same players) — no clearing.
-  lobbySystem(`Room ${room.code} started a new match.`);
+  lobbySystem(`Room ${room.code} started a new match.`, room.code);
   runBotTurns(room);
 }
 
@@ -402,9 +412,18 @@ const HOST_GRACE_MS = 60000;    // host away this long => promote next-oldest
 const CONTINUE_WAIT_MS = 90000; // host must wait this long before "continue"
 const CONNECTED_MS = 45000;     // a seat that polled within this is "connected" (green)
 
-function stampSeen(room, seatId) {
+function stampSeen(room, seatId, act = false) {
   const p = room.players.find((x) => x.id === seatId);
-  if (p) { p.lastSeen = Date.now(); p.connected = true; }
+  if (p) {
+    p.lastSeen = Date.now(); p.connected = true;
+    // A seat's first poll counts as activity; after that only real input does.
+    if (act || !p.lastActive) p.lastActive = p.lastSeen;
+  }
+}
+// Any seat action (draw, discard, close, chat, rematch...) is real input.
+function markActive(room, seatId) {
+  const p = seatId && room.players.find((x) => x.id === seatId);
+  if (p && !p.isBot) p.lastActive = Date.now();
 }
 function isAway(p) {
   if (!p) return true;
@@ -502,6 +521,10 @@ function sweepRooms(now = Date.now(), opts = {}) {
   const out = { rooms: [], seats: 0 };
   const idleFor = (p) => now - (p.lastSeen || 0);
   const allIdle = (humans, ms) => !humans.some((p) => idleFor(p) < ms);
+  // No input (tap, key or seat action) from any human for ms: an open tab
+  // that only polls doesn't keep the room alive.
+  const inputFor = (p) => now - (p.lastActive || p.lastSeen || 0);
+  const allInactive = (humans, ms) => !humans.some((p) => inputFor(p) < ms);
   const evict = (code) => { rooms.delete(code); out.rooms.push(code); };
   for (const [code, room] of [...rooms]) {
     if (room.gone) { evict(code); continue; }
@@ -521,20 +544,39 @@ function sweepRooms(now = Date.now(), opts = {}) {
         }
       }
       const humans = humanSeats(room);
-      if (!humans.length || allIdle(humans, c.ROOM_IDLE_MS)) evict(code);
+      if (!humans.length || allIdle(humans, c.ROOM_IDLE_MS) || allInactive(humans, c.INPUT_IDLE_MS)) evict(code);
       continue;
     }
     const humans = humanSeats(room);
     if (finished) {
       const expired = !room.pending && now - room.gameOverAt >= c.FINISHED_TTL_MS;
-      if (expired || !humans.length || allIdle(humans, c.ROOM_IDLE_MS)) evict(code);
+      // A held / pending rematch used to keep a finished room forever while a
+      // results tab stayed open; now it goes once nobody has tapped anything
+      // for ROOM_IDLE_MS.
+      if (expired || !humans.length || allIdle(humans, c.ROOM_IDLE_MS) || allInactive(humans, c.ROOM_IDLE_MS)) evict(code);
       continue;
     }
     // Game in progress.
     const ms = room.mode === 'solo' || room.tutorial ? c.SOLO_IDLE_MS : c.GAME_IDLE_MS;
-    if (!humans.length || allIdle(humans, ms)) evict(code);
+    if (!humans.length || allIdle(humans, ms) || allInactive(humans, c.INPUT_IDLE_MS)) evict(code);
   }
   return out;
+}
+
+// Lobby chat: system lines about a room that no longer exists, system lines
+// older than LOBBY_SYSTEM_TTL_MS, and any line older than LOBBY_CHAT_TTL_MS go.
+// Returns how many lines were dropped.
+function sweepLobbyChat(now = Date.now(), opts = {}) {
+  const c = { ...CLEANUP, ...opts };
+  const before = lobby.chat.length;
+  lobby.chat = lobby.chat.filter((m) => {
+    const age = now - (m.at || 0);
+    if (age > c.LOBBY_CHAT_TTL_MS) return false;
+    if (!m.system) return true;
+    if (m.room && !rooms.has(m.room)) return false;
+    return age <= c.LOBBY_SYSTEM_TTL_MS;
+  });
+  return before - lobby.chat.length;
 }
 
 // Periodic cleanup: drop lobby members who haven't interacted in
@@ -559,9 +601,10 @@ function sweepLobby(now = Date.now(), opts = {}) {
 function runCleanup(now = Date.now(), opts = {}, file = STATE_FILE) {
   const r = sweepRooms(now, opts);
   const lobbyRemoved = sweepLobby(now, opts);
-  const changed = r.rooms.length > 0 || r.seats > 0 || lobbyRemoved > 0;
+  const chatRemoved = sweepLobbyChat(now, opts);
+  const changed = r.rooms.length > 0 || r.seats > 0 || lobbyRemoved > 0 || chatRemoved > 0;
   if (changed && file) safeSave(file);
-  return { ...r, lobby: lobbyRemoved, saved: changed && !!file };
+  return { ...r, lobby: lobbyRemoved, chat: chatRemoved, saved: changed && !!file };
 }
 
 // ---------------------------------------------------------------- persistence
@@ -641,7 +684,7 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
     shiftTime(room, 'hostGraceSince', gap);
     shiftTime(room, 'startedAt', gap);
     shiftTime(room, 'gameOverAt', gap);
-    for (const p of room.players) shiftTime(p, 'lastSeen', gap);
+    for (const p of room.players) { shiftTime(p, 'lastSeen', gap); shiftTime(p, 'lastActive', gap); }
     if (!Array.isArray(room.chat)) room.chat = [];
     if (!Array.isArray(room.banned)) room.banned = [];
     rooms.set(room.code, room);
@@ -1103,12 +1146,14 @@ function handleApi(req, res, url) {
   const withRoom = (handler) => readBody(req).then((body) => {
     const room = rooms.get(body.code);
     if (!room) return sendJson(res, 404, { error: 'no such room' });
+    markActive(room, body.seat || body.seatId);
     return handler(body, room);
   });
   // Same, for routes that also need a dealt game (room.state).
   const withRoomState = (handler) => readBody(req).then((body) => {
     const room = rooms.get(body.code);
     if (!room || !room.state) return sendJson(res, 404, { error: 'no such room/state' });
+    markActive(room, body.seat || body.seatId);
     return handler(body, room);
   });
 
@@ -1147,7 +1192,7 @@ function handleApi(req, res, url) {
       if (!room) return sendJson(res, 404, { error: 'room expired' });
       const seat = room.players.find((pl) => pl.id === rejoin.seatId);
       if (!seat || seat.isBot) return sendJson(res, 404, { error: 'seat not found' });
-      stampSeen(room, rejoin.seatId);
+      stampSeen(room, rejoin.seatId, true);
       evaluateWaiting(room);
       return sendJson(res, 200, { code: rejoin.code, seatId: rejoin.seatId, name: rejoin.name, rejoined: true });
     });
@@ -1175,7 +1220,7 @@ function handleApi(req, res, url) {
     const seat = url.searchParams.get('seat');
     const room = rooms.get(code);
     if (!room) return sendJson(res, 404, { error: 'no such room' });
-    if (seat) stampSeen(room, seat);
+    if (seat) stampSeen(room, seat, url.searchParams.get('act') === '1');
     evaluateWaiting(room);
     const out = serialize(room, seat, url.searchParams.get('since'));
     if (out && out.gone) return sendJson(res, 410, { error: 'room expired', gone: true, code });
@@ -1333,7 +1378,7 @@ function handleApi(req, res, url) {
       if (!room.match || !room.match.gameOver) return sendJson(res, 400, { error: 'match is not over' });
       // Enter a 90s pending window (others in the lobby may join the rematch).
       room.pending = { until: Date.now() + REMATCH_COUNTDOWN_MS, hold: false, hostName: viewer.name, startedBy: viewer.id };
-      lobbySystem(`A new game in room ${room.code} starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s — join the rematch!`);
+      lobbySystem(`A new game in room ${room.code} starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s — join the rematch!`, room.code);
       return sendJson(res, 200, { ok: true, pending: room.pending });
     });
   }
@@ -1348,7 +1393,7 @@ function handleApi(req, res, url) {
       const id = newSeatId();
       const reclaim = newSessionToken();
       room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), sessionToken: reclaim });
-      lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`);
+      lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`, room.code);
       return sendJson(res, 200, { seatId: id, code: room.code, sessionToken: reclaim });
     });
   }
@@ -1365,11 +1410,11 @@ function handleApi(req, res, url) {
         // Resume: restart the 90s window.
         room.pending.hold = false;
         room.pending.until = Date.now() + REMATCH_COUNTDOWN_MS;
-        lobbySystem(`Rematch in room ${room.code} resumes — starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s.`);
+        lobbySystem(`Rematch in room ${room.code} resumes — starts in ${Math.round(REMATCH_COUNTDOWN_MS / 1000)}s.`, room.code);
       } else {
         room.pending.hold = true;
         // General chat shows HELDBYHOST while the rematch is held (until the host unholds).
-        lobbySystem(`HELD BY HOST ${room.code} — waiting for host to start.`);
+        lobbySystem(`HELD BY HOST ${room.code} — waiting for host to start.`, room.code);
       }
       return sendJson(res, 200, { ok: true, pending: room.pending });
     });
@@ -1454,7 +1499,7 @@ function handleApi(req, res, url) {
       if (target.lobbyToken) room.banned.push(target.lobbyToken);
       const r = removePlayer(room, body.target);
       if (r.error) return sendJson(res, 404, { error: r.error });
-      lobbySystem(`${target.name} was kicked from room ${room.code}.`);
+      lobbySystem(`${target.name} was kicked from room ${room.code}.`, room.code);
       return sendJson(res, 200, r);
     });
   }
@@ -1731,4 +1776,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
