@@ -15,6 +15,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WORDS } = require('./src/room-words');
+const { validateVoiceLink } = require('./src/voice-link');
 
 const turn = require('./src/turn');
 const scoring = require('./src/scoring');
@@ -716,6 +717,10 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
     for (const p of room.players) { shiftTime(p, 'lastSeen', gap); shiftTime(p, 'lastActive', gap); }
     if (!Array.isArray(room.chat)) room.chat = [];
     if (!Array.isArray(room.banned)) room.banned = [];
+    if (room.voiceLink) {
+      const v = validateVoiceLink(room.voiceLink.url);
+      room.voiceLink = v.url ? { url: v.url, host: v.host } : null;
+    }
     rooms.set(room.code, room);
     n++;
   }
@@ -936,6 +941,7 @@ function serialize(room, seatId, since) {
         hostId: null,
         isHost: !!viewer && viewer.id === room.hostId,
         spectator: !!viewer && !!viewer.spectator,
+        voiceLink: room.voiceLink || null,
         waiting: room.waiting
           ? {
               seat: room.waiting.seat,
@@ -1046,6 +1052,7 @@ function serialize(room, seatId, since) {
     hostId: null, // never broadcast — isHost below is the only signal clients need
     isHost: !!viewer && viewer.id === room.hostId,
     spectator: !!viewer && !!viewer.spectator,
+    voiceLink: room.voiceLink || null,
     waiting: room.waiting
       ? {
           seat: room.waiting.seat,
@@ -1560,6 +1567,18 @@ function handleApi(req, res, url) {
 
   // Per-room chat: short gameplay notes only, capped at the last 10 messages.
   // Available while the room is up; cleared on rematch (fresh match).
+  // Voice-call link (Nov 3, 2026): the host sets or clears it in the waiting
+  // room (before the deal, or while a rematch is pending). Validated here.
+  if (method === 'POST' && p === '/api/room/voice') {
+    return withRoom((body, room) => {
+      if (!body.seat || body.seat !== room.hostId) return sendJson(res, 403, { error: 'only the host can set the voice link' });
+      if (room.started && !room.pending) return sendJson(res, 409, { error: 'set the voice link in the waiting room' });
+      const v = validateVoiceLink(body.url);
+      if (v.error) return sendJson(res, 400, { error: v.error });
+      room.voiceLink = v.url ? { url: v.url, host: v.host } : null;
+      return sendJson(res, 200, { ok: true, voiceLink: room.voiceLink });
+    });
+  }
   if (method === 'POST' && p === '/api/room/chat') {
     return withRoom((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
