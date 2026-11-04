@@ -28,6 +28,11 @@ const I18N = {
     share: 'Share',
     // In-game tag (Nov 3, 2026): past the waiting room the code is just the room's name.
     roomNameLabel: 'Room:',
+    voiceLinkLabel: 'Voice chat link (optional)',
+    voiceLinkSave: 'Save',
+    voiceLinkSaved: 'Voice call',
+    voiceLinkNone: 'No voice call link yet.',
+    joinVoiceCall: 'Join voice call',
     idleRemoved: 'You were idle in the lobby for 30 minutes, so you were taken out. Enter your name to come back.',
     joinRoom: 'Join room',
     player: 'Player',
@@ -159,6 +164,11 @@ const I18N = {
     copy: 'Copiar',
     playersJoined: 'Jugadores unidos:',
     roomNameLabel: 'Sala:',
+    voiceLinkLabel: 'Enlace de llamada (opcional)',
+    voiceLinkSave: 'Guardar',
+    voiceLinkSaved: 'Llamada de voz',
+    voiceLinkNone: 'Aún no hay enlace de llamada.',
+    joinVoiceCall: 'Unirse a la llamada',
     idleRemoved: 'Estuviste inactivo en el lobby 30 minutos y saliste. Escribe tu nombre para volver.',
     joinRoom: 'Unirse a sala',
     player: 'Jugador',
@@ -418,6 +428,45 @@ function wireHostStart() {
   };
 }
 
+// Voice-call link (Nov 3, 2026). Waiting room: the host pastes / saves it,
+// everyone sees which call it is. In game: a "Join voice call" button (new
+// tab), hidden when there is no link. The server validates every link.
+function voiceLinkText(link) {
+  return link && link.url ? `🎙 ${t('joinVoiceCall')} · ${link.host}` : '';
+}
+function renderVoiceCall(link) {
+  const a = $('btn-voice-call');
+  if (!a) return;
+  const has = !!(link && link.url);
+  a.classList.toggle('hidden', !has);
+  if (!has) { a.removeAttribute('href'); a.textContent = ''; return; }
+  if (a.getAttribute('href') !== link.url) a.setAttribute('href', link.url);
+  a.textContent = voiceLinkText(link);
+}
+function renderVoiceLinkRow(res) {
+  const row = $('voice-link-row');
+  if (!row) return;
+  const link = res.voiceLink;
+  row.classList.toggle('hidden', !res.isHost && !(link && link.url));
+  $('voice-link-edit').classList.toggle('hidden', !res.isHost);
+  const input = $('voice-link-input');
+  if (res.isHost && document.activeElement !== input && !input.dataset.dirty) input.value = link && link.url ? link.url : '';
+  if (!$('voice-link-msg').dataset.error) {
+    $('voice-link-msg').textContent = link && link.url ? `${t('voiceLinkSaved')}: ${link.host}` : (res.isHost ? '' : t('voiceLinkNone'));
+  }
+}
+$('voice-link-input').oninput = () => { $('voice-link-input').dataset.dirty = '1'; };
+$('btn-voice-save').onclick = async () => {
+  const input = $('voice-link-input');
+  const msg = $('voice-link-msg');
+  const r = await postJson('/api/room/voice', { code: state.code, seat: state.seatId, url: input.value })
+    .then((x) => x.json()).catch(() => ({ error: 'network error' }));
+  if (r.error) { msg.dataset.error = '1'; msg.textContent = r.error; return; }
+  delete msg.dataset.error; delete input.dataset.dirty;
+  input.value = r.voiceLink ? r.voiceLink.url : '';
+  msg.textContent = r.voiceLink ? `${t('voiceLinkSaved')}: ${r.voiceLink.host}` : '';
+};
+
 // Polls a pending room (host or joiner) and transitions into the game once it
 // starts. If a private room expires with no humans, bounces back to the lobby.
 // Errors are swallowed intentionally — the surrounding interval + explicit
@@ -438,6 +487,7 @@ async function watchRoom() {
     li.textContent = (p.isBot ? '🤖 ' : '') + p.name;
     ul.appendChild(li);
   }
+  renderVoiceLinkRow(res);
   const secs = res.pending ? res.pending.secondsLeft : null;
   $('room-waiting').textContent = secs != null ? `Match starts in ${secs}s…` : 'Waiting for the match to start…';
   // Show/hide the host start button each poll; the handler itself is wired once.
@@ -861,6 +911,7 @@ function render() {
   // Room tag on top of the scoreboard ("Room: XXXX" / "Sala: XXXX"). Once a
   // game has started the code is only the room's name, never "room code".
   $('room-code-tag').textContent = v.code ? `${t('roomNameLabel')} ${v.code}` : '';
+  renderVoiceCall(v.voiceLink);
 
   // Scoreboard: order = join order (host first). Dot = live connection status.
   // Playing/eliminated show their score; a dropped (spectator) player shows "–".

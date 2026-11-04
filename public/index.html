@@ -125,6 +125,16 @@
             <button id="btn-share-link" class="small hidden" data-i18n="share">Share</button>
         </div>
         <p class="dim" data-i18n="shareCodeNote">Send this code to the other players so they can join.</p>
+        <!-- Voice-call link (Nov 3, 2026): the host may paste one; every player
+             gets a "Join voice call" button once the table launches. -->
+        <div id="voice-link-row" class="voice-link-row hidden">
+          <label for="voice-link-input" data-i18n="voiceLinkLabel">Voice chat link (optional)</label>
+          <div id="voice-link-edit" class="share-buttons hidden">
+            <input id="voice-link-input" type="url" inputmode="url" maxlength="300" autocomplete="off" placeholder="https://…" />
+            <button id="btn-voice-save" class="small" data-i18n="voiceLinkSave">Save</button>
+          </div>
+          <p id="voice-link-msg" class="dim"></p>
+        </div>
         <p id="room-waiting" class="dim"></p>
         <p data-i18n="playersJoined">Players joined:</p>
         <ul id="lobby-players"></ul>
@@ -138,6 +148,7 @@
       <header id="board-top">
         <div class="board-top-row">
           <div id="room-code-tag" class="dim"></div>
+          <a id="btn-voice-call" class="voice-call hidden" target="_blank" rel="noopener noreferrer"></a>
           <button id="btn-leave-match" class="small danger" data-i18n="leaveMatch">Leave match</button>
           <div id="phase-pill" class="hidden"></div>
           <div id="scoreboard"></div>

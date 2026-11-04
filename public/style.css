@@ -950,3 +950,12 @@ button, .card, .pile, input { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   .fly-card { transition: none !important; }
 }
+
+/* Voice-call link (Nov 3, 2026): waiting-room field + in-game button. */
+.voice-link-row { margin: 10px 0; }
+.voice-link-row label { display: block; font-size: 0.9em; color: var(--dim); margin-bottom: 4px; }
+#voice-link-input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: #11141a; color: var(--ink); }
+.voice-call {
+  display: inline-block; padding: 3px 10px; border-radius: 14px; font-size: 0.82em; font-weight: 700;
+  background: #2ecc71; color: #0f1115; text-decoration: none; white-space: nowrap;
+}
