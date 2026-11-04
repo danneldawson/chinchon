@@ -1,7 +1,8 @@
 'use strict';
 
 // Regression tests for Dannel's Oct 2, 2026 rulings (house-rules.md section H):
-//   R37  runs wrap from 12 round to 1 (11-12-1, 12-1-2, ...)
+//   R37  runs wrap from 12 round to 1 (11-12-1), refined by R43 (Nov 3, 2026):
+//        the 1 ends the run, so 12-1-2 is NOT a run (test/run-wrap-r43.test.js)
 //   R38  the wild (1 de Oros) scores 0 when left in hand
 // R40 (60s pre-start countdown) is covered in test/countdown.test.js.
 
@@ -25,18 +26,22 @@ test('R37: 11-12-1 of one suit is a valid run (natural 1 of a non-wild suit)', (
   assert.strictEqual(meldType(meld), 'run');
 });
 
-test('R37: 12-1-2 and 12-1-2-3 wrap across the end', () => {
-  assert.ok(isValidRun([c(12, 'Copas'), c(1, 'Copas'), c(2, 'Copas')]));
-  assert.ok(isValidRun([c(3, 'Espadas'), c(12, 'Espadas'), c(2, 'Espadas'), c(1, 'Espadas')]));
+test('R43: 12-1-2 and 12-1-2-3 are not runs (the 1 ends a run after 12)', () => {
+  assert.ok(!isValidRun([c(12, 'Copas'), c(1, 'Copas'), c(2, 'Copas')]));
+  assert.ok(!isValidRun([c(3, 'Espadas'), c(12, 'Espadas'), c(2, 'Espadas'), c(1, 'Espadas')]));
 });
 
-test('R37: a long wrap that also uses the 7->10 bridge is valid (6-7-10-11-12-1-2)', () => {
-  const meld = ['6', '7', '10', '11', '12', '1', '2'].map((r) => c(Number(r), 'Copas'));
+test('R37: a long run that also uses the 7->10 bridge may end on the 1 (5-6-7-10-11-12-1)', () => {
+  const meld = ['5', '6', '7', '10', '11', '12', '1'].map((r) => c(Number(r), 'Copas'));
   assert.ok(isValidRun(meld));
+  // R43: but not continue past it (6-7-10-11-12-1-2).
+  const past = ['6', '7', '10', '11', '12', '1', '2'].map((r) => c(Number(r), 'Copas'));
+  assert.ok(!isValidRun(past));
 });
 
-test('R37: the wild can fill the 1 in a wrap (12-wild-2)', () => {
-  assert.ok(isValidRun([c(12, 'Copas'), WILD(), c(2, 'Copas')]));
+test('R37/R43: the wild can be the 1 after 11-12, but not bridge 12 to 2 (12-wild-2)', () => {
+  assert.ok(isValidRun([c(11, 'Copas'), c(12, 'Copas'), WILD()]));
+  assert.ok(!isValidRun([c(12, 'Copas'), WILD(), c(2, 'Copas')]));
 });
 
 test('R37: the wild can extend a wrap at either end (wild-12-1, 12-1-wild)', () => {
@@ -45,8 +50,9 @@ test('R37: the wild can extend a wrap at either end (wild-12-1, 12-1-wild)', () 
   assert.ok(isValidRun([c(11, 'Espadas'), c(12, 'Espadas'), WILD()]));
 });
 
-test('R37: 12-1-2 de Oros is valid (the 1 de Oros sits in its own slot)', () => {
-  assert.ok(isValidRun([c(12, 'Oros'), WILD(), c(2, 'Oros')]));
+test('R43: 12-1-2 de Oros is not a run either (the 1 de Oros in its own slot)', () => {
+  assert.ok(!isValidRun([c(12, 'Oros'), WILD(), c(2, 'Oros')]));
+  assert.ok(isValidRun([c(11, 'Oros'), c(12, 'Oros'), WILD()]));
 });
 
 test('R37: a wrap with a real gap is rejected (11-12-2, 12-1-3, 10-12-1)', () => {
@@ -81,15 +87,15 @@ test('R37: all 10 ranks of a suit form a run, but the circle cannot close on its
   assert.ok(isValidRun([...nine, WILD()]));
 });
 
-test('R37: lay-off can attach a 1 after 12 and a 12 before 1', () => {
+test('R37/R43: lay-off can attach a 1 after 12, but not a 12 before 1-2-3', () => {
   assert.ok(canAttach([c(10, 'Copas'), c(11, 'Copas'), c(12, 'Copas')], c(1, 'Copas')));
-  assert.ok(canAttach([c(1, 'Espadas'), c(2, 'Espadas'), c(3, 'Espadas')], c(12, 'Espadas')));
+  assert.ok(!canAttach([c(1, 'Espadas'), c(2, 'Espadas'), c(3, 'Espadas')], c(12, 'Espadas')));
   assert.ok(!canAttach([c(10, 'Copas'), c(11, 'Copas'), c(12, 'Copas')], c(2, 'Copas')));
 });
 
 test('R37: a hand that only melds via the wrap can close clean', () => {
   const hand = [
-    c(11, 'Bastos'), c(12, 'Bastos'), c(1, 'Bastos'), c(2, 'Bastos'),
+    c(10, 'Bastos'), c(11, 'Bastos'), c(12, 'Bastos'), c(1, 'Bastos'),
     c(5, 'Copas'), c(5, 'Espadas'), c(5, 'Oros'),
   ];
   const r = canClose(hand);
@@ -99,7 +105,7 @@ test('R37: a hand that only melds via the wrap can close clean', () => {
 });
 
 test('R37: a 7-card wrapped run is a chinchon', () => {
-  const hand = [10, 11, 12, 1, 2, 3, 4].map((r) => c(r, 'Espadas'));
+  const hand = [5, 6, 7, 10, 11, 12, 1].map((r) => c(r, 'Espadas'));
   assert.ok(isChinchon(hand));
   assert.strictEqual(canClose(hand).reason, 'chinchon');
 });

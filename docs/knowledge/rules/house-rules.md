@@ -13,6 +13,7 @@ test that asserted the wrong behaviour.
   repo, danneldawson/chinchon-transcripts).
 - Dannel's rulings of Oct 2, 2026 (R37–R40).
 - Dannel's ruling of Oct 29, 2026 (R41).
+- Dannel's rulings of Nov 3, 2026 (R42, R43).
 
 **When sources disagree,** the newest statement from Dannel wins, and the disagreement
 is listed under [Open questions & resolved conflicts](#open-questions--resolved-conflicts).
@@ -42,7 +43,7 @@ file disagree, **ask Dannel** rather than "fixing" either one quietly.
 | Wild | **1 de Oros** (an existing card, so there are exactly **2 wilds**); max **one wild per meld** |
 | Values | 1–7 = face value; 10/11/12 = **10**; 1 de Oros (wild) = **0** (R38) |
 | Set | 3+ of the same rank; duplicate suits allowed |
-| Run | 3+ of the same suit in sequence; **7 → 10 is consecutive** (7‑10‑11‑12); runs **wrap 12 → 1** (…11‑12‑1…) (R37) |
+| Run | 3+ of the same suit in sequence; **7 → 10 is consecutive** (7‑10‑11‑12); runs may go **12 → 1** (11‑12‑1) **and no further**: 12‑1‑2 is not a run (R37, R43) |
 | Players | **2–7**; hands hidden until someone closes |
 | Turn | draw 1 (stock or face-up discard) → discard 1; a card just taken from the discard may be thrown straight back |
 | Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10** |
@@ -109,9 +110,9 @@ is worth **0** for that reason: it can sit with any other card at the table (R38
 - A run can't contain the same rank twice. If you hold the second deck's copy of a
   rank that's already in the run, that copy is blocked.
 - A run with a real gap is invalid.
-- A run **can wrap from 12 back to 1** (…11‑12‑1…). Dannel ruled this on Oct 2, 2026
-  (R37). The engine (`isValidRun` in `src/melds.js`) and `scripts/cards-audit.js`
-  allow it.
+- A run **can go on from 12 to 1** (…11‑12‑1). Dannel ruled this on Oct 2, 2026
+  (R37). The 1 then **ends** the run: 12‑1‑2 is not a run (R43, Nov 3, 2026). The
+  engine (`isValidRun` in `src/melds.js`) and `scripts/cards-audit.js` follow both.
 
 ### C. Players and visibility
 
@@ -310,10 +311,11 @@ was explicit: "I need the computer keeping the score for them."
 These were open questions until Oct 2, 2026 (see C12–C15 below). All four are
 implemented (checked Oct 8, 2026).
 
-**R37. Runs wrap from 12 to 1.** A run may continue from 12 round to 1, so …11‑12‑1…
+**R37. Runs wrap from 12 to 1.** A run may continue from 12 round to 1, so …11‑12‑1
 in one suit is consecutive (this is on top of the 7 → 10 bridge in R8). Dannel's
-ruling. *Code status:* implemented in `d8cc416` (`isValidRun` in `src/melds.js`; the
-audit checks the wrap).
+ruling. **Refined by R43 (Nov 3, 2026):** the 1 ends the run, so 12‑1‑2 is not a
+run. *Code status:* implemented in `d8cc416` (`isValidRun` in `src/melds.js`; the
+audit checks the wrap); the code allowed a full circle (12‑1‑2…) until R43.
 
 **R38. The wild scores 0.** A 1 de Oros left in your hand counts **0** points, because
 it can sit with any other card at the table. *Code status:* implemented in `d8cc416`
@@ -345,6 +347,19 @@ work made `canClose` (bots and engine) agree with the Close button's check
 (`allCloseSplits`) in every case: before, it missed rare closes whose least-deadwood
 split was not itself a close (e.g. one 5-card meld with two low cards left, when a
 3 + 3 + leftover close also existed). Tests: `test/close-6meld.test.js`.
+
+### J. Rulings confirmed by Dannel on Nov 3, 2026
+
+**R43. A run stops at the 1 after the 12 (refines R37).** A run may go 11‑12‑1 (and
+10‑11‑12‑1 and so on), but nothing continues past that 1: 12‑1‑2 and 12‑1‑2‑3 are
+**not** runs. Low runs that start at the 1 (1‑2‑3) are unchanged. A wild next to
+12‑1 can play as the 11, never as the 2. Dannel's words, Nov 3, 2026: "it recognises
+12-1-2 as a valid meld, it goes 11-12-1 and no further".
+*Code status:* In code on branch `fixes-nov3` (not deployed): `runWindowStarts` /
+`isValidRun` / `orderRun` in `src/melds.js` (used by the close check, lay-off and
+bots), the bots' run-neighbour check in `src/bot.js`, and `scripts/cards-audit.js`.
+Tests: `test/run-wrap-r43.test.js`; the R37 tests in `test/rulings-oct2.test.js`
+that expected 12‑1‑2 to be a run were changed to this ruling.
 
 **Total: 41 numbered house rules (R1–R41).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
@@ -408,3 +423,4 @@ numbering is kept so older references still point at the right item.)
 | C13 | Value of a stranded wild (was Q2) | Engine and the Sep 12 card audit: wild = **1**. Aug 18 tutorial draft: "counts as 0 (it's wild)" | Oct 2, 2026: the wild is worth **0**, because it can sit with any other card at the table (R38). Engine and client mirror changed in `d8cc416` |
 | C14 | Lay-off timer (was Q4) | No timer; Hermes asked on Sep 12 whether Dannel wanted a nudge or timeout, with no answer | Oct 2, 2026, Dannel's ruling: **no timer, no nudge, no timeout** (R39). Matches current behaviour |
 | C15 | Pre-start countdown | Aug 18 decision: 60s. The code as described in Sep notes: about 90s | Oct 2, 2026, Dannel's ruling: **60s** (R40). Server changed in `6ef221e` |
+| C16 | Run past the 1 (12‑1‑2) | R37 (Oct 2) as coded: rank order fully circular, so 12‑1‑2 and 12‑1‑2‑3 were runs | Nov 3, 2026, Dannel: 11‑12‑1 and no further (R43) |

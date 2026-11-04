@@ -24,6 +24,8 @@
  * to Dannel's rulings, in the same change that updated src/melds.js and
  * src/cards.js: runs wrap from 12 to 1 (house-rules.md R37) and the wild scores
  * 0 (R38).
+ * Nov 3, 2026: R43 refines R37: a run may go 11-12-1 and no further, so the
+ * '12,1,2' checks now expect a rejection.
  *
  * Source: Hermes Agent skill game-rules-engine-first/scripts/cards-audit.js
  * (Sep 12, 2026).
@@ -96,11 +98,11 @@ const C = (rank, suit, deckId = 0) => ({ rank, suit, deckId, id: `${rank}-${suit
 const WILD = C(1, 'Oros');
 check('run bridges the 8/9 gap (7,10,11,12 same suit)',
   melds.isValidRun([C(7, 'Copas'), C(10, 'Copas'), C(11, 'Copas'), C(12, 'Copas')]));
-check('run wraps 12 -> 1 (11,12,1 and 12,1,2 same suit) (R37)',
-  melds.isValidRun([C(11, 'Copas'), C(12, 'Copas'), C(1, 'Copas')]) &&
-  melds.isValidRun([C(12, 'Copas'), C(1, 'Copas'), C(2, 'Copas')]));
-check('run wraps through the wild (12, 1 de Oros, 2 de Oros) (R37)',
-  melds.isValidRun([C(12, 'Oros'), C(1, 'Oros'), C(2, 'Oros')]));
+check('run goes on from 12 to 1 (11,12,1 same suit) (R37)',
+  melds.isValidRun([C(11, 'Copas'), C(12, 'Copas'), C(1, 'Copas')]));
+check('run stops at the 1: 12,1,2 and 12,1 de Oros,2 de Oros are not runs (R43)',
+  !melds.isValidRun([C(12, 'Copas'), C(1, 'Copas'), C(2, 'Copas')]) &&
+  !melds.isValidRun([C(12, 'Oros'), C(1, 'Oros'), C(2, 'Oros')]));
 check('run rejects a gap across the wrap (11,12,2)',
   !melds.isValidRun([C(11, 'Copas'), C(12, 'Copas'), C(2, 'Copas')]));
 check('run rejects a missing interior card (7,10,12)',

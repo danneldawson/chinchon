@@ -317,6 +317,12 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
   stays face down. The server stays instant and records a step log
   (`src/steps.js`); the client replays it.
 
+### Tue Nov 3, 2026: Dannel's fixes list (branch `fixes-nov3`, not deployed)
+
+- **D: a run stops at the 1 after the 12 (R43, refines R37).** *Reason:* Dannel: "it
+  recognises 12-1-2 as a valid meld, it goes 11-12-1 and no further". The engine's
+  rank order had been fully circular since `d8cc416`.
+
 ## Bugs fixed (selected, with root causes)
 
 | When | Bug | Root cause → fix |

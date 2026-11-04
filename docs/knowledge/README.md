@@ -55,7 +55,7 @@ On Oct 2, 2026 Dannel settled four rule questions. **All four are in the code no
 
 | Rule | Ruling | Where it landed |
 |---|---|---|
-| R37 | A run can wrap from 12 round to 1 (…11‑12‑1…) | `d8cc416`: `isValidRun` in `src/melds.js`; the audit checks the wrap |
+| R37 | A run can wrap from 12 round to 1 (…11‑12‑1); refined Nov 3, 2026 by **R43**: the 1 ends the run, so 12‑1‑2 is not a run | `d8cc416`: `isValidRun` in `src/melds.js`; R43 on branch `fixes-nov3` (`test/run-wrap-r43.test.js`) |
 | R38 | The wild (1 de Oros) scores **0** | `d8cc416`: `cardValue` in `src/cards.js` and the client mirror `window.__cardVal` |
 | R39 | No lay-off timer, nudge or timeout | Always matched the code |
 | R40 | The pre-start countdown is **60s** | `6ef221e`: `server.js` (the rematch window is a separate 90s) |

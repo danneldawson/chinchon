@@ -25,16 +25,20 @@ function improvesHand(hand, card) {
 }
 
 // Does this card build toward a set/run with the hand even if it doesn't drop
-// deadwood? Set = same rank; run = adjacent rank (cyclic: 12 next to 1) same suit.
+// deadwood? Set = same rank; run = adjacent rank, same suit. A 1 also sits just
+// above the 12 (11-12-1, R37), but nothing goes on past it (no 12-1-2, R43).
 function buildsToward(hand, card) {
   const ri = rankIndex(card.rank);
   const len = RANKS.length;
   for (const h of hand) {
     if (h.rank === card.rank) return true;                 // potential set
     if (h.suit === card.suit) {
-      const d = Math.abs(rankIndex(h.rank) - ri);
-      const cycled = Math.min(d, len - d);                 // wrap 11-12-1
-      if (cycled === 1 || cycled === 2) return true;       // run neighbor
+      const a = Math.min(rankIndex(h.rank), ri);
+      const b = Math.max(rankIndex(h.rank), ri);
+      // Straight distance, or (only when one card is the 1) its distance up
+      // past the 12: 12 -> 1 is 1 step, 11 -> 1 is 2 (window 11-12-1).
+      const d = a === 0 ? Math.min(b - a, len - b) : b - a;
+      if (d === 1 || d === 2) return true;                 // run neighbour
     }
   }
   return false;

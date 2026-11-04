@@ -47,10 +47,10 @@ function assertSixMeldClose(six, leftover) {
 test('R41: a 6-card run + leftover <= 5 closes and scores the leftover, like 3 + 3', () => {
   const run = [c(2, 'Copas'), c(3, 'Copas'), c(4, 'Copas'), c(5, 'Copas'), c(6, 'Copas'), c(7, 'Copas')];
   assertSixMeldClose(run, c(4, 'Espadas'));
-  // Across the 7 -> 10 bridge and the 12 -> 1 wrap.
+  // Across the 7 -> 10 bridge, and up to the 1 after the 12 (R37/R43).
   const bridge = [c(5, 'Bastos'), c(6, 'Bastos'), c(7, 'Bastos'), c(10, 'Bastos'), c(11, 'Bastos'), c(12, 'Bastos')];
   assertSixMeldClose(bridge, c(2, 'Copas'));
-  const wrap = [c(10, 'Espadas'), c(11, 'Espadas'), c(12, 'Espadas'), c(1, 'Espadas'), c(2, 'Espadas'), c(3, 'Espadas')];
+  const wrap = [c(6, 'Espadas'), c(7, 'Espadas'), c(10, 'Espadas'), c(11, 'Espadas'), c(12, 'Espadas'), c(1, 'Espadas')];
   assertSixMeldClose(wrap, c(5, 'Oros'));
 });
 

@@ -4,7 +4,8 @@
 // Two Spanish decks of 40 shuffled together = 80 cards. Every card exists twice.
 // The 1 de Oros is the wild card (comodín). There are exactly 2 of them.
 // 8 and 9 do not exist. Runs treat 7 -> 10 -> 11 -> 12 as consecutive, and
-// wrap from 12 round to 1 (house rule R37), so 11-12-1 is consecutive too.
+// may go on from 12 to 1 (house rule R37), so 11-12-1 is consecutive too, but
+// the 1 then ends the run: 12-1-2 is not a run (R43, Nov 3, 2026).
 
 const SUITS = ['Oros', 'Copas', 'Espadas', 'Bastos'];
 

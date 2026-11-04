@@ -5,7 +5,8 @@ const { isWild, rankIndex, cardValue, RANKS } = require('./cards');
 // A meld is a valid combination of 3 or more cards.
 //   SET  = same rank (duplicate suits allowed, since two decks are in play)
 //   RUN  = same suit, consecutive by rank index (7 -> 10 -> 11 -> 12 counts,
-//          and the order wraps 12 -> 1, so 11-12-1 is a run too)
+//          and a run may go on from 12 to 1, so 11-12-1 is a run too -- but the
+//          1 is then the end: 12-1-2 is NOT a run (R37 as refined by R43))
 // At most ONE wild (1 de Oros) may be used per meld. Never two.
 
 const MAX_WILDS_PER_MELD = 1;
@@ -32,10 +33,22 @@ function isValidSet(cards) {
 // Is this a valid run? Same suit, consecutive, <=1 wild filling a gap or
 // extending an end.
 //
-// Rank order is circular (house rule R37, Oct 2, 2026): ... 7 -> 10 -> 11 ->
-// 12 -> 1 -> 2 ..., so 11-12-1 and 12-1-2 are runs. A suit only has 10 ranks,
-// so a run can never be longer than 10 cards and can never contain the same
-// rank twice (which also rules out going "full circle" back past its start).
+// Runs may go on from 12 to 1 (house rule R37, Oct 2, 2026), but no further
+// (R43, Dannel, Nov 3, 2026: "it goes 11-12-1 and no further"). So 11-12-1 and
+// 10-11-12-1 are runs; 12-1-2 and 12-1-2-3 are not. Low runs that start at the
+// 1 (1-2-3) are runs as always. A suit only has 10 ranks, so a run can never be
+// longer than 10 cards and can never contain the same rank twice.
+// Starting slots (indexes into RANKS) of the windows a run of `len` cards may
+// occupy: any straight window 1..12, plus the one window that ends on the 1
+// just after the 12 (e.g. 11-12-1 for len 3). Nothing continues past that 1.
+function runWindowStarts(len) {
+  const n = RANKS.length;
+  const starts = [];
+  for (let start = 0; start + len <= n; start++) starts.push(start);
+  if (len >= 2 && len <= n) starts.push(n - len + 1); // ...-12-1, the 1 ends it
+  return starts;
+}
+
 function isValidRun(cards) {
   if (cards.length < 3) return false;
   if (cards.length > RANKS.length) return false;
@@ -57,17 +70,16 @@ function isValidRun(cards) {
   // Positions are indexes into RANKS (not face values), so the missing 8 and 9
   // never count as a gap: 6-7-10 is three consecutive slots.
   //
-  // The run occupies cards.length consecutive slots on the circular rank
-  // order. It is valid if some window of that length, starting anywhere,
-  // holds every natural; the wilds fill the remaining slots (inner gaps or
-  // an end). With at most one wild, a window can hold at most one empty slot.
+  // The run occupies cards.length consecutive slots. It is valid if one of
+  // the allowed windows of that length (runWindowStarts) holds every natural;
+  // the wilds fill the remaining slots (inner gaps or an end). With at most
+  // one wild, a window can hold at most one empty slot.
   // Example: 5, 7 + wild -> window 5-6-7 (the wild is the 6). Example: 11, 1 +
-  // wild -> window 11-12-1, wrapping past 12.
+  // wild -> window 11-12-1, going on past 12 to the 1. Example: 12, 1 + wild
+  // -> 11-12-1 (the wild is the 11), never 12-1-2.
   const n = RANKS.length;
-  for (let start = 0; start < n; start++) {
-    if (idxs.every((i) => (i - start + n) % n < cards.length)) return true;
-  }
-  return false;
+  return runWindowStarts(cards.length)
+    .some((start) => idxs.every((i) => (i - start + n) % n < cards.length));
 }
 
 function isValidMeld(cards) {
@@ -81,7 +93,7 @@ function meldType(cards) {
 }
 
 // Display order for a meld on the table: a run is laid out in rank order
-// (including across the 12 -> 1 wrap), with the wild in the slot it fills.
+// (including 12 -> 1 at the top end), with the wild in the slot it fills.
 // Sets, and anything that is not a valid run, come back unchanged.
 function orderRun(cards) {
   if (!isValidRun(cards)) return [...cards];
@@ -89,7 +101,7 @@ function orderRun(cards) {
   const natural = cards.filter((c) => !isWild(c));
   const wilds = cards.filter(isWild);
   const idxs = natural.map((c) => rankIndex(c.rank));
-  for (let start = 0; start < n; start++) {
+  for (const start of runWindowStarts(cards.length)) {
     if (!idxs.every((i) => (i - start + n) % n < cards.length)) continue;
     const slots = new Array(cards.length).fill(null);
     natural.forEach((c, k) => { slots[(idxs[k] - start + n) % n] = c; });
