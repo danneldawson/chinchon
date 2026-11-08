@@ -872,9 +872,41 @@ function finishLayoff(room) {
     winner: lo.chinchon ? lo.winner : null,
     scores,
   });
+  // R44/R29: the closer's automatic last word may have shed the leftover onto
+  // a meld laid during the lay-off (often a bot's). Record it as attach steps
+  // so the table replays it instead of the card vanishing (Nov 8).
+  if (lo.closerAuto && Array.isArray(lo.closerAuto.shed)) {
+    for (const s of lo.closerAuto.shed) {
+      steps.pushStep(room, { type: 'attach', seat: lo.closerIndex, card: s.card, meldIndex: s.meldIndex, auto: true });
+    }
+  }
   room.layoff = null;
   state.phase = 'over';
+  if (match.gameOver) { maybeRedeal(room); return; }
+  // Nov 8, 2026 (Dannel): "I want to see what the bots have". The round no
+  // longer redeals the instant the lay-off ends: it pauses on 'roundEnd' with
+  // every meld on the felt until a player still in the game taps Next round.
+  // A table with no such human (all bots left) deals straight on.
+  if (roundEndHumans(room).length) {
+    state.phase = 'roundEnd';
+    room.roundEndAt = Date.now();
+    return;
+  }
   maybeRedeal(room);
+}
+
+// Humans still in the match: they may move a paused round on.
+function roundEndHumans(room) {
+  return playingSeats(room).filter((i) => !room.players[i].isBot);
+}
+
+// Leave the round-end pause and deal the next round.
+function continueRound(room) {
+  if (!room.state || room.state.phase !== 'roundEnd') return false;
+  room.state.phase = 'over';
+  room.roundEndAt = null;
+  maybeRedeal(room);
+  return true;
 }
 
 // After a round resolves, deal the next one if the match isn't over.
@@ -1122,7 +1154,9 @@ function serialize(room, seatId, since) {
     spectator: !!viewer && !!viewer.spectator,
     voiceLink: room.voiceLink || null,
     closingSeat: closingSeatOf(room),
-    finalTable: match.gameOver && room.lastTable ? room.lastTable : null,
+    finalTable: (match.gameOver || state.phase === 'roundEnd') && room.lastTable ? room.lastTable : null,
+    roundEnd: state.phase === 'roundEnd',
+    canContinueRound: state.phase === 'roundEnd' && !!viewer && roundEndHumans(room).includes(viewer.seat),
     waiting: room.waiting
       ? {
           seat: room.waiting.seat,
@@ -1662,6 +1696,14 @@ function handleApi(req, res, url) {
     });
   }
 
+  if (method === 'POST' && p === '/api/next-round') {
+    return withRoomState((body, room) => {
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || !roundEndHumans(room).includes(viewer.seat)) return sendJson(res, 403, { error: 'not your turn' });
+      if (!continueRound(room)) return sendJson(res, 200, serialize(room, viewer.id)); // already moved on (double tap)
+      return sendJson(res, 200, serialize(room, viewer.id));
+    });
+  }
   if (method === 'POST' && p === '/api/draw') {
     return withRoomState((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
@@ -1918,4 +1960,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { seatHandCount, roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { continueRound, finishLayoff, beginLayoffForRoom, seatHandCount, roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };

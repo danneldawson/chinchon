@@ -125,6 +125,9 @@ const I18N = {
     shareCodeNote: 'Send this code to the other players so they can join.',
     playersJoined: 'Players joined:',
     joinCodePlaceholder: 'e.g. LUNA',
+    roundOverTitle: 'Round over',
+    nextRound: 'Next round',
+    waitingNextRound: 'Waiting for the next round...',
     errNotYourTurn: 'It is not your turn.',
     errNotDrawPhase: 'You have already drawn. Discard a card.',
     errNotDiscardPhase: 'Draw a card first.',
@@ -217,6 +220,9 @@ const I18N = {
     // Reclaim-flow strings
     seatReconnectedMsg: 'Este asiento se reconecto desde otro dispositivo.',
     makeANewGame: 'Crear una partida nueva',
+    roundOverTitle: 'Fin de la ronda',
+    nextRound: 'Siguiente ronda',
+    waitingNextRound: 'Esperando la siguiente ronda...',
     errNotYourTurn: 'No es tu turno.',
     errNotDrawPhase: 'Ya has robado. Descarta una carta.',
     errNotDiscardPhase: 'Primero roba una carta.',
@@ -1345,13 +1351,34 @@ function render() {
   // Melds face up on the felt: the closer's groups while building them, then
   // every meld on the table during the lay-off (with the seat that laid it).
   // At game over the last round's melds stay on the felt, untouched.
-  const finalLo = !inLayoff && v.gameOver && v.finalTable
+  // Nov 8 (Dannel): a finished round pauses with every meld on the felt
+  // (the bots' included) until a player taps Next round.
+  const roundEnd = !!live.roundEnd && !inLayoff;
+  $('round-end').classList.toggle('hidden', !roundEnd || replaying);
+  if (roundEnd) {
+    $('your-area').classList.add('hidden');
+    $('controls').classList.add('hidden');
+    renderRoundEnd(live);
+  }
+  const finalLo = !inLayoff && (v.gameOver || roundEnd) && v.finalTable
     ? { ...v.finalTable, phase: 'done', done: true, isYourTurn: false }
     : null;
   renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : finalLo);
   state.shownTable = cloneTable(v);
   syncCloseIntent();
 }
+
+// Round-end pause panel (Nov 8). Item 7 fills #re-board with each seat's
+// counted cards.
+function renderRoundEnd(v) {
+  $('re-title').textContent = t('roundOverTitle');
+  const btn = $('btn-next-round');
+  btn.textContent = t('nextRound');
+  btn.classList.toggle('hidden', !v.canContinueRound);
+  $('re-wait').textContent = v.canContinueRound ? '' : t('waitingNextRound');
+  if (typeof renderReveal === 'function') renderReveal($('re-board'), v.roundReveal);
+}
+$('btn-next-round').addEventListener('click', () => apiPost('/api/next-round'));
 
 // ---- Card-based close (Oct 8, 2026) ----
 function toggleCloseSel(id) {

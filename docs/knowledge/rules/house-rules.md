@@ -395,7 +395,14 @@ close mode (`closeDiscardFor` in `public/app.js`). Tests:
 `test/card-close.test.js`. *Open for Dannel:* whether the automatic last word should
 always shed a fitting leftover (it can only lower the closer's score).
 
-**Total: 44 numbered house rules (R1–R44).** Presentation rules (suit emblems, colours,
+**R45. The round pauses before the next deal (Nov 8, 2026).** Dannel: "I want to see
+what the bots have". After the lay-off every meld (bots' too) stays on the felt, the
+closer's leftover is shed onto any open meld that fits (R44, now replayed on the
+table), and each seat's counted cards and points are shown face up. A player still
+in the match taps **Next round** to deal on; a table with no such human deals on at
+once. Code: `finishLayoff`/`continueRound`, `/api/next-round` (`server.js`).
+
+**Total: 45 numbered house rules (R1–R45).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
 room and session behaviour is in `lobby-and-session.md`.
 

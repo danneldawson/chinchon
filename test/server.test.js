@@ -50,6 +50,12 @@ async function playMatchToEnd(code, seatIds) {
     for (const seat of seatIds) {
       const { json: v } = await api('GET', `/api/state?code=${code}&seat=${seat}`);
       if (v.gameOver) return v;
+      // Nov 8: a finished round pauses until a player still in taps Next round.
+      if (v.roundEnd && v.canContinueRound) {
+        await api('POST', '/api/next-round', { code, seat });
+        acted = true;
+        break;
+      }
       if (!v.isYourTurn) continue;
       if (v.phase === 'draw') {
         await api('POST', '/api/draw', { code, seat, from: 'stock' });

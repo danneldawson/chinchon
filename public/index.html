@@ -244,6 +244,15 @@
 
       <p id="status" class="msg"></p>
 
+      <!-- Round over (Nov 8): melds stay on the felt; each seat's counted cards
+           and points; Next round deals on. -->
+      <div id="round-end" class="round-end hidden">
+        <h3 id="re-title"></h3>
+        <div id="re-board" class="re-board"></div>
+        <button id="btn-next-round" class="primary"></button>
+        <span id="re-wait" class="dim"></span>
+      </div>
+
       <!-- Per-room chat: short gameplay notes, last 10 messages, cleared on rematch.
            A round bubble floats over a free corner of the table (never over the
            hand, the piles or the controls); tapping it opens the chat panel. -->

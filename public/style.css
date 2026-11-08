@@ -1023,3 +1023,14 @@ button, .card, .pile, input { touch-action: manipulation; }
 #table > #gameover .go-card h2 { margin: 0 0 4px; }
 #table > #gameover .go-board { margin: 6px 0 8px; }
 #table > #gameover #go-eliminated { margin-bottom: 10px; }
+
+/* Round-over pause (Nov 8, 2026) */
+.round-end { text-align: center; margin: 6px auto; padding: 8px 10px; max-width: 640px; }
+.round-end h3 { margin: 2px 0 6px; }
+.re-board { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.re-row { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.re-row .re-name { font-weight: 600; min-width: 5em; text-align: right; }
+.re-cards { display: flex; gap: 3px; }
+.re-cards .card { width: 34px; height: 49px; flex: 0 0 auto; }
+.re-cards .card .rank { font-size: 16px; }
+.re-cards .card .emblem { width: 17px; height: 17px; }
