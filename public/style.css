@@ -740,6 +740,12 @@ button, .card, .pile, input { touch-action: manipulation; }
   flex: 0 0 auto; width: var(--hc-w); height: calc(var(--hc-w) * 1.4545);
   gap: calc(var(--hc-w) * 0.06);
 }
+/* Nov 8, 2026 (Dannel): the hand sits centred in the tray as one group (the
+   drawn-card arrow and card included). Auto margins on the ends, not
+   justify-content: center, so an overflowing row still scrolls from its first
+   card instead of clipping the left edge. */
+#hand > :first-child { margin-left: auto; }
+#hand > :last-child { margin-right: auto; }
 #hand .card .rank { font-size: calc(var(--hc-w) * 0.485); }
 #hand .card .emblem { width: calc(var(--hc-w) * 0.5); height: calc(var(--hc-w) * 0.5); }
 #hand .hand-sep { flex: 0 0 auto; width: calc(var(--hc-w) * 0.4); padding: 0; text-align: center; font-size: calc(var(--hc-w) * 0.36); }
