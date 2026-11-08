@@ -79,8 +79,10 @@ test('a player seated in a running match is never removed from the lobby', async
   // Two hours into the match, the lobby has not heard from either of them.
   untouched(h.token, 120 * MIN);
   untouched(g.token, 120 * MIN);
-  room.players.forEach((p) => { p.lastActive = Date.now() - 120 * MIN; });
+  room.players.forEach((p) => { p.lastActive = Date.now() - 20 * MIN; });
   assert.strictEqual(sweepLobby(Date.now()), 0, 'nobody in a running match is kicked');
+  // Nov 8, 2026: an abandoned running table (no input from anyone for 30+
+  // min) no longer shields the names forever.
   // Once the match is over, recent input at the table still counts.
   room.match.gameOver = true;
   room.players.forEach((p) => { p.lastActive = Date.now() - 5 * MIN; });

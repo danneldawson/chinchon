@@ -597,7 +597,11 @@ function sweepLobby(now = Date.now(), opts = {}) {
   const ms = opts.LOBBY_IDLE_MS || CLEANUP.LOBBY_IDLE_MS;
   const seatsByToken = new Map();
   for (const room of rooms.values()) {
-    const live = !(room.match && room.match.gameOver) && !room.gone;
+    // A room only shields its seated names while someone at that table has
+    // had real input within the idle window (the same rule sweepRooms uses
+    // to evict an abandoned running room), Nov 8, 2026.
+    const roomInput = Math.max(0, ...room.players.filter((p) => !p.isBot).map((p) => p.lastActive || p.lastSeen || 0));
+    const live = !(room.match && room.match.gameOver) && !room.gone && now - roomInput <= ms;
     for (const p of room.players) {
       if (p.isBot || !p.lobbyToken) continue;
       const e = seatsByToken.get(p.lobbyToken) || { live: false, input: 0, poll: 0 };
@@ -610,7 +614,10 @@ function sweepLobby(now = Date.now(), opts = {}) {
   let removed = 0;
   for (const [token, member] of [...lobby.members]) {
     const seat = seatsByToken.get(token);
-    if (seat && seat.live) continue; // never kick a player in a running match
+    // Never kick a player genuinely playing a running match (recent input at
+    // the table). A seat in a stuck/abandoned room with no input for 30 min
+    // no longer shields the name forever (Nov 8, 2026).
+    if (seat && seat.live) continue;
     // Gone (no poll: tab closed) or idle (polling, but no input): either way.
     const lastPoll = Math.max(member.lastSeen || member.at || 0, seat ? seat.poll : 0);
     const lastInput = Math.max(member.lastActive || member.lastSeen || member.at || 0, seat ? seat.input : 0);
@@ -665,7 +672,7 @@ function snapshot() {
     version: SNAPSHOT_VERSION,
     savedAt: Date.now(),
     rooms: [...rooms.values()].filter((r) => !r.gone),
-    lobby: { members: [...lobby.members.values()], chat: lobby.chat },
+    lobby: { members: [...lobby.members.values()], chat: lobby.chat, idleRemoved: [...lobby.idleRemoved] },
   };
 }
 
@@ -734,6 +741,15 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
     lobby.members.set(m.token, m);
   }
   if (lob && Array.isArray(lob.chat)) lobby.chat = lob.chat;
+  // Nov 8, 2026: the idle-removed list used to live in memory only, so after
+  // every restart (each deploy) an old tab still polling with its removed
+  // token was no longer told "removed", self-healed by re-entering, and came
+  // back as a fresh member with a new 30-min clock. Names lingered for days.
+  if (lob && Array.isArray(lob.idleRemoved)) {
+    for (const e of lob.idleRemoved) {
+      if (Array.isArray(e) && e[0] && !lobby.members.has(e[0])) lobby.idleRemoved.set(e[0], (Number(e[1]) || 0) + gap);
+    }
+  }
   return n;
 }
 
