@@ -221,6 +221,16 @@ function roomChatEnabled(room) {
   return (room.players || []).filter((p) => !p.isBot).length >= 2;
 }
 
+// Cards a seat still holds. During the lay-off, melds laid face-up and cards
+// attached elsewhere have left the hand: they live in room.layoff.remaining,
+// while state.hands keeps the pre-close 7 (Nov 8, Dannel).
+function seatHandCount(room, i) {
+  const lo = room.layoff;
+  if (lo && lo.remaining && Array.isArray(lo.remaining[i])) return lo.remaining[i].length;
+  const h = room.state && room.state.hands && room.state.hands[i];
+  return h ? h.length : 0;
+}
+
 function startFreshMatch(room) {
   const humans = humanSeats(room);
   // Multi mode requires at least 2 humans and no bots.
@@ -1043,7 +1053,7 @@ function serialize(room, seatId, since) {
     spectator: !!p.spectator,
     away: isAway(p),
     total: match.players[i].total,
-    handCount: state.hands[i] ? state.hands[i].length : 0,
+    handCount: seatHandCount(room, i),
     // In a tutorial, the "open" bot exposes its hand; the "hidden" bot does not
     // (revealed only at game over). Non-tutorial rooms: never reveal a bot hand.
     reveal: !!p.reveal && room.tutorial && !match.gameOver,
@@ -1908,4 +1918,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { seatHandCount, roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
