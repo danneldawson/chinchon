@@ -421,3 +421,11 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
 14. **Credentials: keep tokens out of remotes, chats and logs.** Have a working push
     method (SSH) set up *before* it's needed. The Sep 14 push failed at the finish
     line.
+
+### Sun Nov 8, 2026: no close over 100 (R46); all-bust fallback withdrawn
+- **D: R46.** A leftover close is legal only if total + leftover ≤ 100; clean −10 and
+  Chinchon stay legal on 100. *Reason:* Dannel, after seeing everyone could bust in
+  one round when a closer on 96–100 kept a small leftover.
+- **Withdrawn: "if everyone busts in the same round, the lowest total wins".** Dannel
+  asked to "clean it" once R46 made it impossible; removed from `src/match.js`.
+  The soak test now deals only to seats still in and passes totals, like the server.

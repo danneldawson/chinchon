@@ -337,6 +337,7 @@ async function main() {
   while (!match.gameOver) {
     const active = match.players.map((p, i) => i).filter((i) => !match.players[i].out);
     const state = startRound(playerCount, Math.random, dealer, active);
+    state.totals = match.players.map((p) => p.total); // R46 close limit
     dealer = state.dealer;
     const log = [];
 

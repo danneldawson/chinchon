@@ -134,6 +134,7 @@ const I18N = {
     errNotHoldCard: 'That card is not in your hand.',
     errClosingDiscard: 'The closing discard cannot be in a combination.',
     errReadRule: 'Read the rule first.',
+    errOver100: 'You cannot close keeping that card: it would take you over 100. Close with nothing left over.',
   },
   es: {
     title: 'CHINCHON',
@@ -229,6 +230,7 @@ const I18N = {
     errNotHoldCard: 'Esa carta no esta en tu mano.',
     errClosingDiscard: 'El descarte de cierre no puede ir en una combinacion.',
     errReadRule: 'Lee la regla primero.',
+    errOver100: 'No puedes cerrar con esa carta: pasarias de 100. Cierra sin carta suelta.',
   },
 };
 
@@ -242,7 +244,7 @@ const RULES_EN = [
   { title: 'Your hand', body: 'You will always hold seven cards. On your turn, draw one card from the stock or the discard pile, then discard one — so you always have seven cards in your hand.' },
   { title: 'Runs', body: 'A run is three or more cards of the same suit, in order. Because the deck skips 8 and 9, the sequence flows right from 7 to 10 — so 6-7-10 is a valid run, and 11-12-1 is also a valid run. The wild 1 of Oros can fill in anywhere a card is needed. Two limits: it cannot be used as a second wild in a chinchon win — but if two 1s of Oros are in a trio, one must be the actual 1 of Oros. Otherwise it can be any card, anywhere.' },
   { title: 'Sets', body: 'A set is three or more cards of the same rank, any suits — like three 10s.' },
-  { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. You can also close with two 3-card melds and one leftover card worth 5 or less.' },
+  { title: 'Closing', body: 'When your 7 cards are melds with a small leftover, you can close. A clean close is a 4-card meld plus a 3-card meld with nothing left — that scores −10. You can also close with two 3-card melds and one leftover card worth 5 or less, as long as that leftover would not take your total over 100; near 100, only a close with nothing left over is allowed.' },
   { title: 'Scoring', body: 'The computer keeps the score — you never do. After everyone reveals their hands, the computer counts each player\'s leftover cards. Face cards 10, 11, 12 count as 10 each; the 1 of Oros counts as 0 (it\'s wild); other cards count their number. A clean close by the closer scores −10. The floor is −50 — but you don\'t win automatically at −50; it just means you\'re the farthest from the 101-out line.' },
   { title: 'Out and match', body: 'When a player reaches 101 or more points, they are out — eliminated on their own, by their own score. One player at a time is eliminated until only one stands. That last player, with the lowest total, wins the match. 2 to 7 players.' },
 ];
@@ -282,6 +284,7 @@ const ERR_KEYS = {
   'you do not hold that card': 'errNotHoldCard',
   'the closing discard cannot be in a combination': 'errClosingDiscard',
   'read the rule first': 'errReadRule',
+  'that leftover would take you over 100': 'errOver100',
 };
 window.__errText = (raw, tr) => (ERR_KEYS[raw] ? tr(ERR_KEYS[raw]) : String(raw || ''));
 // A turn/phase error is stale (a double tap, or a tap racing the poll) when the

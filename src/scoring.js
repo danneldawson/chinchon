@@ -9,6 +9,15 @@ const { isValidMeld, deadwoodValue } = require('./melds');
 
 const HAND_SIZE = 7;
 const MAX_LEFTOVER_TO_CLOSE = 5;
+// R46 (Nov 8, 2026, Dannel): you may not close keeping a leftover whose points
+// would take your total over 100. Judged at close time on the leftover kept,
+// even if the R44 automatic lay-off might later shed it. `total` is the
+// closer's match total; null/undefined means "unknown" and skips the check.
+const MAX_SAFE_TOTAL = 100;
+const OVER_100_REASON = 'that leftover would take you over 100';
+function leftoverOverLimit(value, total) {
+  return Number.isFinite(total) && total + value > MAX_SAFE_TOTAL;
+}
 const CLOSE_BONUS = -10;
 
 // Enumerate every way to split a hand into melds + leftovers.
@@ -123,7 +132,7 @@ function splitKey(melds) {
 // Every legal way to close this hand: returns an array of
 //   { melds: [[card...],[card...]], leftovers: [card...], score, kind }
 // where kind ∈ 'chinchon' | 'clean' | 'leftover'. Empty if the hand cannot close.
-function allCloseSplits(hand) {
+function allCloseSplits(hand, total = null) {
   if (hand.length !== HAND_SIZE) return [];
 
   if (isChinchon(hand)) {
@@ -140,7 +149,7 @@ function allCloseSplits(hand) {
       pushSplit(meldsList, leftovers, CLOSE_BONUS, 'clean');
     } else if (leftovers.length === 1) {
       const value = cardValue(leftovers[0]);
-      if (value <= MAX_LEFTOVER_TO_CLOSE) pushSplit(meldsList, leftovers, value, 'leftover');
+      if (value <= MAX_LEFTOVER_TO_CLOSE && !leftoverOverLimit(value, total)) pushSplit(meldsList, leftovers, value, 'leftover');
     }
   };
 
@@ -191,7 +200,7 @@ function allCloseSplits(hand) {
 // used by the bots and by engine paths with no declaration.
 const CLOSE_REASON = { chinchon: 'chinchon', clean: 'closed clean', leftover: 'closed with leftover' };
 
-function judgeSplit(split) {
+function judgeSplit(split, total = null) {
   if (split.chinchon) {
     return { ok: true, reason: 'chinchon', score: 0, split };
   }
@@ -207,6 +216,9 @@ function judgeSplit(split) {
   if (split.leftovers.length === 1) {
     const leftover = split.leftovers[0];
     const value = cardValue(leftover);
+    if (value <= MAX_LEFTOVER_TO_CLOSE && leftoverOverLimit(value, total)) {
+      return { ok: false, reason: OVER_100_REASON, overHundred: true, split };
+    }
     if (value <= MAX_LEFTOVER_TO_CLOSE) {
       return { ok: true, reason: 'closed with leftover', score: value, split };
     }
@@ -220,11 +232,11 @@ function judgeSplit(split) {
   return { ok: false, reason: 'too many leftover cards', split };
 }
 
-function canClose(hand) {
-  const verdict = judgeSplit(bestSplit(hand));
+function canClose(hand, total = null) {
+  const verdict = judgeSplit(bestSplit(hand), total);
   if (verdict.ok) return verdict;
 
-  const closes = allCloseSplits(hand);
+  const closes = allCloseSplits(hand, total);
   if (closes.length === 0) return verdict; // not a close: same reason as always
 
   const best = closes[0]; // sorted best-first
@@ -249,7 +261,7 @@ function canClose(hand) {
 // Returns { ok: true, kind, score, melds, leftovers }
 //      or { ok: false, reason, badGroup? } -- the caller treats that as a false
 //         close (R24).
-function validateDeclaredClose(kept, groups) {
+function validateDeclaredClose(kept, groups, total = null) {
   if (!Array.isArray(kept) || kept.length !== HAND_SIZE) {
     return { ok: false, reason: 'a close needs 7 kept cards' };
   }
@@ -281,6 +293,9 @@ function validateDeclaredClose(kept, groups) {
   }
   if (leftovers.length === 1) {
     const value = cardValue(leftovers[0]);
+    if (value <= MAX_LEFTOVER_TO_CLOSE && leftoverOverLimit(value, total)) {
+      return { ok: false, reason: OVER_100_REASON, overHundred: true };
+    }
     if (value <= MAX_LEFTOVER_TO_CLOSE) {
       return { ok: true, kind: 'leftover', score: value, melds, leftovers };
     }
@@ -319,6 +334,8 @@ function scoreHand(hand) {
 module.exports = {
   HAND_SIZE,
   MAX_LEFTOVER_TO_CLOSE,
+  MAX_SAFE_TOTAL,
+  OVER_100_REASON,
   CLOSE_BONUS,
   combinations,
   allMelds,

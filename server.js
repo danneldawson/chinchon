@@ -375,6 +375,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
 // next actor is a human, or the round phase is no longer 'draw'/'discard'.
 function runBotTurns(room) {
   const { state, players } = room;
+  syncTotals(room);
   // Tutorial: arm the pause if the human is about to start their turn. Done
   // here (before the loop) so it also covers the case where the human is the
   // very first actor and the loop returns immediately.
@@ -911,6 +912,12 @@ function roundReveal(room, lo, scores) {
   });
 }
 
+// R46: the engine judges a close against the closer's match total, so keep
+// the round state's copy of the totals current (cheap; called before any close).
+function syncTotals(room) {
+  if (room.state && room.match) room.state.totals = room.match.players.map((p) => p.total);
+}
+
 // Humans still in the match: they may move a paused round on.
 function roundEndHumans(room) {
   return playingSeats(room).filter((i) => !room.players[i].isBot);
@@ -965,11 +972,11 @@ function rigHand(state, seat, cardIds) {
 // The hand here is 8 cards (drawn, not yet discarded), so every possible
 // discard is tried. It uses allCloseSplits, the most permissive check, so the
 // button never hides a close the declared-close validator would accept.
-function closeAvailable(hand) {
+function closeAvailable(hand, total = null) {
   if (!Array.isArray(hand) || hand.length !== scoring.HAND_SIZE + 1) return false;
   for (let i = 0; i < hand.length; i++) {
     const kept = [...hand.slice(0, i), ...hand.slice(i + 1)];
-    if (scoring.allCloseSplits(kept).length > 0) return true;
+    if (scoring.allCloseSplits(kept, total).length > 0) return true;
   }
   return false;
 }
@@ -1111,7 +1118,7 @@ function serialize(room, seatId, since) {
   }));
 
   const split = scoring.bestSplit(hand);
-  const canCloseNow = state.turn === viewerSeat && state.phase === 'discard' && closeAvailable(hand);
+  const canCloseNow = state.turn === viewerSeat && state.phase === 'discard' && closeAvailable(hand, match.players[viewerSeat] ? match.players[viewerSeat].total : null);
 
   // Lay-off view (Slice 2): only show each player their own remaining cards.
   let layoffView = null;
@@ -1789,8 +1796,12 @@ function handleApi(req, res, url) {
           groups.push(g);
         }
         const kept = hand.filter((x) => x.id !== card.id);
-        verdict = scoring.validateDeclaredClose(kept, groups);
+        verdict = scoring.validateDeclaredClose(kept, groups, room.match.players[viewer.seat].total);
+        // R46: refused outright (not a false close): the close itself is fine,
+        // only this leftover is not allowed on this total.
+        if (verdict.overHundred) return sendJson(res, 400, { error: scoring.OVER_100_REASON });
       }
+      syncTotals(room);
       const res2 = turn.discardCard(room.state, card, !!body.close, verdict);
       if (!res2.ok) return sendJson(res, 400, { error: res2.reason });
       if (res2.closed && verdict) room.pendingCloseChoice = verdict;

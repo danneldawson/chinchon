@@ -154,7 +154,7 @@ function discardCard(state, card, declareClose = false, verdict = null) {
   const kept = [...hand.slice(0, idx), ...hand.slice(idx + 1)];
 
   if (declareClose) {
-    const check = verdict || canClose(kept);
+    const check = verdict || canClose(kept, totalOf(state));
     if (!check.ok) {
       // FALSE CLOSE: hand is exposed, nobody scores, play continues.
       const closer = state.turn;
@@ -193,6 +193,12 @@ function discardCard(state, card, declareClose = false, verdict = null) {
   return { ok: true, nextPlayer: state.turn };
 }
 
+// R46: the mover's match total, if the caller recorded it (state.totals, set by
+// the server each deal and turn). Absent in engine-only use: no limit applied.
+function totalOf(state) {
+  return state && Array.isArray(state.totals) && Number.isFinite(state.totals[state.turn]) ? state.totals[state.turn] : null;
+}
+
 // Could the current player close if they discarded this card?
 function closeOptions(state) {
   const hand = state.hands[state.turn];
@@ -201,7 +207,7 @@ function closeOptions(state) {
   const options = [];
   for (let i = 0; i < hand.length; i++) {
     const kept = [...hand.slice(0, i), ...hand.slice(i + 1)];
-    const check = canClose(kept);
+    const check = canClose(kept, totalOf(state));
     if (check.ok) options.push({ discard: hand[i], reason: check.reason, score: check.score });
   }
   // Best close first: lowest score, then (Nov 3, 2026) the HIGHEST-value

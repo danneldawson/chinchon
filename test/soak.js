@@ -23,8 +23,12 @@ function cardTotal(state) {
   return state.stock.length + state.discard.length + state.hands.flat().length;
 }
 
-function playRound(playerCount, rng) {
-  const state = startRound(playerCount, rng);
+function playRound(playerCount, rng, match) {
+  // Like the server: only seats still in are dealt, and the close limit (R46)
+  // sees each player's total.
+  const active = match.players.map((p, i) => i).filter((i) => !match.players[i].out);
+  const state = startRound(playerCount, rng, null, active);
+  state.totals = match.players.map((p) => p.total);
   let guard = 0;
 
   while (state.phase !== 'closed' && state.phase !== 'over' && guard < 2000) {
@@ -69,11 +73,12 @@ function playMatch(playerCount, rng) {
 
   while (!match.gameOver && rounds < 300) {
     rounds += 1;
-    const state = playRound(playerCount, rng);
+    const state = playRound(playerCount, rng, match);
 
     if (state.phase !== 'closed') continue; // stock ran out, redeal
 
-    const result = resolveRound(state.hands, state.closerIndex);
+    const active = match.players.map((p, i) => i).filter((i) => !match.players[i].out);
+    const result = resolveRound(state.hands, state.closerIndex, active);
     if (!result.valid) continue;
     applyRound(match, result);
   }

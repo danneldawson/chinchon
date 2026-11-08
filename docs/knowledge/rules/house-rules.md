@@ -47,7 +47,7 @@ file disagree, **ask Dannel** rather than "fixing" either one quietly.
 | Players | **2–7**; hands hidden until someone closes |
 | Turn | draw 1 (stock or face-up discard) → discard 1; a card just taken from the discard may be thrown straight back |
 | Close: clean | two melds using all 7 kept cards (4+3) → closer scores **−10**; nobody may lay off onto those two melds (R42) |
-| Close: leftover | 3+3 (or one 6-card meld) + one leftover card worth **≤5** → closer scores that card's value |
+| Close: leftover | 3+3 (or one 6-card meld) + one leftover card worth **≤5** → closer scores that card's value, **only if total + leftover ≤ 100** (R46) |
 | Can't close | leftover worth 6+, or more than one leftover |
 | Chinchon | all 7 cards in **one** meld → **wins the whole match on the spot**, no lay-off |
 | False close | nobody scores, round doesn't advance, closer's hand is exposed, play continues |
@@ -402,7 +402,24 @@ table), and each seat's counted cards and points are shown face up. A player sti
 in the match taps **Next round** to deal on; a table with no such human deals on at
 once. Code: `finishLayoff`/`continueRound`, `/api/next-round` (`server.js`).
 
-**Total: 45 numbered house rules (R1–R45).** Presentation rules (suit emblems, colours,
+**R46. No close that would take you over 100 (Nov 8, 2026).** Dannel: "Make it a
+rule that you couldn't close with anything that will leave you a card in your hand"
+(on 100). A close that keeps a leftover is legal only when the closer's total plus
+that leftover's value is 100 or less. Otherwise the only legal closes are the clean
+4+3 (−10) or a Chinchon (Dannel confirmed a Chinchon on 100 is legal). Judged at close
+time on the leftover kept, even if the R44 automatic lay-off might later shed it.
+Bots never try such a close; a human's attempt is refused (not a false close) with
+"You cannot close keeping that card: it would take you over 100" / "No puedes cerrar
+con esa carta: pasarias de 100". *Consequence:* the closer always survives the round,
+so everyone can no longer bust in the same round. The old "lowest total wins"
+all-bust fallback in `applyRound` was **withdrawn by Dannel on Nov 8, 2026 as
+impossible** and removed from the code. *Code status:* deployed Nov 8, 2026 (branch
+`no-bust-close-nov8`): `leftoverOverLimit` / `total` argument in `allCloseSplits`,
+`judgeSplit`, `canClose`, `validateDeclaredClose` (`src/scoring.js`); `state.totals`
+in `discardCard`/`closeOptions` (`src/turn.js`); `syncTotals`, `closeAvailable` and the
+discard route (`server.js`). Tests: `test/no-bust-close-nov8.test.js`, `test/soak.js`.
+
+**Total: 46 numbered house rules (R1–R46).** Presentation rules (suit emblems, colours,
 card faces) aren't game rules and live in `../preferences/ui-and-design.md`. Lobby,
 room and session behaviour is in `lobby-and-session.md`.
 

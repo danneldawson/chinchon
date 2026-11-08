@@ -56,13 +56,9 @@ function applyRound(match, roundResult) {
   if (remaining.length === 1) {
     match.winner = match.players.indexOf(remaining[0]);
     match.gameOver = true;
-  } else if (remaining.length === 0) {
-    // Everyone busted in the same round: lowest total wins. On a tie the
-    // reduce keeps the earlier seat (`<=` keeps `a`).
-    const best = match.players.reduce((a, b) => (a.total <= b.total ? a : b));
-    match.winner = match.players.indexOf(best);
-    match.gameOver = true;
   }
+  // No all-bust fallback (withdrawn Nov 8, 2026): under R46 the closer can never
+  // pass 100 on their own close, so at least one player always survives a round.
 
   return match;
 }
