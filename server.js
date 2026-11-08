@@ -866,6 +866,10 @@ function finishLayoff(room) {
   // Game over over the table (Nov 3, 2026): the last round's melds stay on
   // the felt under the final-scores panel, "messy, like a real table".
   room.lastTable = { table: lo.table, owners: lo.owners || null, locked: lo.locked || null, closerIndex: lo.closerIndex };
+  // Nov 8, 2026 (Dannel: "show the cards that we're gonna get counted"): each
+  // seat's cards still in hand once the lay-off is over, with the points they
+  // score this round. Only ever served on roundEnd or game over.
+  room.lastRound = roundReveal(room, lo, scores);
   matchMod.applyRound(match, {
     valid: true,
     chinchon: lo.chinchon,
@@ -895,6 +899,18 @@ function finishLayoff(room) {
   maybeRedeal(room);
 }
 
+function roundReveal(room, lo, scores) {
+  return room.players.map((p, i) => {
+    const playing = lo.order ? lo.order.includes(i) : true;
+    if (!playing) return { seat: i, name: p.name, playing: false, cards: [], points: null };
+    let cards = (lo.remaining && lo.remaining[i]) || [];
+    // A closer who never acted keeps the pre-close hand in remaining; what
+    // they hold is the declared leftover.
+    if (i === lo.closerIndex && cards.length === 7 && Array.isArray(lo.closerLeftovers)) cards = lo.closerLeftovers;
+    return { seat: i, name: p.name, playing: true, closer: i === lo.closerIndex, cards: cards.slice(), points: scores[i] };
+  });
+}
+
 // Humans still in the match: they may move a paused round on.
 function roundEndHumans(room) {
   return playingSeats(room).filter((i) => !room.players[i].isBot);
@@ -913,6 +929,7 @@ function continueRound(room) {
 function maybeRedeal(room) {
   const { match, players, state } = room;
   if (match.gameOver) { room.state.phase = 'over'; return; }
+  room.lastRound = null; // a new deal: last round's counted cards are history
   const active = playingSeats(room);
   // The deal (and so the first turn) moves one seat to the left (R12).
   room.state = turn.startNextRound(state, players.length, Math.random, active);
@@ -1156,6 +1173,7 @@ function serialize(room, seatId, since) {
     closingSeat: closingSeatOf(room),
     finalTable: (match.gameOver || state.phase === 'roundEnd') && room.lastTable ? room.lastTable : null,
     roundEnd: state.phase === 'roundEnd',
+    roundReveal: (state.phase === 'roundEnd' || match.gameOver) && room.lastRound ? room.lastRound : null,
     canContinueRound: state.phase === 'roundEnd' && !!viewer && roundEndHumans(room).includes(viewer.seat),
     waiting: room.waiting
       ? {

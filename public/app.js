@@ -1090,6 +1090,7 @@ function render() {
       board.appendChild(row);
     }
 
+    renderReveal($('go-reveal'), v.roundReveal);
     const outNames = (v.scoreboard || []).filter((p) => p.out).map((p) => p.name);
     $('go-eliminated').textContent = outNames.length
       ? `${t('eliminated')}: ${outNames.join(', ')}`
@@ -1366,6 +1367,29 @@ function render() {
   renderFelt(v, inLayoff ? null : cm, inLayoff ? v.layoff : finalLo);
   state.shownTable = cloneTable(v);
   syncCloseIntent();
+}
+
+// Each seat's counted cards, face up, with the points they score (Nov 8).
+// Used by the round-over panel and the game-over panel.
+function renderReveal(box, reveal) {
+  if (!box) return;
+  box.innerHTML = '';
+  for (const r of reveal || []) {
+    if (!r.playing) continue;
+    const row = document.createElement('div');
+    row.className = 're-row';
+    const name = document.createElement('span');
+    name.className = 're-name';
+    name.textContent = r.name;
+    const cards = document.createElement('span');
+    cards.className = 're-cards';
+    for (const c of r.cards || []) cards.appendChild(renderCardEl(c));
+    const pts = document.createElement('span');
+    pts.className = 'score-badge';
+    pts.textContent = r.points == null ? '' : (r.points > 0 ? `+${r.points}` : String(r.points));
+    row.appendChild(name); row.appendChild(cards); row.appendChild(pts);
+    box.appendChild(row);
+  }
 }
 
 // Round-end pause panel (Nov 8). Item 7 fills #re-board with each seat's
