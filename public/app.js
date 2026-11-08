@@ -125,6 +125,12 @@ const I18N = {
     shareCodeNote: 'Send this code to the other players so they can join.',
     playersJoined: 'Players joined:',
     joinCodePlaceholder: 'e.g. LUNA',
+    errNotYourTurn: 'It is not your turn.',
+    errNotDrawPhase: 'You have already drawn. Discard a card.',
+    errNotDiscardPhase: 'Draw a card first.',
+    errNotHoldCard: 'That card is not in your hand.',
+    errClosingDiscard: 'The closing discard cannot be in a combination.',
+    errReadRule: 'Read the rule first.',
   },
   es: {
     title: 'CHINCHON',
@@ -211,6 +217,12 @@ const I18N = {
     // Reclaim-flow strings
     seatReconnectedMsg: 'Este asiento se reconecto desde otro dispositivo.',
     makeANewGame: 'Crear una partida nueva',
+    errNotYourTurn: 'No es tu turno.',
+    errNotDrawPhase: 'Ya has robado. Descarta una carta.',
+    errNotDiscardPhase: 'Primero roba una carta.',
+    errNotHoldCard: 'Esa carta no esta en tu mano.',
+    errClosingDiscard: 'El descarte de cierre no puede ir en una combinacion.',
+    errReadRule: 'Lee la regla primero.',
   },
 };
 
@@ -254,6 +266,23 @@ function loadLang() {
 }
 let lang = loadLang();
 const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key];
+
+// Nov 8, 2026 (Dannel): server errors under the hand go through the EN/ES
+// tables. Unknown errors stay visible as sent.
+const ERR_KEYS = {
+  'not your turn': 'errNotYourTurn',
+  'not the draw phase': 'errNotDrawPhase',
+  'not the discard phase': 'errNotDiscardPhase',
+  'you do not hold that card': 'errNotHoldCard',
+  'the closing discard cannot be in a combination': 'errClosingDiscard',
+  'read the rule first': 'errReadRule',
+};
+window.__errText = (raw, tr) => (ERR_KEYS[raw] ? tr(ERR_KEYS[raw]) : String(raw || ''));
+// A turn/phase error is stale (a double tap, or a tap racing the poll) when the
+// state it complained about has already moved on: never show it then.
+window.__staleActionError = (raw, sentKey, nowKey) => (raw === 'not your turn' || raw === 'not the draw phase' || raw === 'not the discard phase') && sentKey !== nowKey;
+// The status line belongs to the turn/phase it was written in.
+window.__statusKey = (v) => (v ? [v.round, v.turnSeat, v.phase, !!v.isYourTurn].join('|') : '');
 
 const state = {
   code: null,
@@ -942,6 +971,10 @@ function render() {
   const phase = live.phase;
   const replaying = !!state.shadow;
   const mineShown = window.__yourTurnShown(live, replaying);
+  // An action error belongs to the turn/phase it was raised in; once the
+  // server moves on it would contradict the table, so clear it (Nov 8).
+  const sk = window.__statusKey(live);
+  if (sk !== _statusKey) { _statusKey = sk; $('status').textContent = ''; }
 
   // Room tag on top of the scoreboard ("Room: XXXX" / "Sala: XXXX"). Once a
   // game has started the code is only the room's name, never "room code".
@@ -1853,10 +1886,25 @@ function postJson(path, body) {
 // Generic POST for a game or room-control action (draw, wait, continue) for
 // this seat: show any server error in the status line,
 // then refresh the table. `extra` adds fields after code and seat.
+// One game action in flight at a time: a second tap while the first is still
+// on its way used to reach the server after the phase moved on and leave
+// "not the draw/discard phase" stuck under the hand (Nov 8).
+let _actionBusy = false;
+let _statusKey = '';
+function showActionError(raw, sentKey) {
+  if (window.__staleActionError(raw, sentKey, window.__statusKey(state.view))) return;
+  $('status').textContent = window.__errText(raw, t);
+  _statusKey = window.__statusKey(state.view);
+}
 async function apiPost(path, extra = {}) {
-  const res = await postJson(path, { code: state.code, seat: state.seatId, ...extra }).then((r) => r.json());
-  if (res.error) $('status').textContent = res.error;
-  await poll();
+  if (_actionBusy) return;
+  _actionBusy = true;
+  const sentKey = window.__statusKey(state.view);
+  try {
+    const res = await postJson(path, { code: state.code, seat: state.seatId, ...extra }).then((r) => r.json());
+    await poll();
+    if (res.error) showActionError(res.error, sentKey);
+  } finally { _actionBusy = false; }
 }
 
 // Per-room chat send (short gameplay notes; server caps at 10 + 160 chars).
@@ -1879,12 +1927,18 @@ async function doDiscard(card, close = false, melds = null) {
   if (close) body.melds = melds || [];
   // Mark this as OUR discard so the next render plays the throw-pop on the new
   // discard top (see render's discard block). One-shot; cleared when it fires.
+  if (_actionBusy) return;
+  _actionBusy = true;
+  const sentKey = window.__statusKey(state.view);
   _animState.pendingThrow = true;
-  const res = await postJson('/api/discard', body).then((r) => r.json());
-  // On a rejected discard the top never changes, so clear the flag now — else it
-  // would leak and mis-fire the throw on the next player's (opponent's) discard.
-  if (res.error) { $('status').textContent = res.error; _animState.pendingThrow = false; }
-  await poll();
+  try {
+    const res = await postJson('/api/discard', body).then((r) => r.json());
+    // On a rejected discard the top never changes, so clear the flag now — else it
+    // would leak and mis-fire the throw on the next player's (opponent's) discard.
+    if (res.error) _animState.pendingThrow = false;
+    await poll();
+    if (res.error) showActionError(res.error, sentKey);
+  } finally { _actionBusy = false; }
 }
 
 // Tutorial: acknowledge the current rule so the game may proceed. Calls the
