@@ -213,6 +213,14 @@ function playingSeats(room) {
   return room.players.map((_, i) => i).filter((i) => !seatIsOut(room, i) && !room.players[i].spectator);
 }
 
+// Nov 8, 2026 (Dannel: "The message box with bots can be removed, they never
+// respond"): room chat only shows when at least two humans are seated. Bots
+// never chat. Spectating humans still count, as /api/room/chat lets any
+// non-bot seat post. Recomputed on every poll, so a mid-game join shows it.
+function roomChatEnabled(room) {
+  return (room.players || []).filter((p) => !p.isBot).length >= 2;
+}
+
 function startFreshMatch(room) {
   const humans = humanSeats(room);
   // Multi mode requires at least 2 humans and no bots.
@@ -1014,6 +1022,7 @@ function serialize(room, seatId, since) {
         opponents,
         scoreboard,
         chat: room.chat || [],
+        chatEnabled: roomChatEnabled(room),
         lobby: players.map((p) => ({ name: p.name, isBot: p.isBot })),
         aloneNotice: !!room.aloneNotice,
         sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
@@ -1149,6 +1158,7 @@ function serialize(room, seatId, since) {
       };
     }),
     chat: room.chat || [],
+    chatEnabled: roomChatEnabled(room),
     aloneNotice: !!room.aloneNotice,
     sessionToken: viewer && viewer.sessionToken ? viewer.sessionToken : null,
     ...steps.stepsFor(room, since, viewerSeat),
@@ -1898,4 +1908,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };

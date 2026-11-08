@@ -1543,7 +1543,9 @@ function renderChat(v) {
   const box = $('chat');
   const log = $('chat-log');
   const bubble = $('chat-bubble');
-  if (!v.started) { box.classList.add('hidden'); bubble.classList.add('hidden'); setChatOpen(false); return; }
+  // No other humans (solo/tutorial vs bots): no chat at all (Nov 8). Older
+  // servers without the flag keep the bubble.
+  if (!v.started || v.chatEnabled === false) { box.classList.add('hidden'); bubble.classList.add('hidden'); $('chat-badge').classList.add('hidden'); setChatOpen(false); return; }
   box.classList.remove('hidden');
   bubble.classList.remove('hidden');
   bubble.setAttribute('aria-label', t('roomChat'));
