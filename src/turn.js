@@ -217,6 +217,7 @@ module.exports = {
   topOfDiscard,
   replenishStock,
   nextDealer,
+  nextActiveTurn,
   drawFromStock,
   drawFromDiscard,
   discardCard,

@@ -203,6 +203,16 @@ function pendingView(room) {
 
 
 
+// Elimination lives on room.match.players[i].out (set by matchMod.applyRound);
+// room.players never carries `out`. Nov 8, 2026: reading players[i].out here was
+// always undefined, so an eliminated seat was dealt back in. Always use these.
+function seatIsOut(room, i) {
+  return !!(room.match && room.match.players[i] && room.match.players[i].out);
+}
+function playingSeats(room) {
+  return room.players.map((_, i) => i).filter((i) => !seatIsOut(room, i) && !room.players[i].spectator);
+}
+
 function startFreshMatch(room) {
   const humans = humanSeats(room);
   // Multi mode requires at least 2 humans and no bots.
@@ -357,7 +367,7 @@ function runBotTurns(room) {
     const seat = state.turn;
     const p = players[seat];
     if (!p || !p.isBot) return; // hand back to a human
-    if (p.out) { state.turn = turn.nextDealer(state); continue; }
+    if (seatIsOut(room, seat)) { state.turn = turn.nextActiveTurn(state); continue; }
 
     // Bot draw. Recorded after it happens; the turn itself is not delayed.
     if (state.phase === 'draw') {
@@ -448,7 +458,7 @@ function nextActiveSeat(room) {
     s = (s + 1) % n;
     const p = room.players[s];
     if (p.isBot) return s; // bots resolved by runBotTurns
-    if (p.out || p.spectator) continue;
+    if (seatIsOut(room, s) || p.spectator) continue;
     return s;
   }
   return room.state.turn;
@@ -770,7 +780,7 @@ function startPersistence() {
 // human closed; bots fall back to the engine's split.
 function beginLayoffForRoom(room) {
   const { state, players } = room;
-  const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
+  const active = playingSeats(room);
   const chosen = room.pendingCloseChoice || null;
   room.pendingCloseChoice = null;
   const lo = layoffInteractive.beginLayoff(state.hands, state.closerIndex, active, chosen);
@@ -793,7 +803,7 @@ function runBotLayoffTurns(room) {
     const seat = layoffInteractive.currentPlayer(lo);
     const p = players[seat];
     if (!p || !p.isBot) return; // hand back to a human
-    if (p.out) {
+    if (seatIsOut(room, seat)) {
       layoffInteractive.declareReady(lo);
       steps.pushStep(room, { type: 'ready', seat, nextSeat: layoffInteractive.currentPlayer(lo) });
       continue;
@@ -853,7 +863,7 @@ function finishLayoff(room) {
 function maybeRedeal(room) {
   const { match, players, state } = room;
   if (match.gameOver) { room.state.phase = 'over'; return; }
-  const active = players.map((_, i) => i).filter((i) => !players[i].out && !players[i].spectator);
+  const active = playingSeats(room);
   // The deal (and so the first turn) moves one seat to the left (R12).
   room.state = turn.startNextRound(state, players.length, Math.random, active);
   runBotTurns(room);
@@ -1635,7 +1645,7 @@ function handleApi(req, res, url) {
   if (method === 'POST' && p === '/api/draw') {
     return withRoomState((body, room) => {
       const viewer = room.players.find((pl) => pl.id === body.seat);
-      if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
+      if (!viewer || room.state.turn !== viewer.seat || seatIsOut(room, viewer.seat)) return sendJson(res, 400, { error: 'not your turn' });
       if (room.state.phase !== 'draw') return sendJson(res, 400, { error: 'not the draw phase' });
       // Tutorial: a human may not act until they've acknowledged the current rule.
       if (room.tutorial && room.tutorialPaused) return sendJson(res, 409, { error: 'read the rule first', tutorialPause: true });
