@@ -220,11 +220,11 @@ leftover card, blocks the close completely.
   played as the **natural 1 de Oros** in the sequence, not as a wild. A Chinchon may
   never use two substitute wilds. From Dannel on Aug 16; reconfirmed Nov 12, 2026:
   "as long as one is as itself, chinchón can't do 2 wilds".
-- *Code status:* In code on branch `r23-nov12` (not deployed): `runAssignment` /
-  `isValidRun` / `orderRun` (`src/melds.js`) treat one 1 de Oros as the natural 1
-  when the run occupies the 1 slot; `canAttach` (`src/layoff.js`) uses that same
-  validator, so bots and humans follow one rule. Tests:
-  `test/r23-chinchon-wilds-nov12.test.js`.
+- *Code status:* In code in `ddb38bb` on branch `r23-nov12` (not deployed):
+  `runAssignment` / `isValidRun` / `orderRun` (`src/melds.js`) treat one 1 de
+  Oros as the natural 1 when the run occupies the 1 slot; `canAttach`
+  (`src/layoff.js`) uses that same validator, so bots and humans follow one
+  rule. Tests: `test/r23-chinchon-wilds-nov12.test.js`.
 
 **R24. False close.**
 - **What triggers it:** a player declares a close without actually having a valid game.
@@ -488,4 +488,4 @@ numbering is kept so older references still point at the right item.)
 | C15 | Pre-start countdown | Aug 18 decision: 60s. The code as described in Sep notes: about 90s | Oct 2, 2026, Dannel's ruling: **60s** (R40). Server changed in `6ef221e` |
 | C16 | Run past the 1 (12‑1‑2) | R37 (Oct 2) as coded: rank order fully circular, so 12‑1‑2 and 12‑1‑2‑3 were runs | Nov 3, 2026, Dannel: 11‑12‑1 and no further (R43) |
 | C17 | Lay-off onto a −10 close | R27: attach to **any** meld on the table | Nov 3, 2026, Dannel: the closer's −10 melds are locked (R42) |
-| C18 | Chinchon with two 1 de Oros (was Q3) | Engine rejected any meld with two 1 de Oros, including a 7-card Oros run where one is the natural 1 (R23, Aug 16) | Nov 12, 2026: Dannel reconfirmed "as long as one is as itself, chinchón can't do 2 wilds". The run validator treats one 1 de Oros as natural when the run occupies the 1 slot; a Chinchon that needs two substitute wilds is still rejected (branch `r23-nov12`) |
+| C18 | Chinchon with two 1 de Oros (was Q3) | Engine rejected any meld with two 1 de Oros, including a 7-card Oros run where one is the natural 1 (R23, Aug 16) | Nov 12, 2026: Dannel reconfirmed "as long as one is as itself, chinchón can't do 2 wilds". The run validator treats one 1 de Oros as natural when the run occupies the 1 slot; a Chinchon that needs two substitute wilds is still rejected (`ddb38bb` on branch `r23-nov12`) |

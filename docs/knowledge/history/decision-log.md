@@ -439,5 +439,5 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
 - **Code:** `isValidRun` now treats one 1 de Oros as the natural 1 when the run
   occupies the 1 slot, so two 1 de Oros are legal in an Oros run with a single gap;
   a run that needs two substitute wilds is still rejected. Lay-off uses the same
-  validator. *Status:* In code on branch `r23-nov12` (not deployed). Tests:
+  validator. *Status:* In code in `ddb38bb` on branch `r23-nov12` (not deployed). Tests:
   `test/r23-chinchon-wilds-nov12.test.js`.
