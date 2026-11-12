@@ -7,7 +7,10 @@ const { isWild, rankIndex, cardValue, RANKS } = require('./cards');
 //   RUN  = same suit, consecutive by rank index (7 -> 10 -> 11 -> 12 counts,
 //          and a run may go on from 12 to 1, so 11-12-1 is a run too -- but the
 //          1 is then the end: 12-1-2 is NOT a run (R37 as refined by R43))
-// At most ONE wild (1 de Oros) may be used per meld. Never two.
+// At most ONE substitute wild (a 1 de Oros standing in for another card) may
+// be used per meld. A 1 de Oros played as itself in an Oros run is not a wild
+// for that cap, so both 1 de Oros may appear in the same run only when one of
+// them occupies the natural 1 slot (R23).
 
 const MAX_WILDS_PER_MELD = 1;
 
@@ -30,8 +33,12 @@ function isValidSet(cards) {
   return natural.every((c) => c.rank === rank);
 }
 
-// Is this a valid run? Same suit, consecutive, <=1 wild filling a gap or
-// extending an end.
+// Is this a valid run? Same suit, consecutive, at most one *substitute* wild
+// filling a gap or extending an end.
+//
+// A 1 de Oros may be played as itself, the natural 1 in an Oros run (R4). In
+// that case it is not a wild, so a second 1 de Oros may still fill one gap
+// (R23). Two 1 de Oros used as two substitutes are never a run.
 //
 // Runs may go on from 12 to 1 (house rule R37, Oct 2, 2026), but no further
 // (R43, Dannel, Nov 3, 2026: "it goes 11-12-1 and no further"). So 11-12-1 and
@@ -49,37 +56,42 @@ function runWindowStarts(len) {
   return starts;
 }
 
-function isValidRun(cards) {
-  if (cards.length < 3) return false;
-  if (cards.length > RANKS.length) return false;
-
-  const wilds = countWilds(cards);
-  if (wilds > MAX_WILDS_PER_MELD) return false;
-
-  const natural = cards.filter((c) => !isWild(c));
-  if (natural.length === 0) return false;
-
-  // All naturals share a suit.
-  const suit = natural[0].suit;
-  if (!natural.every((c) => c.suit === suit)) return false;
-
-  // No duplicate ranks inside a run, even from the second deck.
-  const idxs = natural.map((c) => rankIndex(c.rank));
-  if (new Set(idxs).size !== idxs.length) return false;
-
-  // Positions are indexes into RANKS (not face values), so the missing 8 and 9
-  // never count as a gap: 6-7-10 is three consecutive slots.
-  //
-  // The run occupies cards.length consecutive slots. It is valid if one of
-  // the allowed windows of that length (runWindowStarts) holds every natural;
-  // the wilds fill the remaining slots (inner gaps or an end). With at most
-  // one wild, a window can hold at most one empty slot.
-  // Example: 5, 7 + wild -> window 5-6-7 (the wild is the 6). Example: 11, 1 +
-  // wild -> window 11-12-1, going on past 12 to the 1. Example: 12, 1 + wild
-  // -> 11-12-1 (the wild is the 11), never 12-1-2.
+// Try to place `naturals` in a legal window of `len` slots, with `wilds`
+// filling the empty ones. At most one substitute wild. Returns { start,
+// naturals, wilds } on success, or null.
+function assignRun(len, naturals, wilds) {
+  if (wilds.length > MAX_WILDS_PER_MELD) return null;
+  if (naturals.length === 0) return null;
+  const suit = naturals[0].suit;
+  if (!naturals.every((c) => c.suit === suit)) return null;
+  const idxs = naturals.map((c) => rankIndex(c.rank));
+  if (new Set(idxs).size !== idxs.length) return null;
   const n = RANKS.length;
-  return runWindowStarts(cards.length)
-    .some((start) => idxs.every((i) => (i - start + n) % n < cards.length));
+  for (const start of runWindowStarts(len)) {
+    if (idxs.every((i) => (i - start + n) % n < len)) {
+      return { start, naturals, wilds };
+    }
+  }
+  return null;
+}
+
+// How this group of cards can form a run, if it can. Prefers treating one
+// 1 de Oros as the natural 1 when that yields a valid Oros run (R4, R23);
+// otherwise every 1 de Oros is a substitute wild.
+function runAssignment(cards) {
+  if (cards.length < 3) return null;
+  if (cards.length > RANKS.length) return null;
+  const ones = cards.filter(isWild);
+  const others = cards.filter((c) => !isWild(c));
+  if (ones.length >= 1) {
+    const asNatural = assignRun(cards.length, [ones[0], ...others], ones.slice(1));
+    if (asNatural) return asNatural;
+  }
+  return assignRun(cards.length, others, ones);
+}
+
+function isValidRun(cards) {
+  return runAssignment(cards) != null;
 }
 
 function isValidMeld(cards) {
@@ -96,18 +108,14 @@ function meldType(cards) {
 // (including 12 -> 1 at the top end), with the wild in the slot it fills.
 // Sets, and anything that is not a valid run, come back unchanged.
 function orderRun(cards) {
-  if (!isValidRun(cards)) return [...cards];
+  const assigned = runAssignment(cards);
+  if (!assigned) return [...cards];
   const n = RANKS.length;
-  const natural = cards.filter((c) => !isWild(c));
-  const wilds = cards.filter(isWild);
-  const idxs = natural.map((c) => rankIndex(c.rank));
-  for (const start of runWindowStarts(cards.length)) {
-    if (!idxs.every((i) => (i - start + n) % n < cards.length)) continue;
-    const slots = new Array(cards.length).fill(null);
-    natural.forEach((c, k) => { slots[(idxs[k] - start + n) % n] = c; });
-    return slots.map((c) => c || wilds.shift());
-  }
-  return [...cards];
+  const { start, naturals, wilds } = assigned;
+  const leftoverWilds = [...wilds];
+  const slots = new Array(cards.length).fill(null);
+  naturals.forEach((c) => { slots[(rankIndex(c.rank) - start + n) % n] = c; });
+  return slots.map((c) => c || leftoverWilds.shift());
 }
 
 // Deadwood points for a collection of unmelded cards.

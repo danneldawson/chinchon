@@ -57,7 +57,9 @@ function allMelds(cards) {
 }
 
 // A chinchon is all 7 cards in ONE single meld. Wins the entire game outright.
-// Only one wild may be used, which the meld validator already enforces.
+// At most one substitute wild may be used. A second 1 de Oros is allowed only
+// when it plays as the natural 1 in an Oros run (R23); the meld validator
+// enforces this.
 function isChinchon(hand) {
   return hand.length === HAND_SIZE && isValidMeld(hand);
 }

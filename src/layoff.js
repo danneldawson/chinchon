@@ -1,7 +1,7 @@
 'use strict';
 
-const { isWild, cardValue } = require('./cards');
-const { isValidMeld, countWilds, MAX_WILDS_PER_MELD } = require('./melds');
+const { cardValue } = require('./cards');
+const { isValidMeld } = require('./melds');
 const { bestSplit, canClose } = require('./scoring');
 
 // Cards in `hand` not present in `subset` (by id).
@@ -25,7 +25,9 @@ function without(cards, subset) {
 
 // Can this single card be attached to an existing table meld?
 function canAttach(meld, card) {
-  if (isWild(card) && countWilds(meld) >= MAX_WILDS_PER_MELD) return false;
+  // The meld validator decides whether a 1 de Oros is a substitute wild or
+  // the natural 1 in an Oros run (R23). An early "already has a wild" count
+  // of every 1 de Oros would wrongly block the natural case.
   return isValidMeld([...meld, card]);
 }
 

@@ -429,3 +429,15 @@ that **have not been made yet** (see "Pending code changes" in `../README.md`).
 - **Withdrawn: "if everyone busts in the same round, the lowest total wins".** Dannel
   asked to "clean it" once R46 made it impossible; removed from `src/match.js`.
   The soak test now deals only to seats still in and passes totals, like the server.
+
+### Thu Nov 12, 2026: R23 two 1 de Oros in a Chinchon, engine aligned
+- **D: reconfirmed R23.** A Chinchon may contain both 1 de Oros cards as long as one
+  plays as itself (the natural 1 in the run) and only the other is wild; a Chinchon
+  may never use two wilds. *Reason:* Dannel, Nov 12: "as long as one is as itself,
+  chinchón can't do 2 wilds." The Aug 16 ruling already said this; the engine had
+  still rejected the hand (open question Q3).
+- **Code:** `isValidRun` now treats one 1 de Oros as the natural 1 when the run
+  occupies the 1 slot, so two 1 de Oros are legal in an Oros run with a single gap;
+  a run that needs two substitute wilds is still rejected. Lay-off uses the same
+  validator. *Status:* In code on branch `r23-nov12` (not deployed). Tests:
+  `test/r23-chinchon-wilds-nov12.test.js`.
