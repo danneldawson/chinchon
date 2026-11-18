@@ -332,7 +332,16 @@ function pickFamilyBots(n) {
   return pool.slice(0, Math.max(1, Math.min(pool.length, n)));
 }
 
-function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, learning, tutorial }) {
+// Visual deck for the room. card.deckId (0 or 1) is which physical copy a
+// card came from in the 80-card shoe; it is not a theme. An unknown or missing
+// value stays on the original emblem deck, so saved rooms and older clients
+// keep the look they already have.
+function cardDeckOf(value) {
+  return value === 'stained-glass' ? 'stained-glass' : 'classic';
+}
+
+function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, learning, tutorial, deck }) {
+  const cardDeck = cardDeckOf(deck);
   const code = makeCode();
   const players = [];
 
@@ -347,7 +356,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
     const host = players[0];
     const match = matchMod.createMatch(players.map((p) => p.name));
     const state = turn.startRound(players.length, dealRng);
-    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: host.id, chat: [], pending: null, banned: [], visibility: 'private', learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
+    const room = { code, mode, players, match, state, started: true, startedAt: Date.now(), hostId: host.id, chat: [], pending: null, banned: [], visibility: 'private', cardDeck, learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
     rooms.set(code, room);
     return room;
   }
@@ -366,7 +375,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   const until = Date.now() + (countdownMs || (vis === 'public' ? PUBLIC_COUNTDOWN_MS : PRIVATE_HUMAN_COUNTDOWN_MS));
   pending = { until, hold: false, hostName: host.name, startedBy: host.id, type: 'fresh', visibility: vis };
 
-  const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis, learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
+  const room = { code, mode, players, match, state, started, startedAt, hostId: host.id, chat: [], pending, banned: [], visibility: vis, cardDeck, learning: !!learning, tutorial: !!tutorial, tutorialRuleIndex: 0, tutorialPaused: false };
   rooms.set(code, room);
   return room;
 }
@@ -757,6 +766,8 @@ function loadRooms(file = STATE_FILE, now = Date.now()) {
       const v = validateVoiceLink(room.voiceLink.url);
       room.voiceLink = v.url ? { url: v.url, host: v.host } : null;
     }
+    // Rooms saved before decks existed have no cardDeck; they stay classic.
+    room.cardDeck = cardDeckOf(room.cardDeck);
     rooms.set(room.code, room);
     n++;
   }
@@ -1050,6 +1061,7 @@ function serialize(room, seatId, since) {
       return {
         code: room.code,
         mode: room.mode,
+        cardDeck: cardDeckOf(room.cardDeck),
         learning: !!room.learning,
         tutorial: !!room.tutorial,
         tutorialRuleIndex: room.tutorialRuleIndex,
@@ -1159,6 +1171,7 @@ function serialize(room, seatId, since) {
   return {
     code: room.code,
     mode: room.mode,
+    cardDeck: cardDeckOf(room.cardDeck),
     learning: !!room.learning,
     tutorial: !!room.tutorial,
     tutorialRuleIndex: room.tutorialRuleIndex,
@@ -1417,11 +1430,11 @@ function handleApi(req, res, url) {
       // Reserve ".Bot" usernames for our official bots only.
       if (isReservedName(body.name)) return sendJson(res, 400, { error: 'that name is reserved for bots' });
       if (mode === 'solo') {
-        const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, learning, tutorial });
+        const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, learning, tutorial, deck: body.deck });
         runBotTurns(room);
         return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}` });
       }
-      const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, visibility, countdownMs: body.countdownMs, learning, tutorial });
+      const room = createRoom({ mode, name: body.name, bots, lobbyToken: body.lobbyToken, visibility, countdownMs: body.countdownMs, learning, tutorial, deck: body.deck });
       // Private + bots starts immediately (no pending); others wait for the countdown.
       if (!room.pending) runBotTurns(room);
       return sendJson(res, 200, { code: room.code, seatId: room.players[0].id, shareUrl: `${publicBase(req)}/?code=${room.code}`, pending: room.pending ? pendingView(room) : null, visibility: room.visibility });
@@ -1989,4 +2002,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, rooms, _internals: { continueRound, finishLayoff, beginLayoffForRoom, seatHandCount, roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors } };
+module.exports = { createServer, rooms, _internals: { continueRound, finishLayoff, beginLayoffForRoom, seatHandCount, roomChatEnabled, createRoom, runBotTurns, maybeRedeal, serialize, sweepRooms, sweepLobby, sweepLobbyChat, runCleanup, CLEANUP, humanSeats, lobbyRef: lobby, saveRooms, loadRooms, snapshot, activitySummary, visitors, cardDeckOf } };

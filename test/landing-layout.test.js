@@ -33,8 +33,11 @@ test('lobby offers Play solo, Multiplayer room and Join room', () => {
   }
   // Join room (enter a friend's code) is still wired.
   assert.match(js, /\$\('btn-join'\)\.onclick = \(\) => \{[\s\S]{0,200}joinByCode\(code\)/);
-  // Play solo still starts a solo game directly.
-  assert.match(js, /\$\('btn-gameplay'\)\.onclick = \(\) => \{[^}]*createRoom\('private', 2, false, false, 'solo'\)/);
+  // Play solo opens a deck picker, then Start begins the solo game.
+  assert.match(js, /\$\('btn-gameplay'\)\.onclick = \(\) => \{[^}]*showSoloPane\(\)/);
+  assert.match(js, /createRoom\('private', 2, false, false, 'solo', deck\)/);
+  assert.ok(html.includes('id="deck-picker-solo"'), 'solo pane has a deck picker');
+  assert.ok(html.includes('id="btn-solo-start"'), 'solo pane has a start button');
 });
 
 test('manual Rejoin UI is gone everywhere (HTML and JS)', () => {

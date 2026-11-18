@@ -104,6 +104,9 @@ const I18N = {
     backToLobby: '← Back to lobby',
     createPublic: 'Create public room',
     createPrivate: 'Create private room',
+    deckLabel: 'Card deck',
+    deckClassic: 'Classic',
+    deckStained: 'Stained Glass',
     // Additional UI strings missing from EN
     rulesTitle: 'How to play',
     backToCreate: '← Back to create',
@@ -186,6 +189,9 @@ const I18N = {
     backToLobby: '← Volver al lobby',
     createPublic: 'Crear sala pública',
     createPrivate: 'Crear sala privada',
+    deckLabel: 'Baraja',
+    deckClassic: 'Clásica',
+    deckStained: 'Vitral',
     rules: 'Reglas',
     leave: 'Salir',
     // Additional UI strings missing from ES
@@ -305,6 +311,7 @@ const state = {
   lobbyToken: null,
   lobbyName: null,
   sessionToken: null,
+  cardDeck: 'classic',
 };
 
 const $ = (id) => {
@@ -345,6 +352,7 @@ function show(panel) {
 function showCreatePane() {
   $('create-pane').classList.remove('hidden');
   $('join-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
   // Reset to the initial create choices (hide any in-progress private dialogue).
   $('create-choices').classList.remove('hidden');
   $('private-dialogue').classList.add('hidden');
@@ -353,6 +361,22 @@ function showCreatePane() {
   $('room-waiting').textContent = '';
   // Drop any pending learning-session intent when returning to a normal create.
   const lm = $('lobby-msg'); if (lm) lm.textContent = '';
+  applyDeckChoice(rememberedCardDeck(), false);
+  // One thumbnail for the picker. The 40 card faces stay unloaded until a
+  // room actually uses the stained-glass deck.
+  loadDeckPreview('deck-stained-preview');
+}
+function showSoloPane() {
+  $('solo-pane').classList.remove('hidden');
+  $('create-pane').classList.add('hidden');
+  $('join-pane').classList.add('hidden');
+  $('room-info').classList.add('hidden');
+  applyDeckChoice(rememberedCardDeck(), false);
+  loadDeckPreview('deck-stained-preview-solo');
+}
+function loadDeckPreview(id) {
+  const preview = document.getElementById(id);
+  if (preview && !preview.getAttribute('src')) preview.src = '/decks/stained-glass/preview.webp';
 }
 // The waiting-for-the-match screen: the room code, the players and the countdown
 // — and nothing else. The create/join panes come down with it, otherwise the join
@@ -361,6 +385,7 @@ function showCreatePane() {
 function showWaitingView() {
   $('create-pane').classList.add('hidden');
   $('join-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
   $('room-info').classList.remove('hidden');
   $('share-link-row').classList.add('hidden'); // only the host's create path shows it
 }
@@ -386,6 +411,7 @@ $('btn-share-link').onclick = () => {
 function showJoinPane() {
   $('join-pane').classList.remove('hidden');
   $('create-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
 }
 
 function applyLang() {
@@ -427,7 +453,9 @@ function createRoomLocked(visibility, bots, learning = false, tutorial = false, 
   $('btn-create-private').disabled = true;
   const status = $('create-status');
   if (status) status.textContent = 'Creating room…';
-  createRoom(visibility, bots, learning, tutorial, mode).finally(() => {
+  const deck = chosenCardDeck('card-deck');
+  applyDeckChoice(deck, true);
+  createRoom(visibility, bots, learning, tutorial, mode, deck).finally(() => {
     creatingRoom = false;
     $('btn-create-public').disabled = false;
     $('btn-create-private').disabled = false;
@@ -436,10 +464,14 @@ function createRoomLocked(visibility, bots, learning = false, tutorial = false, 
 $('btn-create-public').onclick = () => createRoomLocked('public', 0);
 $('btn-create-private').onclick = () => createRoomLocked('private', 0);
 
-async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi') {
+async function createRoom(visibility, bots, learning = false, tutorial = false, mode = 'multi', deck) {
   const status = $('create-status');
   const name = state.lobbyName || 'Host';
-  const res = await postJson('/api/room/new', { mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken }).then((r) => r.json()).catch(() => null);
+  const payload = { mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken };
+  // Callers that omit a deck (older clients) leave the field off. The server
+  // then keeps Classic, which is also the first-time default.
+  if (deck === 'stained-glass' || deck === 'classic') payload.deck = deck;
+  const res = await postJson('/api/room/new', payload).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
   state.seatId = res.seatId;
@@ -540,6 +572,7 @@ async function watchRoom() {
   } catch { return; }
   if (!res || typeof res !== 'object') return;
   if (res.gone) { goToLobby(); return; }
+  noteCardDeck(res.cardDeck);
   if (res.started) { clearInterval(state.pollTimer); enterGame(); return; }
   // Still waiting: list who's in and show the countdown.
   const ul = $('lobby-players');
@@ -764,10 +797,10 @@ function flyCard(fromEl, toEl, card, faceDown, travel) {
   return new Promise((resolve) => {
     if (reducedMotion() || !fromEl || !toEl || !travel) { resolve(); return; }
     const flyer = document.createElement('div');
-    flyer.className = 'fly-card' + (faceDown ? ' face-down' : (card ? ' ' + String(card.suit).toLowerCase() : ''));
+    flyer.className = 'fly-card' + (faceDown ? ' face-down' : (card ? ' ' + faceClass(card) : ''));
     flyer.innerHTML = (faceDown || !card)
       ? '<span class="fly-back"></span>'
-      : `<span class="rank">${card.rank}</span><span class="emblem-wrap">${suitEmblem(card.suit)}</span>`;
+      : cardFaceHtml(card);
     const a = fromEl.getBoundingClientRect();
     const b = toEl.getBoundingClientRect();
     const w = 46;
@@ -916,6 +949,91 @@ async function poll() {
   render();
 }
 
+// Visual deck. 'classic' is the original rank + suit-emblem cards. 'stained-glass'
+// swaps every face (hand, discard, tray, melds, reveal, the card in flight) for
+// the WebP set under /decks/stained-glass/. Faces are requested only after a
+// room's state says it uses that deck. The stock and the opponents' fans stay
+// on the shared card-back photo: this set has no back, and the wild is the
+// 1 de Oros (01-oros), not a separate joker.
+const SG_SUIT_FILE = { Oros: 'oros', Copas: 'copas', Espadas: 'espadas', Bastos: 'bastos' };
+const SG_RANK_OK = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 10: 1, 11: 1, 12: 1 };
+let stainedGlassWarmed = false;
+
+function noteCardDeck(deck) {
+  state.cardDeck = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  const game = document.getElementById('game');
+  if (game) game.classList.toggle('deck-stained', state.cardDeck === 'stained-glass');
+  if (state.cardDeck === 'stained-glass') warmStainedGlass();
+}
+function usingStainedGlass() {
+  return state.cardDeck === 'stained-glass';
+}
+function stainedGlassSrc(card) {
+  const suit = card && SG_SUIT_FILE[card.suit];
+  const rank = card && card.rank;
+  if (!suit || !SG_RANK_OK[rank]) return '';
+  const nn = rank < 10 ? '0' + rank : String(rank);
+  return '/decks/stained-glass/' + nn + '-' + suit + '.webp';
+}
+function warmStainedGlass() {
+  if (stainedGlassWarmed || typeof Image === 'undefined') return;
+  stainedGlassWarmed = true;
+  for (const suit of Object.keys(SG_SUIT_FILE)) {
+    for (const rank of [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = stainedGlassSrc({ suit, rank });
+    }
+  }
+}
+const DECK_PREF_KEY = 'chinchonDeck';
+function rememberedCardDeck() {
+  try {
+    return localStorage.getItem(DECK_PREF_KEY) === 'stained-glass' ? 'stained-glass' : 'classic';
+  } catch { return 'classic'; }
+}
+// save: write the choice so the next create or solo screen opens on it.
+// Both pickers stay on the same value. Classic is the first-time default.
+function applyDeckChoice(deck, save) {
+  const value = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  if (save) {
+    try { localStorage.setItem(DECK_PREF_KEY, value); } catch { /* private mode */ }
+  }
+  document.querySelectorAll('input[data-deck-choice]').forEach((el) => { el.checked = el.value === value; });
+  return value;
+}
+function chosenCardDeck(group) {
+  const el = document.querySelector(`input[name="${group}"]:checked`);
+  return el && el.value === 'stained-glass' ? 'stained-glass' : 'classic';
+}
+applyDeckChoice(rememberedCardDeck(), false);
+document.querySelectorAll('input[data-deck-choice]').forEach((el) => {
+  el.addEventListener('change', () => { if (el.checked) applyDeckChoice(el.value, true); });
+});
+function faceClass(card) {
+  const suit = String((card && card.suit) || '').toLowerCase();
+  const wild = !!(window.__isWild && window.__isWild(card));
+  const sg = usingStainedGlass() && stainedGlassSrc(card) ? ' sg' : '';
+  return suit + (wild ? ' has-wild' : '') + sg;
+}
+// compact: the small felt / tray markup (tc-rank), which the classic CSS sizes
+// differently from a full hand card. mark: the ★ on the wild, full-size faces only.
+function cardFaceHtml(card, { mark = false, compact = false } = {}) {
+  const wild = !!(window.__isWild && window.__isWild(card));
+  const src = usingStainedGlass() ? stainedGlassSrc(card) : '';
+  if (src) {
+    const alt = escapeHtml(card.rank + ' de ' + card.suit);
+    return `<img class="sg-face" alt="${alt}" src="${src}" draggable="false" decoding="async">` +
+      (wild && mark ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
+  }
+  if (compact) {
+    return `<span class="tc-rank">${card.rank}</span><span class="tc-emblem">${suitEmblem(card.suit)}</span>`;
+  }
+  return `<span class="rank">${card.rank}</span>` +
+    `<span class="emblem-wrap">${suitEmblem(card.suit)}</span>` +
+    (wild && mark ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
+}
+
 // Original Spanish-deck suit emblems (Fournier-STYLE, not the copyrighted art):
 //   Oros    = a gold coin
 //   Copas   = a goblet / cup
@@ -944,13 +1062,9 @@ function suitEmblem(suit) {
 // Full card as a styled element with a BIG number and the suit emblem.
 function renderCardEl(c, { clickable, onClick, reorderable } = {}) {
   const el = document.createElement('div');
-  el.className = `card ${c.suit.toLowerCase()}`;
+  el.className = `card ${faceClass(c)}`;
   el.dataset.id = c.id;
-  if (window.__isWild(c)) el.classList.add('has-wild');
-  el.innerHTML =
-    `<span class="rank">${c.rank}</span>` +
-    `<span class="emblem-wrap">${suitEmblem(c.suit)}</span>` +
-    (window.__isWild(c) ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
+  el.innerHTML = cardFaceHtml(c, { mark: true });
   if (onClick) el.onclick = onClick;            // wire the handler whenever one is given
   if (clickable) el.classList.add('clickable');
   else if (!onClick) el.classList.add('disabled'); // grey only if truly inert
@@ -972,6 +1086,7 @@ function onceAnimate(el, cls) {
 function render() {
   const live = state.view;
   if (!live || !live.started) return;
+  noteCardDeck(live.cardDeck);
   // Shadow drives the table (piles, seat ring, felt) while a watched turn
   // replays. canAct/phase stay on the server so your controls unlock the
   // moment it is your turn, and the hand below is never the thing animating.
@@ -1176,12 +1291,8 @@ function render() {
     }
   }
   if (v.discardTop) {
-    const isWild = window.__isWild(v.discardTop);
-    dt.innerHTML =
-      `<span class="rank">${v.discardTop.rank}</span>` +
-      `<span class="emblem-wrap">${suitEmblem(v.discardTop.suit)}</span>` +
-      (isWild ? '<span class="wild" title="wild (1 de Oros)">★</span>' : '');
-    dt.className = `discard-top ${v.discardTop.suit.toLowerCase()}${isWild ? ' has-wild' : ''}`;
+    dt.innerHTML = cardFaceHtml(v.discardTop, { mark: true });
+    dt.className = `discard-top ${faceClass(v.discardTop)}`;
   } else {
     dt.innerHTML = '';
     dt.className = 'discard-top';
@@ -1475,9 +1586,7 @@ function markCloseDiscard(el) {
 
 // A small face-up card for the felt (melds) and the false-close banner.
 function feltCard(c) {
-  const wild = window.__isWild ? window.__isWild(c) : false;
-  return `<span class="fm-card ${String(c.suit).toLowerCase()}${wild ? ' has-wild' : ''}">` +
-    `<span class="tc-rank">${c.rank}</span><span class="tc-emblem">${suitEmblem(c.suit)}</span></span>`;
+  return `<span class="fm-card ${faceClass(c)}">` + cardFaceHtml(c, { compact: true }) + '</span>';
 }
 
 function renderFelt(v, cm, lo) {
@@ -1818,9 +1927,8 @@ function renderDiscardTray(v) {
     let h = 0;
     for (const ch of String(c.id)) h = (h * 31 + ch.charCodeAt(0)) % 997;
     const tilt = (h % 13) - 6; // a little natural tilt, stable per card
-    const wild = window.__isWild ? window.__isWild(c) : false;
-    return `<div class="tray-card ${String(c.suit).toLowerCase()}${wild ? ' has-wild' : ''}" style="--tilt:${tilt}deg">` +
-      `<span class="tc-rank">${c.rank}</span><span class="tc-emblem">${suitEmblem(c.suit)}</span></div>`;
+    return `<div class="tray-card ${faceClass(c)}" style="--tilt:${tilt}deg">` +
+      cardFaceHtml(c, { compact: true }) + '</div>';
   }).join('');
   tray.classList.toggle('empty', older.length === 0);
 }
@@ -2310,7 +2418,7 @@ $('btn-go-create').onclick = () => {
 const goLearn = $('btn-go-learn');
 if (goLearn) goLearn.onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, true, true);
+  createRoom('private', 2, true, true, 'multi', rememberedCardDeck());
 };
 $('btn-go-join').onclick = () => {
   clearInterval(lobbyTimer);
@@ -2381,10 +2489,23 @@ function renderGameplayRules() {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
 };
-// "Play solo": quick solo game vs 2 random family bots (placement a).
+// "Play solo": pick a deck, then start vs 2 random family bots.
 $('btn-gameplay').onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, false, false, 'solo');
+  show($('lobby'));
+  showSoloPane();
+};
+$('btn-solo-start').onclick = () => {
+  if (creatingRoom) return;
+  creatingRoom = true;
+  const deck = chosenCardDeck('card-deck-solo');
+  applyDeckChoice(deck, true);
+  const btn = $('btn-solo-start');
+  btn.disabled = true;
+  createRoom('private', 2, false, false, 'solo', deck).finally(() => {
+    creatingRoom = false;
+    btn.disabled = false;
+  });
 };
 // The Rules screen's English/Español buttons use the global .lang-btn handler
 // (setLang). Do NOT assign their onclick again here: that used to replace the
@@ -2405,7 +2526,9 @@ $('btn-rules-top').onclick = () => {
 // only — no voice). Closes the overlay and starts a Learning session.
 $('btn-gameplay-tutorial').onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, true, true);
+  // No separate picker here. The tutorial uses the deck last chosen elsewhere,
+  // which is Classic until the player picks Stained Glass.
+  createRoom('private', 2, true, true, 'multi', rememberedCardDeck());
 };
 
 // Leave the global lobby entirely: drop the name + token on the server, clear
