@@ -352,6 +352,7 @@ function show(panel) {
 function showCreatePane() {
   $('create-pane').classList.remove('hidden');
   $('join-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
   // Reset to the initial create choices (hide any in-progress private dialogue).
   $('create-choices').classList.remove('hidden');
   $('private-dialogue').classList.add('hidden');
@@ -360,9 +361,21 @@ function showCreatePane() {
   $('room-waiting').textContent = '';
   // Drop any pending learning-session intent when returning to a normal create.
   const lm = $('lobby-msg'); if (lm) lm.textContent = '';
+  applyDeckChoice(rememberedCardDeck(), false);
   // One thumbnail for the picker. The 40 card faces stay unloaded until a
   // room actually uses the stained-glass deck.
-  const preview = document.getElementById('deck-stained-preview');
+  loadDeckPreview('deck-stained-preview');
+}
+function showSoloPane() {
+  $('solo-pane').classList.remove('hidden');
+  $('create-pane').classList.add('hidden');
+  $('join-pane').classList.add('hidden');
+  $('room-info').classList.add('hidden');
+  applyDeckChoice(rememberedCardDeck(), false);
+  loadDeckPreview('deck-stained-preview-solo');
+}
+function loadDeckPreview(id) {
+  const preview = document.getElementById(id);
   if (preview && !preview.getAttribute('src')) preview.src = '/decks/stained-glass/preview.webp';
 }
 // The waiting-for-the-match screen: the room code, the players and the countdown
@@ -372,6 +385,7 @@ function showCreatePane() {
 function showWaitingView() {
   $('create-pane').classList.add('hidden');
   $('join-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
   $('room-info').classList.remove('hidden');
   $('share-link-row').classList.add('hidden'); // only the host's create path shows it
 }
@@ -397,6 +411,7 @@ $('btn-share-link').onclick = () => {
 function showJoinPane() {
   $('join-pane').classList.remove('hidden');
   $('create-pane').classList.add('hidden');
+  $('solo-pane').classList.add('hidden');
 }
 
 function applyLang() {
@@ -438,7 +453,9 @@ function createRoomLocked(visibility, bots, learning = false, tutorial = false, 
   $('btn-create-private').disabled = true;
   const status = $('create-status');
   if (status) status.textContent = 'Creating room…';
-  createRoom(visibility, bots, learning, tutorial, mode, chosenCardDeck()).finally(() => {
+  const deck = chosenCardDeck('card-deck');
+  applyDeckChoice(deck, true);
+  createRoom(visibility, bots, learning, tutorial, mode, deck).finally(() => {
     creatingRoom = false;
     $('btn-create-public').disabled = false;
     $('btn-create-private').disabled = false;
@@ -451,8 +468,8 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   const status = $('create-status');
   const name = state.lobbyName || 'Host';
   const payload = { mode, name, visibility, bots, learning, tutorial, lobbyToken: state.lobbyToken };
-  // Only the create-room buttons pass a deck. Solo, tutorial and any caller
-  // that omits it leave the field off, and the server keeps the classic deck.
+  // Callers that omit a deck (older clients) leave the field off. The server
+  // then keeps Classic, which is also the first-time default.
   if (deck === 'stained-glass' || deck === 'classic') payload.deck = deck;
   const res = await postJson('/api/room/new', payload).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
@@ -969,10 +986,30 @@ function warmStainedGlass() {
     }
   }
 }
-function chosenCardDeck() {
-  const el = document.querySelector('input[name="card-deck"]:checked');
+const DECK_PREF_KEY = 'chinchonDeck';
+function rememberedCardDeck() {
+  try {
+    return localStorage.getItem(DECK_PREF_KEY) === 'stained-glass' ? 'stained-glass' : 'classic';
+  } catch { return 'classic'; }
+}
+// save: write the choice so the next create or solo screen opens on it.
+// Both pickers stay on the same value. Classic is the first-time default.
+function applyDeckChoice(deck, save) {
+  const value = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  if (save) {
+    try { localStorage.setItem(DECK_PREF_KEY, value); } catch { /* private mode */ }
+  }
+  document.querySelectorAll('input[data-deck-choice]').forEach((el) => { el.checked = el.value === value; });
+  return value;
+}
+function chosenCardDeck(group) {
+  const el = document.querySelector(`input[name="${group}"]:checked`);
   return el && el.value === 'stained-glass' ? 'stained-glass' : 'classic';
 }
+applyDeckChoice(rememberedCardDeck(), false);
+document.querySelectorAll('input[data-deck-choice]').forEach((el) => {
+  el.addEventListener('change', () => { if (el.checked) applyDeckChoice(el.value, true); });
+});
 function faceClass(card) {
   const suit = String((card && card.suit) || '').toLowerCase();
   const wild = !!(window.__isWild && window.__isWild(card));
@@ -2381,7 +2418,7 @@ $('btn-go-create').onclick = () => {
 const goLearn = $('btn-go-learn');
 if (goLearn) goLearn.onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, true, true);
+  createRoom('private', 2, true, true, 'multi', rememberedCardDeck());
 };
 $('btn-go-join').onclick = () => {
   clearInterval(lobbyTimer);
@@ -2452,10 +2489,23 @@ function renderGameplayRules() {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
 };
-// "Play solo": quick solo game vs 2 random family bots (placement a).
+// "Play solo": pick a deck, then start vs 2 random family bots.
 $('btn-gameplay').onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, false, false, 'solo');
+  show($('lobby'));
+  showSoloPane();
+};
+$('btn-solo-start').onclick = () => {
+  if (creatingRoom) return;
+  creatingRoom = true;
+  const deck = chosenCardDeck('card-deck-solo');
+  applyDeckChoice(deck, true);
+  const btn = $('btn-solo-start');
+  btn.disabled = true;
+  createRoom('private', 2, false, false, 'solo', deck).finally(() => {
+    creatingRoom = false;
+    btn.disabled = false;
+  });
 };
 // The Rules screen's English/Español buttons use the global .lang-btn handler
 // (setLang). Do NOT assign their onclick again here: that used to replace the
@@ -2476,7 +2526,9 @@ $('btn-rules-top').onclick = () => {
 // only — no voice). Closes the overlay and starts a Learning session.
 $('btn-gameplay-tutorial').onclick = () => {
   clearInterval(lobbyTimer);
-  createRoom('private', 2, true, true);
+  // No separate picker here. The tutorial uses the deck last chosen elsewhere,
+  // which is Classic until the player picks Stained Glass.
+  createRoom('private', 2, true, true, 'multi', rememberedCardDeck());
 };
 
 // Leave the global lobby entirely: drop the name + token on the server, clear

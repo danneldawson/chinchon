@@ -95,8 +95,8 @@ test('the create-room picker is a labelled, keyboard-operable choice and classic
   const pane = HTML.slice(HTML.indexOf('id="create-choices"'), HTML.indexOf('id="create-status"'));
   assert.match(pane, /<fieldset id="deck-picker"/);
   assert.match(pane, /<legend[^>]*data-i18n="deckLabel"/);
-  assert.match(pane, /name="card-deck" value="classic" checked/);
-  assert.match(pane, /name="card-deck" value="stained-glass"/);
+  assert.match(pane, /name="card-deck"[^>]*value="classic"[^>]*checked/);
+  assert.match(pane, /name="card-deck"[^>]*value="stained-glass"/);
   assert.match(pane, /data-i18n="deckClassic"/);
   assert.match(pane, /data-i18n="deckStained"/);
   // The preview image is decorative; the radio's name is the visible text.
@@ -108,10 +108,42 @@ test('the create-room picker is a labelled, keyboard-operable choice and classic
   ]) {
     assert.ok(APP.includes(line), line);
   }
-  assert.match(APP, /createRoom\(visibility, bots, learning, tutorial, mode, chosenCardDeck\(\)\)/);
+  assert.match(APP, /const deck = chosenCardDeck\('card-deck'\)/);
+  assert.match(APP, /createRoom\(visibility, bots, learning, tutorial, mode, deck\)/);
   assert.match(APP, /if \(deck === 'stained-glass' \|\| deck === 'classic'\) payload\.deck = deck/);
-  // Play solo still does not pass a deck, so it stays on the default.
-  assert.match(APP, /\$\('btn-gameplay'\)\.onclick = \(\) => \{[^}]*createRoom\('private', 2, false, false, 'solo'\)/);
+  // Public and private rooms share this picker; both buttons go through createRoomLocked.
+  assert.match(APP, /\$\('btn-create-public'\)\.onclick = \(\) => createRoomLocked\('public', 0\)/);
+  assert.match(APP, /\$\('btn-create-private'\)\.onclick = \(\) => createRoomLocked\('private', 0\)/);
+  const solo = HTML.slice(HTML.indexOf('id="solo-pane"'), HTML.indexOf('id="join-pane"'));
+  assert.match(solo, /id="deck-picker-solo"/);
+  assert.match(solo, /name="card-deck-solo"[^>]*value="classic"[^>]*checked/);
+  assert.match(solo, /name="card-deck-solo"[^>]*value="stained-glass"/);
+  assert.match(solo, /id="deck-stained-preview-solo" alt=""/);
+  assert.doesNotMatch(solo, /id="deck-stained-preview-solo"[^>]*src=/);
+  assert.match(APP, /\$\('btn-gameplay'\)\.onclick = \(\) => \{[^}]*showSoloPane\(\)/);
+  assert.match(APP, /createRoom\('private', 2, false, false, 'solo', deck\)/);
+  // Tutorial has no picker. It reuses the last choice, Classic until one is saved.
+  assert.match(APP, /createRoom\('private', 2, true, true, 'multi', rememberedCardDeck\(\)\)/);
+});
+
+test('the last deck choice is remembered locally and Classic is the first-time default', () => {
+  const src = APP.slice(APP.indexOf('const DECK_PREF_KEY'), APP.indexOf('function applyDeckChoice'));
+  const remembered = new Function(`${src}\nreturn rememberedCardDeck;`)();
+  const prev = global.localStorage;
+  try {
+    global.localStorage = { getItem() { return null; } };
+    assert.strictEqual(remembered(), 'classic');
+    global.localStorage = { getItem(k) { return k === 'chinchonDeck' ? 'stained-glass' : null; } };
+    assert.strictEqual(remembered(), 'stained-glass');
+    global.localStorage = { getItem() { return 'fournier'; } };
+    assert.strictEqual(remembered(), 'classic');
+    global.localStorage = { getItem() { throw new Error('blocked'); } };
+    assert.strictEqual(remembered(), 'classic');
+  } finally {
+    global.localStorage = prev;
+  }
+  assert.match(APP, /localStorage\.setItem\(DECK_PREF_KEY, value\)/);
+  assert.match(APP, /applyDeckChoice\(rememberedCardDeck\(\), false\)/);
 });
 
 test('a room remembers the deck the host picked, and a later player gets the same one', async () => {

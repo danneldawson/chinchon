@@ -91,12 +91,12 @@
             <legend id="deck-picker-label" data-i18n="deckLabel">Card deck</legend>
             <div class="deck-options">
               <label class="deck-option">
-                <input type="radio" name="card-deck" value="classic" checked />
+                <input type="radio" name="card-deck" data-deck-choice value="classic" checked />
                 <span class="deck-thumb deck-thumb-classic" aria-hidden="true"><span class="dt-rank">1</span><span class="dt-coin"></span></span>
                 <span class="deck-name" data-i18n="deckClassic">Classic</span>
               </label>
               <label class="deck-option">
-                <input type="radio" name="card-deck" value="stained-glass" />
+                <input type="radio" name="card-deck" data-deck-choice value="stained-glass" />
                 <span class="deck-thumb" aria-hidden="true"><img id="deck-stained-preview" alt="" width="40" height="66" /></span>
                 <span class="deck-name" data-i18n="deckStained">Stained Glass</span>
               </label>
@@ -111,6 +111,27 @@
 
         <div id="private-dialogue" class="hidden"></div>
         <div id="pd-bots-count" class="hidden"></div>
+      </div>
+
+      <!-- SOLO: pick a deck, then start. Same art choice as a multiplayer room. -->
+      <div id="solo-pane" class="pane hidden">
+        <h3 id="solo-h" data-i18n="soloVsBots">Play solo</h3>
+        <fieldset id="deck-picker-solo" class="deck-picker">
+          <legend data-i18n="deckLabel">Card deck</legend>
+          <div class="deck-options">
+            <label class="deck-option">
+              <input type="radio" name="card-deck-solo" data-deck-choice value="classic" checked />
+              <span class="deck-thumb deck-thumb-classic" aria-hidden="true"><span class="dt-rank">1</span><span class="dt-coin"></span></span>
+              <span class="deck-name" data-i18n="deckClassic">Classic</span>
+            </label>
+            <label class="deck-option">
+              <input type="radio" name="card-deck-solo" data-deck-choice value="stained-glass" />
+              <span class="deck-thumb" aria-hidden="true"><img id="deck-stained-preview-solo" alt="" width="40" height="66" /></span>
+              <span class="deck-name" data-i18n="deckStained">Stained Glass</span>
+            </label>
+          </div>
+        </fieldset>
+        <button id="btn-solo-start" class="primary" data-i18n="startGameShort">Start game</button>
       </div>
 
       <!-- JOIN -->
