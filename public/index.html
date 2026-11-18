@@ -87,6 +87,21 @@
         <h3 id="create-h" data-i18n="createRoom">Create a room</h3>
 
         <div id="create-choices">
+          <fieldset id="deck-picker" class="deck-picker">
+            <legend id="deck-picker-label" data-i18n="deckLabel">Card deck</legend>
+            <div class="deck-options">
+              <label class="deck-option">
+                <input type="radio" name="card-deck" value="classic" checked />
+                <span class="deck-thumb deck-thumb-classic" aria-hidden="true"><span class="dt-rank">1</span><span class="dt-coin"></span></span>
+                <span class="deck-name" data-i18n="deckClassic">Classic</span>
+              </label>
+              <label class="deck-option">
+                <input type="radio" name="card-deck" value="stained-glass" />
+                <span class="deck-thumb" aria-hidden="true"><img id="deck-stained-preview" alt="" width="40" height="66" /></span>
+                <span class="deck-name" data-i18n="deckStained">Stained Glass</span>
+              </label>
+            </div>
+          </fieldset>
           <button id="btn-create-public" class="primary" data-i18n="createPublic">Create public room</button>
           <button id="btn-create-private" class="primary" data-i18n="createPrivate">Create private room</button>
         </div>
