@@ -2273,7 +2273,8 @@ async function lobbyPoll() {
   // visible instead of showing "Players here (0)". Guard against a loop.
   if (!lobbyPoll._healing && state.lobbyName && !res.members.some((m) => m.name === state.lobbyName)) {
     lobbyPoll._healing = true;
-    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName }).then((r) => r.json()).catch(() => null);
+    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName, token: state.lobbyToken }).then((r) => r.json()).catch(() => null);
+    if (r2 && r2.removed === 'idle') { lobbyPoll._healing = false; backToLanding(t('idleRemoved')); return; }
     if (r2 && r2.token) {
       state.lobbyToken = r2.token;
       state.lobbyName = r2.name;

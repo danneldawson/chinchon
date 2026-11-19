@@ -45,7 +45,8 @@ const lobby = {
   chat: [],
   // Tokens the sweeper removed for being idle (token -> when), so that tab is
   // told "removed: idle" and goes back to the start screen instead of
-  // silently re-entering (Nov 3, 2026). Capped; not persisted.
+  // silently re-entering (Nov 3, 2026). Capped. Persisted with the lobby
+  // snapshot when CHINCHON_STATE_FILE is set, and restored on boot.
   idleRemoved: new Map(),
 };
 
@@ -68,7 +69,10 @@ const CLEANUP = {
   LOBBY_CHAT_TTL_MS: 24 * 60 * 60 * 1000,  // any lobby chat line older than this goes
 };
 
-function lobbyEnter(name) {
+function lobbyEnter(name, priorToken) {
+  // An idle-removed tab must not mint a fresh member. A person who types
+  // their name again sends no prior token, so they can come back.
+  if (priorToken && lobby.idleRemoved.has(priorToken)) return { removed: 'idle', error: 'idle' };
   const clean = String(name || '').trim().slice(0, 14);
   if (clean.length < 3) return { error: 'name must be at least 3 characters' };
   if (clean.toLowerCase() === 'chinchon') return { error: 'name reserved' };
@@ -348,7 +352,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   if (mode === 'solo') {
     // Solo = human + exactly 2 random family bots. Always starts immediately.
     const nBots = 2;
-    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() });
+    players.push({ id: newSeatId(), name: name || 'You', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lastActive: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() });
     const fam = pickFamilyBots(nBots);
     fam.forEach((fb, i) => {
       players.push({ id: newSeatId(), name: fb.name, seat: i + 1, isBot: true, connected: true, lastSeen: Date.now(), lobbyToken: null, bot: fb, sessionToken: null });
@@ -362,7 +366,7 @@ function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, lea
   }
 
   // Multi: host only, waits for countdown. Bots are never auto-added here.
-  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() };
+  const host = { id: newSeatId(), name: name || 'Host', seat: 0, isBot: false, connected: true, lastSeen: Date.now(), lastActive: Date.now(), lobbyToken: lobbyToken || null, sessionToken: newSessionToken() };
   players.push(host);
 
   let pending = null;
@@ -460,8 +464,9 @@ function stampSeen(room, seatId, act = false) {
   const p = room.players.find((x) => x.id === seatId);
   if (p) {
     p.lastSeen = Date.now(); p.connected = true;
-    // A seat's first poll counts as activity; after that only real input does.
-    if (act || !p.lastActive) p.lastActive = p.lastSeen;
+    // Only a reported tap/key (act=1) is input. A poll by itself, including
+    // the first one after the seat is created, does not move lastActive.
+    if (act) p.lastActive = p.lastSeen;
   }
 }
 // Any seat action (draw, discard, close, chat, rematch...) is real input.
@@ -567,7 +572,8 @@ function sweepRooms(now = Date.now(), opts = {}) {
   const allIdle = (humans, ms) => !humans.some((p) => idleFor(p) < ms);
   // No input (tap, key or seat action) from any human for ms: an open tab
   // that only polls doesn't keep the room alive.
-  const inputFor = (p) => now - (p.lastActive || p.lastSeen || 0);
+  // Input age uses lastActive only. A missing stamp is idle, not "just polled".
+  const inputFor = (p) => now - (typeof p.lastActive === 'number' ? p.lastActive : 0);
   const allInactive = (humans, ms) => !humans.some((p) => inputFor(p) < ms);
   const evict = (code) => { rooms.delete(code); out.rooms.push(code); };
   for (const [code, room] of [...rooms]) {
@@ -626,25 +632,22 @@ function sweepLobbyChat(now = Date.now(), opts = {}) {
 // Periodic cleanup: drop lobby members with no input (tap, key, chat, enter)
 // for CLEANUP.LOBBY_IDLE_MS (30 min), even if their lobby tab is still open
 // (Nov 3, 2026, Dannel: "an idle user in the lobby for more than 30 min can be
-// removed"). A member seated in a match that is still running is never
-// removed (that used to happen after 30 min of play, because a seated player
-// polls the game, not the lobby, and it broke SeatID rejoin); input at their
-// table counts as activity for their lobby name too.
+// removed"). A seated player is kept only by their own lastActive at that
+// table, and only while the match is still running. Another player's input
+// does not shield them, and an open tab that only polls does not either.
 const IDLE_REMOVED_CAP = 500;
 function sweepLobby(now = Date.now(), opts = {}) {
   const ms = opts.LOBBY_IDLE_MS || CLEANUP.LOBBY_IDLE_MS;
   const seatsByToken = new Map();
   for (const room of rooms.values()) {
-    // A room only shields its seated names while someone at that table has
-    // had real input within the idle window (the same rule sweepRooms uses
-    // to evict an abandoned running room), Nov 8, 2026.
-    const roomInput = Math.max(0, ...room.players.filter((p) => !p.isBot).map((p) => p.lastActive || p.lastSeen || 0));
-    const live = !(room.match && room.match.gameOver) && !room.gone && now - roomInput <= ms;
+    const finished = !!(room.match && room.match.gameOver) || !!room.gone;
     for (const p of room.players) {
       if (p.isBot || !p.lobbyToken) continue;
-      const e = seatsByToken.get(p.lobbyToken) || { live: false, input: 0, poll: 0 };
-      if (live) e.live = true;
-      e.input = Math.max(e.input, p.lastActive || p.lastSeen || 0);
+      const e = seatsByToken.get(p.lobbyToken) || { shield: false, input: 0, poll: 0 };
+      const input = typeof p.lastActive === 'number' ? p.lastActive : 0;
+      // This seat only. A teammate's tap does not keep an idle name listed.
+      if (!finished && input && now - input <= ms) e.shield = true;
+      if (input > e.input) e.input = input;
       e.poll = Math.max(e.poll, p.lastSeen || 0);
       seatsByToken.set(p.lobbyToken, e);
     }
@@ -652,14 +655,13 @@ function sweepLobby(now = Date.now(), opts = {}) {
   let removed = 0;
   for (const [token, member] of [...lobby.members]) {
     const seat = seatsByToken.get(token);
-    // Never kick a player genuinely playing a running match (recent input at
-    // the table). A seat in a stuck/abandoned room with no input for 30 min
-    // no longer shields the name forever (Nov 8, 2026).
-    if (seat && seat.live) continue;
+    if (seat && seat.shield) continue;
     // Gone (no poll: tab closed) or idle (polling, but no input): either way.
+    // lastSeen is not input. A missing lastActive is idle.
     const lastPoll = Math.max(member.lastSeen || member.at || 0, seat ? seat.poll : 0);
-    const lastInput = Math.max(member.lastActive || member.lastSeen || member.at || 0, seat ? seat.input : 0);
-    if (now - lastPoll > ms || now - lastInput > ms) {
+    const memberInput = typeof member.lastActive === 'number' ? member.lastActive : 0;
+    const lastInput = Math.max(memberInput, seat ? seat.input : 0);
+    if (now - lastPoll > ms || !lastInput || now - lastInput > ms) {
       lobby.members.delete(token);
       lobby.idleRemoved.set(token, now);
       removed++;
@@ -1340,7 +1342,8 @@ function handleApi(req, res, url) {
   // ---- global lobby ----------------------------------------------------
   if (method === 'POST' && p === '/api/lobby/enter') {
     return readBody(req).then((body) => {
-      const entered = lobbyEnter(body.name);
+      const entered = lobbyEnter(body.name, body.token);
+      if (entered.removed === 'idle') return sendJson(res, 403, { removed: 'idle', error: 'idle' });
       if (entered.error) return sendJson(res, 400, { error: entered.error });
       return sendJson(res, 200, { token: entered.token, name: entered.name });
     });
@@ -1494,7 +1497,7 @@ function handleApi(req, res, url) {
       if (humans >= humanCap) return sendJson(res, 400, { error: `room full (${humanCap} humans)` });
       const seat = room.players.length;
       const id = newSeatId();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lobbyToken: body.lobbyToken || null, sessionToken: newSessionToken() });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lastActive: Date.now(), lobbyToken: body.lobbyToken || null, sessionToken: newSessionToken() });
       return sendJson(res, 200, { seatId: id });
     });
   }
@@ -1578,7 +1581,7 @@ function handleApi(req, res, url) {
       const seat = room.players.length;
       const id = newSeatId();
       const reclaim = newSessionToken();
-      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), sessionToken: reclaim });
+      room.players.push({ id, name: body.name || `Player ${seat + 1}`, seat, isBot: false, connected: true, lastSeen: Date.now(), lastActive: Date.now(), sessionToken: reclaim });
       lobbySystem(`${body.name || 'A player'} joined the rematch in room ${room.code}.`, room.code);
       return sendJson(res, 200, { seatId: id, code: room.code, sessionToken: reclaim });
     });
