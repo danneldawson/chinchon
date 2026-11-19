@@ -132,13 +132,27 @@ test('solo uses the same Discard & close commit', async () => {
   assert.notStrictEqual(done.json.phase, 'discard');
 });
 
-test('the arrange step offers only Make meld and Confirm', () => {
+test('the arrange step offers only Confirm, and a legal selection groups itself', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
   const arrange = js.slice(js.indexOf('if (arranging && cm && cm.arrange)'), js.indexOf('} else {', js.indexOf('if (arranging && cm && cm.arrange)')));
-  assert.match(arrange, /btn-make-meld/);
   assert.match(arrange, /btn-close-confirm/);
-  assert.ok(!/btn-discard-close|btn-discard-plain|btn-close-mode|btn-close-cancel/.test(arrange), arrange);
-  assert.match(js, /function closeThrowControl/);
-  assert.match(js, /go\.disabled = !ok/);
-  assert.match(js, /id = 'btn-discard-plain'/);
+  assert.ok(!/btn-make-meld|btn-discard-close|btn-discard-plain|btn-close-mode|btn-close-cancel|undo/.test(arrange), arrange);
+  assert.match(js, /if \(legalMeld\(chosen\)\)/);
+  assert.match(js, /function arrangeTap/);
+  const { isValidMeld } = require('../src/melds');
+  const start = js.indexOf('function legalMeld(');
+  const legalMeld = new Function(`${js.slice(start, js.indexOf('window.__legalMeld', start))}\nreturn legalMeld;`)();
+  const c = (rank, suit) => ({ rank, suit, id: `${rank}-${suit}` });
+  const samples = [
+    [c(5, 'Copas'), c(6, 'Copas'), c(7, 'Copas')],
+    [c(11, 'Oros'), c(11, 'Espadas'), c(11, 'Bastos')],
+    [c(11, 'Copas'), c(12, 'Copas'), c(1, 'Copas')],
+    [c(12, 'Copas'), c(1, 'Copas'), c(2, 'Copas')],
+    [c(5, 'Copas'), c(6, 'Copas'), c(1, 'Oros')],
+    [c(5, 'Copas'), c(5, 'Copas'), c(7, 'Copas')],
+    [c(4, 'Oros'), c(4, 'Copas')],
+  ];
+  for (const cards of samples) {
+    assert.strictEqual(legalMeld(cards), isValidMeld(cards), cards.map((x) => x.id).join(','));
+  }
 });

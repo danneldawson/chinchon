@@ -892,6 +892,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   padding: calc(var(--fm-w) * 0.06) calc(var(--fm-w) * 0.08);
 }
 .fm-card:first-child { margin-left: 0; }
+.fm-card.tappable { cursor: pointer; touch-action: manipulation; }
 .fm-card .tc-rank { font-weight: 800; font-size: calc(var(--fm-w) * 0.42); line-height: 1; }
 .fm-card .emblem { width: calc(var(--fm-w) * 0.36); height: calc(var(--fm-w) * 0.36); }
 .fm-card.oros { color: #c9971b; }

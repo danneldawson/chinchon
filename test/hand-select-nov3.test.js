@@ -20,7 +20,7 @@ const HTML = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'),
 test('close mode: the drawn card gets no arrow and no locked slot, and stays tappable', () => {
   assert.match(APP, /if \(!flatHand\) \{\s*const sep = document\.createElement\('div'\);\s*sep\.className = 'hand-sep';/);
   assert.match(APP, /if \(!flatHand\) el\.classList\.add\('drawn-locked'\);/);
-  assert.match(APP, /if \(arranging\) \{ toggleCloseSel\(c\.id\); return; \}/);
+  assert.match(APP, /if \(arranging\) \{ arrangeTap\(c\.id\); return; \}/);
   assert.match(CSS, /#hand\.close-mode \{ padding-top: 18px;/, 'room for the lift inside the clipped row');
   assert.match(CSS, /#hand\.close-pick \{ padding-top: 78px; \}/, 'room for Discard & close above the card');
 });

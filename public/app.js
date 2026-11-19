@@ -1348,7 +1348,7 @@ function render() {
 
   const reorderable = !cm && !pickClose && (!canAct || phase === 'draw');
   const onHandClick = (c) => {
-    if (arranging) { toggleCloseSel(c.id); return; }
+    if (arranging) { arrangeTap(c.id); return; }
     if (pickClose) {
       state.closePick = state.closePick === c.id ? null : c.id;
       state.swapPick = null;
@@ -1464,7 +1464,6 @@ function render() {
       help.textContent = cm.msg;
       co.appendChild(help);
     }
-    btn('btn-make-meld', 'close-btn', t('makeMeld'), makeMeld);
     btn('btn-close-confirm', 'close-btn', t('confirmMelds'), confirmArrange);
   } else {
     _animState.close = false;
@@ -1542,6 +1541,59 @@ function toggleCloseSel(id) {
   const cm = state.closeMode;
   if (!cm) return;
   if (cm.sel.has(id)) cm.sel.delete(id); else cm.sel.add(id);
+  cm.msg = '';
+  render();
+}
+
+// A set or a run, including one substitute wild and a run that ends 12-1.
+// Mirrors src/melds.js. Confirm is still judged by the server.
+function legalMeld(cards) {
+  if (!cards || cards.length < 3) return false;
+  const wild = (c) => c.rank === 1 && c.suit === 'Oros';
+  const ranks = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
+  const wilds = cards.filter(wild);
+  const natural = cards.filter((c) => !wild(c));
+  if (wilds.length <= 1 && natural.length && natural.every((c) => c.rank === natural[0].rank)) return true;
+  if (cards.length > ranks.length || !natural.length) return false;
+  const fits = (nats, subs) => {
+    if (subs.length > 1) return false;
+    if (!nats.every((c) => c.suit === nats[0].suit)) return false;
+    const idxs = nats.map((c) => ranks.indexOf(c.rank));
+    if (idxs.some((i) => i < 0) || new Set(idxs).size !== idxs.length) return false;
+    const n = ranks.length;
+    const starts = [];
+    for (let s = 0; s + cards.length <= n; s++) starts.push(s);
+    if (cards.length <= n) starts.push(n - cards.length + 1);
+    return starts.some((start) => idxs.every((i) => (i - start + n) % n < cards.length));
+  };
+  if (wilds.length >= 1 && fits([wilds[0], ...natural], wilds.slice(1))) return true;
+  return fits(natural, wilds);
+}
+window.__legalMeld = legalMeld;
+
+// Arrange step: taps build a selection. A legal set or run groups on its own.
+// Tapping a card that is already in a group takes that card back out.
+function arrangeTap(id) {
+  const cm = state.closeMode;
+  const hand = state.view && state.view.yourHand;
+  if (!cm || !hand) return;
+  const byId = new Map(hand.map((c) => [c.id, c]));
+  const gi = cm.groups.findIndex((g) => g.includes(id));
+  if (gi >= 0) {
+    const rest = cm.groups[gi].filter((x) => x !== id).map((x) => byId.get(x)).filter(Boolean);
+    if (legalMeld(rest)) cm.groups[gi] = rest.map((c) => c.id);
+    else cm.groups.splice(gi, 1);
+    cm.msg = '';
+    render();
+    return;
+  }
+  if (cm.sel.has(id)) cm.sel.delete(id);
+  else cm.sel.add(id);
+  const chosen = [...cm.sel].map((x) => byId.get(x)).filter(Boolean);
+  if (legalMeld(chosen)) {
+    cm.groups.push(chosen.map((c) => c.id));
+    cm.sel.clear();
+  }
   cm.msg = '';
   render();
 }
@@ -1660,10 +1712,10 @@ function renderFelt(v, cm, lo) {
   let groups;
   if (cm) {
     const byId = new Map(v.yourHand.map((c) => [c.id, c]));
-    groups = cm.groups.map((ids, i) => ({
+    groups = cm.groups.map((ids) => ({
       cards: ids.map((id) => byId.get(id)).filter(Boolean),
       owner: mySeat,
-      tap: () => { const m = state.closeMode; if (m) { m.groups.splice(i, 1); m.msg = ''; render(); } },
+      onCard: cm.arrange ? (card) => arrangeTap(card.id) : null,
     }));
   } else {
     const myTurn = !!lo.isYourTurn && !lo.done;
@@ -1682,7 +1734,7 @@ function renderFelt(v, cm, lo) {
   if (felt.dataset.key === key) return;
   felt.dataset.key = key;
   felt.innerHTML = '';
-  if (!groups.length) {
+  if (!groups.length && !(cm && cm.arrange)) {
     const ph = document.createElement('div');
     ph.className = 'felt-empty';
     ph.textContent = t('makeMeld') + ' …';
@@ -1690,13 +1742,25 @@ function renderFelt(v, cm, lo) {
   }
   groups.forEach((g, i) => {
     const d = document.createElement('div');
-    d.className = 'felt-meld' + (g.tap ? ' tappable' : '') + (g.owner === mySeat ? ' mine' : '') + (g.locked ? ' locked' : '');
+    d.className = 'felt-meld' + (g.tap || g.onCard ? ' tappable' : '') + (g.owner === mySeat ? ' mine' : '') + (g.locked ? ' locked' : '');
     if (g.locked) d.title = t('meldLocked');
     d.dataset.meldIndex = String(i);
     const owner = (v.opponents || []).find((o) => o.seat === g.owner);
     const name = owner ? owner.name : '';
-    d.innerHTML = `<div class="fm-owner">${g.locked ? '🔒 ' : ''}${g.owner === mySeat ? '★ ' : ''}${escapeHtml(name)}</div>` +
-      `<div class="fm-cards">${g.cards.map(feltCard).join('')}</div>`;
+    const who = document.createElement('div');
+    who.className = 'fm-owner';
+    who.textContent = `${g.locked ? '🔒 ' : ''}${g.owner === mySeat ? '★ ' : ''}${name}`;
+    const cards = document.createElement('div');
+    cards.className = 'fm-cards';
+    for (const c of g.cards) {
+      const span = document.createElement('span');
+      span.className = `fm-card ${faceClass(c)}` + (g.onCard ? ' tappable' : '');
+      span.innerHTML = cardFaceHtml(c, { compact: true });
+      if (g.onCard) span.onclick = (e) => { e.stopPropagation(); g.onCard(c); };
+      cards.appendChild(span);
+    }
+    d.appendChild(who);
+    d.appendChild(cards);
     if (g.tap) d.onclick = g.tap;
     felt.appendChild(d);
   });
