@@ -67,6 +67,9 @@ const I18N = {
     close: 'Close',
     makeMeld: 'Make meld',
     discardClose: 'Discard & close',
+    discardPlain: 'Discard',
+    closeThrowNo: 'Throwing this doesn\'t close',
+    confirmMelds: 'Confirm',
     cancel: 'Cancel',
     pickOneDiscard: 'Select one card to discard',
     closeDiscardTag: 'Discard',
@@ -155,6 +158,9 @@ const I18N = {
     close: 'Cerrar',
     makeMeld: 'Formar jugada',
     discardClose: 'Descartar y cerrar',
+    discardPlain: 'Descartar',
+    closeThrowNo: 'Tirar esta no cierra',
+    confirmMelds: 'Confirmar',
     cancel: 'Cancelar',
     pickOneDiscard: 'Selecciona la carta que vas a tirar',
     closeDiscardTag: 'Tirar',
@@ -291,6 +297,8 @@ const ERR_KEYS = {
   'the closing discard cannot be in a combination': 'errClosingDiscard',
   'read the rule first': 'errReadRule',
   'that leftover would take you over 100': 'errOver100',
+  'throwing this card does not close': 'closeThrowNo',
+  'lay out your combinations to close': 'needMeld',
 };
 window.__errText = (raw, tr) => (ERR_KEYS[raw] ? tr(ERR_KEYS[raw]) : String(raw || ''));
 // A turn/phase error is stale (a double tap, or a tap racing the poll) when the
@@ -307,6 +315,7 @@ const state = {
   selected: new Set(),
   handOrder: [],
   swapPick: null,
+  closePick: null,
   chatSeen: 0,
   lobbyToken: null,
   lobbyName: null,
@@ -1318,67 +1327,89 @@ function render() {
   const byId = new Map(seven.map((c) => [c.id, c]));
   const ordered = state.handOrder.map((id) => byId.get(id)).filter(Boolean);
 
-  // Card-based close (Oct 8, 2026): after tapping Close the player builds their
-  // own melds from the hand; cards already put in a meld sit on the felt, not in
-  // the hand. Close mode ends when the discard turn ends or the hand changes.
+  // Discard & close: with 8 cards and a legal close somewhere, a tap selects
+  // the throw. The button on that card commits the discard and the close.
+  // After that the phase is 'arrange': only meld-building and Confirm remain.
   const discarding = canAct && phase === 'discard';
+  const arranging = canAct && phase === 'arrange';
+  const pickClose = discarding && v.yourHand.length === 8 && !!v.canClose;
   const handKey = v.yourHand.map((c) => c.id).sort().join(',');
-  if (state.closeMode && (!discarding || !v.canClose || state.closeMode.handKey !== handKey)) state.closeMode = null;
+  if (arranging) {
+    if (!state.closeMode || !state.closeMode.arrange || state.closeMode.handKey !== handKey) {
+      state.closeMode = { groups: [], sel: new Set(), handKey, msg: '', arrange: true };
+    }
+  } else if (state.closeMode) {
+    state.closeMode = null;
+  }
+  if (!pickClose) state.closePick = null;
+  else if (state.closePick && !v.yourHand.some((c) => c.id === state.closePick)) state.closePick = null;
   const cm = state.closeMode;
   const grouped = new Set(cm ? cm.groups.flat() : []);
-  // The card "Discard & close" will throw (marked on the hand): the one tapped,
-  // else the default (highest-value leftover that still closes). Nov 3, 2026.
-  const closeDiscardId = cm ? closeDiscardFor(cm, v.yourHand) : null;
 
-  const reorderable = !cm && (!canAct || phase === 'draw'); // not while discarding
+  const reorderable = !cm && !pickClose && (!canAct || phase === 'draw');
+  const onHandClick = (c) => {
+    if (arranging) { toggleCloseSel(c.id); return; }
+    if (pickClose) {
+      state.closePick = state.closePick === c.id ? null : c.id;
+      state.swapPick = null;
+      render();
+      return;
+    }
+    if (discarding) { doDiscard(c, false); return; }
+    if (state.swapPick === c.id) { state.swapPick = null; return; }
+    if (!state.swapPick) { state.swapPick = c.id; return; }
+    const i = state.handOrder.indexOf(state.swapPick);
+    const j = state.handOrder.indexOf(c.id);
+    [state.handOrder[i], state.handOrder[j]] = [state.handOrder[j], state.handOrder[i]];
+    state.swapPick = null;
+    render();
+  };
+  const placeHandCard = (el, c) => {
+    if (!(pickClose && state.closePick === c.id)) { handWrap.appendChild(el); return; }
+    const slot = document.createElement('div');
+    slot.className = 'card-slot';
+    slot.appendChild(el);
+    slot.appendChild(closeThrowControl(c, v));
+    handWrap.appendChild(slot);
+  };
   for (const c of ordered) {
     if (grouped.has(c.id)) continue;
     const el = renderCardEl(c, {
-      clickable: discarding,
+      clickable: discarding || arranging,
       reorderable,
-      onClick: () => {
-        if (state.closeMode) { toggleCloseSel(c.id); return; }
-        if (discarding) { doDiscard(c, false); return; }
-        // Reorder mode: tap to pick up, tap another to swap.
-        if (state.swapPick === c.id) { state.swapPick = null; return; }
-        if (!state.swapPick) { state.swapPick = c.id; return; }
-        const i = state.handOrder.indexOf(state.swapPick);
-        const j = state.handOrder.indexOf(c.id);
-        [state.handOrder[i], state.handOrder[j]] = [state.handOrder[j], state.handOrder[i]];
-        state.swapPick = null;
-        render();
-      },
+      onClick: () => onHandClick(c),
     });
     if (reorderable && state.swapPick === c.id) el.classList.add('picked');
     if (reorderable) el.classList.add('reorderable');
     if (cm && cm.sel.has(c.id)) el.classList.add('selected');
-    if (closeDiscardId === c.id) markCloseDiscard(el);
-    handWrap.appendChild(el);
+    if (pickClose && state.closePick === c.id) el.classList.add('selected');
+    placeHandCard(el, c);
   }
 
   // Locked 8th slot: the card just drawn. It IS discardable (you only learn its
   // identity after drawing, so it must be a valid throw) — but not reorderable.
   // Close mode (Nov 3, 2026, Dannel): the 8th card is just another card in the
   // row while you build your melds: no arrow, no gap, no dashed slot.
-  if (handWrap.classList) handWrap.classList.toggle('close-mode', !!cm);
+  const flatHand = pickClose || arranging;
+  if (handWrap.classList) {
+    handWrap.classList.toggle('close-mode', flatHand);
+    handWrap.classList.toggle('close-pick', !!(pickClose && state.closePick));
+  }
   if (drawn && !grouped.has(drawn.id)) {
-    if (!cm) {
+    if (!flatHand) {
       const sep = document.createElement('div');
       sep.className = 'hand-sep';
       sep.textContent = '⟶';
       handWrap.appendChild(sep);
     }
     const el = renderCardEl(drawn, {
-      clickable: discarding,
-      onClick: () => {
-        if (state.closeMode) { toggleCloseSel(drawn.id); return; }
-        if (discarding) doDiscard(drawn, false);
-      },
+      clickable: discarding || arranging,
+      onClick: () => onHandClick(drawn),
     });
-    if (!cm) el.classList.add('drawn-locked');
+    if (!flatHand) el.classList.add('drawn-locked');
     if (cm && cm.sel.has(drawn.id)) el.classList.add('selected');
-    if (closeDiscardId === drawn.id) markCloseDiscard(el);
-    handWrap.appendChild(el);
+    if (pickClose && state.closePick === drawn.id) el.classList.add('selected');
+    placeHandCard(el, drawn);
   }
 
   // Deadwood stays as a reference; live combination hints are intentionally
@@ -1412,13 +1443,12 @@ function render() {
     tutEl.classList.add('hidden');
   }
 
-  // Close (rules gate): one Close button, only when a close exists. In close
-  // mode: Make meld / Discard & close / Cancel. The server judges the declared
-  // melds; an invalid declaration is a false close (R24). Nothing here checks or
-  // suggests melds.
+  // After Discard & close the throw and the close are already committed.
+  // This step only arranges the seven and confirms. No Close, Discard, or
+  // Discard & close button is offered again.
   const co = $('close-options');
   co.innerHTML = '';
-  if (discarding && v.canClose) {
+  if (arranging && cm && cm.arrange) {
     if (!_animState.close) { onceAnimate(co, 'appear'); }
     _animState.close = true;
     const btn = (id, cls, label, onClick) => {
@@ -1427,26 +1457,15 @@ function render() {
       co.appendChild(b);
       return b;
     };
-    if (!cm) {
-      btn('btn-close-mode', 'close-btn', t('close'), () => {
-        state.closeMode = { groups: [], sel: new Set(), handKey, msg: '' };
-        state.swapPick = null;
-        render();
-      });
-    } else {
-      // No standing instructions in close mode; only a short message after a
-      // wrong tap (e.g. "Make at least one meld first").
-      if (cm.msg) {
-        const help = document.createElement('div');
-        help.id = 'close-help';
-        help.className = 'close-prompt';
-        help.textContent = cm.msg;
-        co.appendChild(help);
-      }
-      btn('btn-make-meld', 'close-btn', t('makeMeld'), makeMeld);
-      btn('btn-discard-close', 'close-btn', t('discardClose'), discardAndClose);
-      btn('btn-close-cancel', 'close-cancel', t('cancel'), () => { state.closeMode = null; render(); });
+    if (cm.msg) {
+      const help = document.createElement('div');
+      help.id = 'close-help';
+      help.className = 'close-prompt';
+      help.textContent = cm.msg;
+      co.appendChild(help);
     }
+    btn('btn-make-meld', 'close-btn', t('makeMeld'), makeMeld);
+    btn('btn-close-confirm', 'close-btn', t('confirmMelds'), confirmArrange);
   } else {
     _animState.close = false;
   }
@@ -1537,6 +1556,45 @@ function makeMeld() {
   cm.sel.clear();
   cm.msg = '';
   render();
+}
+
+function confirmArrange() {
+  const cm = state.closeMode;
+  if (!cm || !cm.arrange || !state.view) return;
+  if (!cm.groups.length) { cm.msg = t('needMeld'); render(); return; }
+  const melds = cm.groups.map((g) => [...g]);
+  apiPost('/api/close-confirm', { melds });
+}
+
+// The selected card, while 8 cards can close. Discard & close is enabled only
+// when throwing this card leaves a legal close. Discard still throws it normally.
+function closeThrowControl(card, v) {
+  const info = (v.closeCards || []).find((c) => c.id === card.id);
+  const ok = !!(info && info.ok);
+  const wrap = document.createElement('div');
+  wrap.className = 'close-act';
+  if (!ok) {
+    const why = document.createElement('div');
+    why.className = 'close-why';
+    why.textContent = info && info.reason === 'over' ? t('errOver100') : t('closeThrowNo');
+    wrap.appendChild(why);
+  }
+  const go = document.createElement('button');
+  go.id = 'btn-discard-close';
+  go.type = 'button';
+  go.className = 'close-btn';
+  go.textContent = t('discardClose');
+  go.disabled = !ok;
+  go.onclick = (e) => { e.stopPropagation(); if (ok) doDiscard(card, true); };
+  const plain = document.createElement('button');
+  plain.id = 'btn-discard-plain';
+  plain.type = 'button';
+  plain.className = 'close-plain';
+  plain.textContent = t('discardPlain');
+  plain.onclick = (e) => { e.stopPropagation(); doDiscard(card, false); };
+  wrap.appendChild(go);
+  wrap.appendChild(plain);
+  return wrap;
 }
 
 function discardAndClose() {
@@ -2085,12 +2143,10 @@ $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.
 // array per meld). The server judges them: valid closes the round, invalid is a
 // false close (R24).
 async function doDiscard(card, close = false, melds = null) {
-  const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
-  if (close) body.melds = melds || [];
-  // Mark this as OUR discard so the next render plays the throw-pop on the new
-  // discard top (see render's discard block). One-shot; cleared when it fires.
   if (_actionBusy) return;
   _actionBusy = true;
+  const body = { code: state.code, seat: state.seatId, cardId: card.id, close };
+  if (close && Array.isArray(melds)) body.melds = melds;
   const sentKey = window.__statusKey(state.view);
   _animState.pendingThrow = true;
   try {

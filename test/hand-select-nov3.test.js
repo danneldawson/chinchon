@@ -18,10 +18,11 @@ const CSS = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), '
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 
 test('close mode: the drawn card gets no arrow and no locked slot, and stays tappable', () => {
-  assert.match(APP, /if \(!cm\) \{\s*const sep = document\.createElement\('div'\);\s*sep\.className = 'hand-sep';/);
-  assert.match(APP, /if \(!cm\) el\.classList\.add\('drawn-locked'\);/);
-  assert.match(APP, /if \(state\.closeMode\) \{ toggleCloseSel\(drawn\.id\); return; \}/);
+  assert.match(APP, /if \(!flatHand\) \{\s*const sep = document\.createElement\('div'\);\s*sep\.className = 'hand-sep';/);
+  assert.match(APP, /if \(!flatHand\) el\.classList\.add\('drawn-locked'\);/);
+  assert.match(APP, /if \(arranging\) \{ toggleCloseSel\(c\.id\); return; \}/);
   assert.match(CSS, /#hand\.close-mode \{ padding-top: 18px;/, 'room for the lift inside the clipped row');
+  assert.match(CSS, /#hand\.close-pick \{ padding-top: 78px; \}/, 'room for Discard & close above the card');
 });
 
 test('selected cards: bigger, lifted, thick outline with a white rim', () => {

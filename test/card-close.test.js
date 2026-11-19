@@ -278,7 +278,7 @@ test('HTTP: malformed close requests are refused without changing anything', asy
   const { code, me } = await twoHumansAtDiscard();
   await rig(code, me, CLOSER8);
   const g = [['5-Copas-0', '6-Copas-0', '7-Copas-0'], ['11-Oros-0', '11-Espadas-0', '11-Bastos-0']];
-  assert.strictEqual((await api('POST', '/api/discard', { code, seat: me, cardId: '12-Espadas-0', close: true })).status, 400, 'no melds');
+  assert.strictEqual((await api('POST', '/api/discard', { code, seat: me, cardId: '12-Espadas-0', close: true, melds: [] })).status, 400, 'empty melds');
   assert.strictEqual((await api('POST', '/api/discard', { code, seat: me, cardId: '7-Copas-0', close: true, melds: g })).status, 400, 'discard inside a meld');
   assert.strictEqual((await api('POST', '/api/discard', { code, seat: me, cardId: '12-Espadas-0', close: true, melds: [g[0], ['11-Oros-0', '11-Espadas-0', '9-Bastos-0']] })).status, 400, 'card not held');
   assert.strictEqual((await api('POST', '/api/discard', { code, seat: me, cardId: '12-Espadas-0', close: true, melds: [g[0], ['7-Copas-0', '11-Oros-0', '11-Espadas-0']] })).status, 400, 'card twice');
@@ -329,12 +329,14 @@ test('client: no close decompositions, Keep playing, Suggest or Auto remain', ()
 });
 
 test('client: close mode sends the player-built melds; tap-to-attach posts to /api/layoff/attach', () => {
-  assert.match(js, /if \(close\) body\.melds = melds \|\| \[\];/);
+  assert.match(js, /if \(close && Array\.isArray\(melds\)\) body\.melds = melds;/);
   assert.match(js, /doDiscard\(card, true, melds\)/);
+  assert.match(js, /apiPost\('\/api\/close-confirm', \{ melds \}\)/);
   assert.match(js, /doLayoffAction\('attach', \{ cardId: \[\.\.\.state\.selected\]\[0\], meldIndex \}\)/);
   assert.ok(html.includes('id="felt-melds"') && html.includes('id="false-close"'));
-  // The Close button is only rendered behind the server's canClose gate.
-  assert.match(js, /if \(discarding && v\.canClose\) \{/);
+  // Selecting a throw, and the arrange step, only happen when a close exists.
+  assert.match(js, /const pickClose = discarding && v\.yourHand\.length === 8 && !!v\.canClose;/);
+  assert.match(js, /if \(arranging && cm && cm\.arrange\) \{/);
 });
 
 test('client: close-mode and lay-off strings exist in English and Spanish', () => {
