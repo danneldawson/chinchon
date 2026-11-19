@@ -892,6 +892,7 @@ button, .card, .pile, input { touch-action: manipulation; }
   padding: calc(var(--fm-w) * 0.06) calc(var(--fm-w) * 0.08);
 }
 .fm-card:first-child { margin-left: 0; }
+.fm-card.tappable { cursor: pointer; touch-action: manipulation; }
 .fm-card .tc-rank { font-weight: 800; font-size: calc(var(--fm-w) * 0.42); line-height: 1; }
 .fm-card .emblem { width: calc(var(--fm-w) * 0.36); height: calc(var(--fm-w) * 0.36); }
 .fm-card.oros { color: #c9971b; }
@@ -1006,6 +1007,23 @@ button, .card, .pile, input { touch-action: manipulation; }
 /* Close mode: the hand row clips vertically (overflow-x scroll), so leave room
    above for the lifted, scaled selected card and the marked discard. */
 #hand.close-mode { padding-top: 18px; padding-left: 6px; padding-right: 6px; }
+/* Discard & close sits above the selected card. The row's overflow clips
+   anything outside the padding, so the padding is the button's room. */
+#hand.close-pick { padding-top: 78px; }
+#hand .card-slot { position: relative; flex: 0 0 auto; }
+#hand .close-act {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: max-content; max-width: 148px; z-index: 4;
+}
+#hand .close-act button {
+  margin: 0; padding: 4px 8px; font-size: 12px; line-height: 1.15; white-space: nowrap;
+}
+#hand .close-act button:disabled { opacity: 0.45; }
+#hand .close-why {
+  font-size: 11px; line-height: 1.15; text-align: center; color: #f0d28a;
+  max-width: 140px;
+}
 
 /* Game over OVER the table (Nov 3, 2026, Dannel): no full-screen backdrop, no
    cut away. The panel floats on the felt; the last melds, the piles, your hand
