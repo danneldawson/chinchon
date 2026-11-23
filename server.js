@@ -1953,12 +1953,15 @@ function createServer() {
         try {
           const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
           const s = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
-          return Math.round(a + s).toString(36);
+          let snd = 0;
+          try { snd = fs.statSync(path.join(PUBLIC_DIR, 'sound.js')).mtimeMs; } catch { /* optional */ }
+          return Math.round(a + s + snd).toString(36);
         } catch { return '1'; }
       })();
       if (path.extname(filePath) === '.html') {
         let html = data.toString();
         html = html.replace('/app.js"', `/app.js?v=${ver}"`);
+        html = html.replace('/sound.js"', `/sound.js?v=${ver}"`);
         html = html.replace('/style.css"', `/style.css?v=${ver}"`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
         return res.end(html);

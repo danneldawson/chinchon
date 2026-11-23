@@ -140,6 +140,23 @@ newest winning. Status is **[live]** unless marked otherwise. Lobby flow is in
 - The server is always the source of truth, so a broken animation can never corrupt
   the game. The worst case is a refresh.
 
+### 6b. Card sounds and the between-round shuffle (Nov 23, 2026, Dannel)
+
+Dannel asked for card sounds and a shuffle between rounds. All sounds are
+synthesised in `public/sound.js` (Web Audio, filtered noise plus a soft thump),
+with no audio files. Each watched-turn step sounds once as it plays (§6a), for
+your moves and everyone else's: a stock draw is a soft swish, taking the discard
+is a sharper flick, a discard is a card landing, a meld laid is a firmer
+three-card slap, an attach is a light tap, and a close is a cascade of the hand
+spreading. A snap (fresh tab or reconnect) plays nothing. When the round-over
+pause gives way to a new deal (or a rematch deals), a 1.5 s non-interactive
+shuffle plays on the felt: the cards gather, cut, riffle, bridge and deal out,
+with a matching riffle-and-bridge sound. Reduced motion keeps only the sound.
+The bots' opening replay waits for the shuffle, but your controls still follow
+the server. A 🔊/🔇 toggle next to Leave match mutes it, and the setting is
+remembered in localStorage. The AudioContext is created on the first tap (for
+iOS) and suspended after a few idle seconds.
+
 ## 6a. Watching turns play out (built Oct 8, 2026, 2:28 PM PT)
 
 Dannel, by voice at 2:24 PM PT: in solo, each bot's turn should play out on its own,

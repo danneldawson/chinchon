@@ -1147,3 +1147,18 @@ button, .card, .pile, input { touch-action: manipulation; }
   right: 2px;
   text-shadow: none;
 }
+
+/* Sounds + between-round shuffle (Nov 23, 2026). The mute toggle sits next to
+   Leave; the shuffle is a decorative overlay on the felt that never takes a
+   tap (transform/opacity only, Web Animations, ~1.5 s, skipped on reduced
+   motion where only the sound plays). */
+.sound-toggle { order: 2; margin: 0 0 0 auto; min-width: 34px; line-height: 1.2; }
+#btn-sound + #btn-leave-match { margin-left: 0; }
+.shuffle-fx { position: absolute; inset: 0; z-index: 25; pointer-events: none; }
+.shuffle-card {
+  position: absolute; width: 46px; height: 66px; border-radius: 6px;
+  background: #f7f3e9 url("card-back.jpg") center/cover no-repeat;
+  border: 1px solid #d8cfb8; box-shadow: 0 2px 5px rgba(0,0,0,.35);
+  opacity: 0; will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) { .shuffle-fx { display: none; } }
