@@ -96,6 +96,9 @@ test('mute is remembered, and play stays silent without a gesture-created contex
 
 test('client wiring: steps sound once in playWatch, shuffle is gated, non-interactive, and reduced-motion aware', () => {
   assert.ok(HTML.includes('id="btn-sound"'), 'mute toggle in the header');
+  // Nov 24 (Dannel): the toggle sits under the points board.
+  assert.ok(HTML.indexOf('id="btn-sound"') > HTML.indexOf('id="scoreboard"'), 'mute toggle comes after the scoreboard');
+  assert.match(fs.readFileSync(path.join(PUB, 'style.css'), 'utf8'), /\.sound-toggle \{[^}]*order: 4/, 'and is ordered below it');
   assert.ok(HTML.indexOf('/sound.js') < HTML.indexOf('/app.js'), 'sound.js loads before app.js');
   const pw = APP.slice(APP.indexOf('async function playWatch'), APP.indexOf('function ingestSteps'));
   assert.ok(/soundForStep\(step\)/.test(pw), 'sound picked per dequeued step');

@@ -153,7 +153,7 @@ pause gives way to a new deal (or a rematch deals), a 1.5 s non-interactive
 shuffle plays on the felt: the cards gather, cut, riffle, bridge and deal out,
 with a matching riffle-and-bridge sound. Reduced motion keeps only the sound.
 The bots' opening replay waits for the shuffle, but your controls still follow
-the server. A 🔊/🔇 toggle next to Leave match mutes it, and the setting is
+the server. A 🔊/🔇 toggle under the points board (moved there Nov 24 at Dannel's request) mutes it, and the setting is
 remembered in localStorage. The AudioContext is created on the first tap (for
 iOS) and suspended after a few idle seconds.
 
