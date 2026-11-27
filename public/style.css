@@ -388,13 +388,21 @@ button { transition: transform .1s ease, background .15s ease, box-shadow .15s e
 button:hover:not(:disabled) { transform: translateY(-1px); }
 
 @keyframes dealIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
-.hand.deal-anim .card { animation: dealIn .26s ease both; }
-.hand.deal-anim .card:nth-child(2) { animation-delay: .04s; }
-.hand.deal-anim .card:nth-child(3) { animation-delay: .08s; }
-.hand.deal-anim .card:nth-child(4) { animation-delay: .12s; }
-.hand.deal-anim .card:nth-child(5) { animation-delay: .16s; }
-.hand.deal-anim .card:nth-child(6) { animation-delay: .20s; }
-.hand.deal-anim .card:nth-child(7) { animation-delay: .24s; }
+#hand.deal-anim .card { animation: dealIn .26s ease both; }
+/* While the deck is shuffled, nobody's new cards show yet. */
+#table.dealing #hand .card, #table.dealing .seat-fan { visibility: hidden; }
+#hand.deal-anim .card:nth-child(2) { animation-delay: .04s; }
+#hand.deal-anim .card:nth-child(3) { animation-delay: .08s; }
+#hand.deal-anim .card:nth-child(4) { animation-delay: .12s; }
+#hand.deal-anim .card:nth-child(5) { animation-delay: .16s; }
+#hand.deal-anim .card:nth-child(6) { animation-delay: .20s; }
+#hand.deal-anim .card:nth-child(7) { animation-delay: .24s; }
+#hand.deal-anim .card:nth-child(2) { animation-delay: .04s; }
+#hand.deal-anim .card:nth-child(3) { animation-delay: .08s; }
+#hand.deal-anim .card:nth-child(4) { animation-delay: .12s; }
+#hand.deal-anim .card:nth-child(5) { animation-delay: .16s; }
+#hand.deal-anim .card:nth-child(6) { animation-delay: .20s; }
+#hand.deal-anim .card:nth-child(7) { animation-delay: .24s; }
 
 @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 /* Discard top: any NEW top slides in (this selector was missing, so opponent
@@ -411,7 +419,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
    never on idle .card nodes — a permanent will-change would leak layers across
    7-8 cards x every seat. The layer is created on class-add and dropped on
    animationend (onceAnimate removes the class). */
-.hand.deal-anim .card,
+#hand.deal-anim .card,
 .discard-top.slide-in,
 .discard-top.thrown,
 .close-options.appear,

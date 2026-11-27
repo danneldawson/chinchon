@@ -1004,6 +1004,13 @@ function playShuffle() {
   fx.className = 'shuffle-fx';
   fx.setAttribute('aria-hidden', 'true');
   if (typeof fx.animate !== 'function') return; // no Web Animations: sound only
+  // Shuffle first, then deal (Dannel, Nov 27): the new hands stay hidden
+  // while the deck is shuffled and only appear as the cards are dealt out.
+  table.classList.add('dealing');
+  state.shuffleGate.then(() => {
+    table.classList.remove('dealing');
+    onceAnimate($('hand'), 'deal-anim');
+  });
   const tr = table.getBoundingClientRect();
   const cx = tr.width / 2;
   const cy = tr.height / 2;
