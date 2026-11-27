@@ -106,7 +106,7 @@ test('enter refuses a token that was idle-removed and does not mint a member', a
 
 test('the self-heal posts the old token, and the idle-removed list is documented as persisted', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-  assert.match(app, /\/api\/lobby\/enter', \{ name: state\.lobbyName, token: state\.lobbyToken \}/);
+  assert.match(app, /\/api\/lobby\/enter', \{ name: state\.lobbyName, token: state\.lobbyToken, build: PAGE_BUILD \}/);
   assert.match(app, /if \(r2 && r2\.removed === 'idle'\)/);
   const src = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   const comment = src.slice(src.indexOf('idleRemoved: new Map()') - 400, src.indexOf('idleRemoved: new Map()'));

@@ -938,6 +938,24 @@ function actQ(which) {
   return '&act=1';
 }
 
+// A tab loaded before a redeploy keeps running old code. When the server's
+// build id differs from the one this page loaded with, reload once; the
+// saved seat brings the player straight back into the same hand.
+const PAGE_BUILD = (() => {
+  const el = document.querySelector('script[src*="app.js?v="]');
+  const m = el && el.getAttribute('src').match(/[?&]v=([^&]+)/);
+  return m ? m[1] : null;
+})();
+function staleBuild(build) {
+  if (!build || !PAGE_BUILD || build === PAGE_BUILD) return false;
+  try {
+    if (sessionStorage.getItem('chinchon-reloaded-for') === build) return false;
+    sessionStorage.setItem('chinchon-reloaded-for', build);
+  } catch { return false; }
+  location.reload();
+  return true;
+}
+
 async function poll() {
   // If we've already left the room (code cleared), don't fetch or redirect.
   // A poll in-flight when Leave was clicked must not call goToLobby().
@@ -948,6 +966,7 @@ async function poll() {
   // If this seat is no longer in the room (kicked, or left), drop back to lobby.
   // Match on the player id the server returns in scoreboard entries — not on
   // p.seat, which the server never sends (the old code assumed it did).
+  if (staleBuild(res.build)) return;
   if (res.error || (res.scoreboard && !res.scoreboard.some((p) => p.id === state.seatId))) {
     goToLobby();
     return;
@@ -2471,7 +2490,7 @@ async function enterLobby() {
   const name = $('lobby-name').value.trim();
   if (!name) { $('lobby-name').focus(); enteringLobby = false; return; }
   $('btn-lobby-enter').disabled = true;
-  const res = await postJson('/api/lobby/enter', { name }).then((r) => r.json()).catch(() => null);
+  const res = await postJson('/api/lobby/enter', { name, build: PAGE_BUILD }).then((r) => r.json()).catch(() => null);
   $('btn-lobby-enter').disabled = false;
   enteringLobby = false;
   if (!res || res.error) {
@@ -2506,6 +2525,7 @@ async function lobbyPoll() {
   if (!state.lobbyToken) return;
   const res = await fetch(`/api/lobby/state?token=${state.lobbyToken}${actQ('lobby')}`).then((r) => r.json()).catch(() => null);
   if (!res) return;
+  if (staleBuild(res.build)) return;
   // Removed for being idle 30 min (Nov 3, 2026): back to the start screen,
   // with a note, instead of the self-heal below quietly re-entering.
   if (res.removed === 'idle') { backToLanding(t('idleRemoved')); return; }
@@ -2514,7 +2534,7 @@ async function lobbyPoll() {
   // visible instead of showing "Players here (0)". Guard against a loop.
   if (!lobbyPoll._healing && state.lobbyName && !res.members.some((m) => m.name === state.lobbyName)) {
     lobbyPoll._healing = true;
-    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName, token: state.lobbyToken }).then((r) => r.json()).catch(() => null);
+    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName, token: state.lobbyToken, build: PAGE_BUILD }).then((r) => r.json()).catch(() => null);
     if (r2 && r2.removed === 'idle') { lobbyPoll._healing = false; backToLanding(t('idleRemoved')); return; }
     if (r2 && r2.token) {
       state.lobbyToken = r2.token;
