@@ -46,5 +46,6 @@ test('our own errors still show, with file:line', () => {
 
 test('the page loads no cross-origin script', () => {
   const srcs = [...HTML.matchAll(/<script[^>]*src="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepStrictEqual(srcs, ['/app.js']);
+  // Same-origin only: the synthesised card sounds (Nov 23, 2026) load first.
+  assert.deepStrictEqual(srcs, ['/sound.js', '/app.js']);
 });

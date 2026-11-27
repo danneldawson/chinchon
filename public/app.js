@@ -110,6 +110,7 @@ const I18N = {
     deckLabel: 'Card deck',
     deckClassic: 'Classic',
     deckStained: 'Stained Glass',
+    deckBirra: 'Birra',
     // Additional UI strings missing from EN
     rulesTitle: 'How to play',
     backToCreate: '← Back to create',
@@ -133,6 +134,8 @@ const I18N = {
     joinCodePlaceholder: 'e.g. LUNA',
     roundOverTitle: 'Round over',
     nextRound: 'Next round',
+    soundOn: 'Sound on (tap to mute)',
+    soundOff: 'Sound off (tap to turn on)',
     waitingNextRound: 'Waiting for the next round...',
     errNotYourTurn: 'It is not your turn.',
     errNotDrawPhase: 'You have already drawn. Discard a card.',
@@ -198,6 +201,7 @@ const I18N = {
     deckLabel: 'Baraja',
     deckClassic: 'Clásica',
     deckStained: 'Vitral',
+    deckBirra: 'Birra',
     rules: 'Reglas',
     leave: 'Salir',
     // Additional UI strings missing from ES
@@ -235,6 +239,8 @@ const I18N = {
     makeANewGame: 'Crear una partida nueva',
     roundOverTitle: 'Fin de la ronda',
     nextRound: 'Siguiente ronda',
+    soundOn: 'Sonido activado (toca para silenciar)',
+    soundOff: 'Sonido desactivado (toca para activarlo)',
     waitingNextRound: 'Esperando la siguiente ronda...',
     errNotYourTurn: 'No es tu turno.',
     errNotDrawPhase: 'Ya has robado. Descarta una carta.',
@@ -374,6 +380,7 @@ function showCreatePane() {
   // One thumbnail for the picker. The 40 card faces stay unloaded until a
   // room actually uses the stained-glass deck.
   loadDeckPreview('deck-stained-preview');
+  loadDeckPreview('deck-birra-preview', 'birra');
 }
 function showSoloPane() {
   $('solo-pane').classList.remove('hidden');
@@ -382,10 +389,11 @@ function showSoloPane() {
   $('room-info').classList.add('hidden');
   applyDeckChoice(rememberedCardDeck(), false);
   loadDeckPreview('deck-stained-preview-solo');
+  loadDeckPreview('deck-birra-preview-solo', 'birra');
 }
-function loadDeckPreview(id) {
+function loadDeckPreview(id, deck = 'stained-glass') {
   const preview = document.getElementById(id);
-  if (preview && !preview.getAttribute('src')) preview.src = '/decks/stained-glass/preview.webp';
+  if (preview && !preview.getAttribute('src')) preview.src = deck === 'birra' ? '/decks/birra/preview.webp' : '/decks/stained-glass/preview.webp';
 }
 // The waiting-for-the-match screen: the room code, the players and the countdown
 // — and nothing else. The create/join panes come down with it, otherwise the join
@@ -480,6 +488,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   // Callers that omit a deck (older clients) leave the field off. The server
   // then keeps Classic, which is also the first-time default.
   if (deck === 'stained-glass' || deck === 'classic') payload.deck = deck;
+  else if (deck === 'birra') payload.deck = deck;
   const res = await postJson('/api/room/new', payload).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
@@ -836,6 +845,8 @@ async function playWatch() {
   let finished = false;
   try {
     while (state.watchPlaying && state.shadow && state.watchQueue && state.watchQueue.length) {
+      // A new deal's shuffle plays first; the bots' opening moves wait for it.
+      if (state.shuffleGate) { await state.shuffleGate; continue; }
       const delay = watchDelay();
       const step = state.watchQueue.shift();
       if (!state.seenSteps) state.seenSteps = new Set();
@@ -844,7 +855,9 @@ async function playWatch() {
       window.__watchMarks.push({ seq: step.seq, type: step.type, seat: step.seat, t: Date.now() });
       // Your own draw and discard are already on your screen. Apply them with
       // no travel and no wait, then keep going.
+      const snd = window.ChinchonSound ? window.ChinchonSound.soundForStep(step) : null;
       if (mine && step.type !== 'close' && step.type !== 'falseClose' && step.type !== 'lay' && step.type !== 'attach') {
+        playSound(snd);
         applyWatchStep(state.shadow, step);
         saveStepCursor(step.seq);
         render();
@@ -865,11 +878,13 @@ async function playWatch() {
       }
       if (step.type === 'draw') {
         const from = step.from === 'discard' ? $('discard') : $('stock');
+        playSound(snd); // the card leaves the pile
         await flyCard(from, seatEl(step.seat), step.card, step.from === 'stock' && !step.card, travel);
       } else if (step.type === 'discard') {
         await flyCard(seatEl(step.seat), $('discard'), step.card, false, travel);
       }
       if (!state.watchPlaying || !state.shadow) break;
+      if (step.type !== 'draw') playSound(snd); // the card lands / the melds hit the felt
       applyWatchStep(state.shadow, step);
       saveStepCursor(step.seq);
       render();
@@ -953,10 +968,107 @@ async function poll() {
       return;
     }
   }
+  const prevView = state.view;
   state.view = res;
+  if (window.ChinchonSound && window.ChinchonSound.shouldShuffle(prevView, res)) playShuffle();
   ingestSteps(res);
   render();
 }
+
+// ---- Sounds and the between-round shuffle (Nov 23, 2026, Dannel) ----
+// public/sound.js synthesises every sound (no audio files). Each watched-turn
+// step sounds once, as it is dequeued in playWatch, for your own moves and
+// everyone else's alike. A snap (fresh tab, reconnect, too far behind) plays
+// nothing, so nothing double-fires or replays a burst of old sounds.
+function playSound(name) {
+  if (name && window.ChinchonSound) window.ChinchonSound.play(name);
+}
+const SHUFFLE_MS = 1500;
+// A new deal: the cards gather into a deck, split in two, riffle together,
+// spring into a bridge, square up and deal out to the seats. Purely visual:
+// pointer-events none, transform/opacity only, and the round itself is
+// already live on the server (your controls follow it as always). The
+// bots' opening replay waits for it (state.shuffleGate).
+function playShuffle() {
+  playSound('shuffle');
+  const table = $('table');
+  if (!table || !table.getBoundingClientRect || (document.hidden)) return;
+  const reduced = reducedMotion();
+  const ms = reduced ? 300 : SHUFFLE_MS;
+  state.shuffleGate = new Promise((r) => setTimeout(r, ms)).then(() => { state.shuffleGate = null; });
+  if (reduced) return; // no motion: the sound alone marks the new deal
+  const old = document.getElementById('shuffle-fx');
+  if (old) old.remove();
+  const fx = document.createElement('div');
+  fx.id = 'shuffle-fx';
+  fx.className = 'shuffle-fx';
+  fx.setAttribute('aria-hidden', 'true');
+  if (typeof fx.animate !== 'function') return; // no Web Animations: sound only
+  const tr = table.getBoundingClientRect();
+  const cx = tr.width / 2;
+  const cy = tr.height / 2;
+  // Where the deal goes: each seat on the rim, you included.
+  const seats = [...document.querySelectorAll('#opponents .seat, #me-seat')]
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width)
+    .map((r) => [r.left + r.width / 2 - tr.left - cx, r.top + r.height / 2 - tr.top - cy]);
+  if (!seats.length) seats.push([0, tr.height / 2]);
+  const N = 12;
+  const anims = [];
+  const at = (x, y, r, s) => `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${(r || 0).toFixed(1)}deg)${s ? ` scale(${s})` : ''}`;
+  for (let k = 0; k < N; k++) {
+    const c = document.createElement('div');
+    c.className = 'shuffle-card';
+    fx.appendChild(c);
+    const side = k % 2 ? 1 : -1; // which half after the cut
+    const h = Math.floor(k / 2); // height within its half
+    const lift = -k * 0.6;
+    const ang = (k / N) * Math.PI * 2;
+    const sx = Math.cos(ang) * cx * 0.55;
+    const sy = Math.sin(ang) * cy * 0.45;
+    const drop = 0.30 + 0.30 * (k / N); // the riffle: alternating halves fall in turn
+    const deal = 0.80 + 0.14 * (k / N);
+    const [dx, dy] = seats[k % seats.length];
+    c.style.left = (cx - 23) + 'px';
+    c.style.top = (cy - 33) + 'px';
+    c.style.zIndex = String(k);
+    anims.push(c.animate([
+      { offset: 0, transform: at(sx, sy, (k * 47) % 60 - 30), opacity: 0 },
+      { offset: 0.06, transform: at(sx, sy, (k * 47) % 60 - 30), opacity: 1 },
+      { offset: 0.2, transform: at(0, lift, 0), opacity: 1, easing: 'ease-out' },
+      { offset: 0.28, transform: at(side * 34, -h * 0.8, side * -7), opacity: 1 },
+      { offset: drop, transform: at(side * 34, -h * 0.8, side * -7), opacity: 1, easing: 'ease-in' },
+      { offset: drop + 0.04, transform: at(side * 3, lift, 0), opacity: 1 },
+      { offset: 0.64, transform: at(0, lift, 0), opacity: 1, easing: 'ease-out' },
+      { offset: 0.70, transform: at(0, lift - 10 - Math.sin((k / N) * Math.PI) * 8, 0, 1.03), opacity: 1, easing: 'ease-in' },
+      { offset: 0.76, transform: at(0, lift, 0), opacity: 1 },
+      { offset: deal, transform: at(0, lift, 0), opacity: 1, easing: 'ease-in' },
+      { offset: 1, transform: at(dx * 0.85, dy * 0.85, (k * 31) % 40 - 20, 0.7), opacity: 0 },
+    ], { duration: SHUFFLE_MS, fill: 'both' }));
+  }
+  table.appendChild(fx);
+  // Gone the moment the last card is dealt (or after a safety timeout).
+  const done = () => fx.remove();
+  Promise.all(anims.map((a) => a.finished)).then(done, done);
+  setTimeout(done, SHUFFLE_MS * 4);
+}
+// Mute toggle in the game header (remembered in localStorage by sound.js).
+function renderSoundToggle() {
+  const b = $('btn-sound');
+  if (!b || !window.ChinchonSound) return;
+  const muted = window.ChinchonSound.isMuted();
+  b.textContent = muted ? '🔇' : '🔊';
+  b.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  const label = t(muted ? 'soundOff' : 'soundOn');
+  b.setAttribute('aria-label', label);
+  b.title = label;
+}
+$('btn-sound').addEventListener('click', () => {
+  if (!window.ChinchonSound) return;
+  window.ChinchonSound.setMuted(!window.ChinchonSound.isMuted());
+  renderSoundToggle();
+  playSound('tap');
+});
 
 // Visual deck. 'classic' is the original rank + suit-emblem cards. 'stained-glass'
 // swaps every face (hand, discard, tray, melds, reveal, the card in flight) for
@@ -966,27 +1078,34 @@ async function poll() {
 // 1 de Oros (01-oros), not a separate joker.
 const SG_SUIT_FILE = { Oros: 'oros', Copas: 'copas', Espadas: 'espadas', Bastos: 'bastos' };
 const SG_RANK_OK = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 10: 1, 11: 1, 12: 1 };
-let stainedGlassWarmed = false;
+// Art decks share the same file names; only the folder changes.
+const ART_DECKS = { 'stained-glass': 1, birra: 1 };
+function artDeckOf(deck) { return ART_DECKS[deck] ? deck : 'classic'; }
+function artDeckDir() {
+  return typeof state !== 'undefined' && ART_DECKS[state.cardDeck] ? state.cardDeck : 'stained-glass';
+}
+const artDecksWarmed = {};
 
 function noteCardDeck(deck) {
-  state.cardDeck = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  state.cardDeck = deck === 'stained-glass' || deck === 'birra' ? deck : 'classic';
   const game = document.getElementById('game');
-  if (game) game.classList.toggle('deck-stained', state.cardDeck === 'stained-glass');
-  if (state.cardDeck === 'stained-glass') warmStainedGlass();
+  if (game) game.classList.toggle('deck-stained', state.cardDeck !== 'classic');
+  if (state.cardDeck !== 'classic') warmStainedGlass();
 }
 function usingStainedGlass() {
-  return state.cardDeck === 'stained-glass';
+  return state.cardDeck === 'stained-glass' || state.cardDeck === 'birra';
 }
 function stainedGlassSrc(card) {
   const suit = card && SG_SUIT_FILE[card.suit];
   const rank = card && card.rank;
   if (!suit || !SG_RANK_OK[rank]) return '';
   const nn = rank < 10 ? '0' + rank : String(rank);
-  return '/decks/stained-glass/' + nn + '-' + suit + '.webp';
+  return '/decks/' + artDeckDir() + '/' + nn + '-' + suit + '.webp';
 }
 function warmStainedGlass() {
-  if (stainedGlassWarmed || typeof Image === 'undefined') return;
-  stainedGlassWarmed = true;
+  const dir = artDeckDir();
+  if (artDecksWarmed[dir] || typeof Image === 'undefined') return;
+  artDecksWarmed[dir] = true;
   for (const suit of Object.keys(SG_SUIT_FILE)) {
     for (const rank of [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]) {
       const img = new Image();
@@ -998,13 +1117,14 @@ function warmStainedGlass() {
 const DECK_PREF_KEY = 'chinchonDeck';
 function rememberedCardDeck() {
   try {
-    return localStorage.getItem(DECK_PREF_KEY) === 'stained-glass' ? 'stained-glass' : 'classic';
+    const saved = localStorage.getItem(DECK_PREF_KEY);
+    return saved === 'stained-glass' || saved === 'birra' ? saved : 'classic';
   } catch { return 'classic'; }
 }
 // save: write the choice so the next create or solo screen opens on it.
 // Both pickers stay on the same value. Classic is the first-time default.
 function applyDeckChoice(deck, save) {
-  const value = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  const value = artDeckOf(deck);
   if (save) {
     try { localStorage.setItem(DECK_PREF_KEY, value); } catch { /* private mode */ }
   }
@@ -1013,7 +1133,7 @@ function applyDeckChoice(deck, save) {
 }
 function chosenCardDeck(group) {
   const el = document.querySelector(`input[name="${group}"]:checked`);
-  return el && el.value === 'stained-glass' ? 'stained-glass' : 'classic';
+  return artDeckOf(el && el.value);
 }
 applyDeckChoice(rememberedCardDeck(), false);
 document.querySelectorAll('input[data-deck-choice]').forEach((el) => {
@@ -1095,6 +1215,7 @@ function onceAnimate(el, cls) {
 function render() {
   const live = state.view;
   if (!live || !live.started) return;
+  renderSoundToggle();
   noteCardDeck(live.cardDeck);
   // Shadow drives the table (piles, seat ring, felt) while a watched turn
   // replays. canAct/phase stay on the server so your controls unlock the
@@ -2393,7 +2514,8 @@ async function lobbyPoll() {
   // visible instead of showing "Players here (0)". Guard against a loop.
   if (!lobbyPoll._healing && state.lobbyName && !res.members.some((m) => m.name === state.lobbyName)) {
     lobbyPoll._healing = true;
-    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName }).then((r) => r.json()).catch(() => null);
+    const r2 = await postJson('/api/lobby/enter', { name: state.lobbyName, token: state.lobbyToken }).then((r) => r.json()).catch(() => null);
+    if (r2 && r2.removed === 'idle') { lobbyPoll._healing = false; backToLanding(t('idleRemoved')); return; }
     if (r2 && r2.token) {
       state.lobbyToken = r2.token;
       state.lobbyName = r2.name;
