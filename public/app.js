@@ -107,6 +107,7 @@ const I18N = {
     deckLabel: 'Card deck',
     deckClassic: 'Classic',
     deckStained: 'Stained Glass',
+    deckBirra: 'Birra',
     // Additional UI strings missing from EN
     rulesTitle: 'How to play',
     backToCreate: '← Back to create',
@@ -194,6 +195,7 @@ const I18N = {
     deckLabel: 'Baraja',
     deckClassic: 'Clásica',
     deckStained: 'Vitral',
+    deckBirra: 'Birra',
     rules: 'Reglas',
     leave: 'Salir',
     // Additional UI strings missing from ES
@@ -369,6 +371,7 @@ function showCreatePane() {
   // One thumbnail for the picker. The 40 card faces stay unloaded until a
   // room actually uses the stained-glass deck.
   loadDeckPreview('deck-stained-preview');
+  loadDeckPreview('deck-birra-preview', 'birra');
 }
 function showSoloPane() {
   $('solo-pane').classList.remove('hidden');
@@ -377,10 +380,11 @@ function showSoloPane() {
   $('room-info').classList.add('hidden');
   applyDeckChoice(rememberedCardDeck(), false);
   loadDeckPreview('deck-stained-preview-solo');
+  loadDeckPreview('deck-birra-preview-solo', 'birra');
 }
-function loadDeckPreview(id) {
+function loadDeckPreview(id, deck = 'stained-glass') {
   const preview = document.getElementById(id);
-  if (preview && !preview.getAttribute('src')) preview.src = '/decks/stained-glass/preview.webp';
+  if (preview && !preview.getAttribute('src')) preview.src = deck === 'birra' ? '/decks/birra/preview.webp' : '/decks/stained-glass/preview.webp';
 }
 // The waiting-for-the-match screen: the room code, the players and the countdown
 // — and nothing else. The create/join panes come down with it, otherwise the join
@@ -475,6 +479,7 @@ async function createRoom(visibility, bots, learning = false, tutorial = false, 
   // Callers that omit a deck (older clients) leave the field off. The server
   // then keeps Classic, which is also the first-time default.
   if (deck === 'stained-glass' || deck === 'classic') payload.deck = deck;
+  else if (deck === 'birra') payload.deck = deck;
   const res = await postJson('/api/room/new', payload).then((r) => r.json()).catch(() => null);
   if (!res || !res.code) { if (status) status.textContent = t('createRoomError'); return; }
   state.code = res.code;
@@ -1064,27 +1069,34 @@ $('btn-sound').addEventListener('click', () => {
 // 1 de Oros (01-oros), not a separate joker.
 const SG_SUIT_FILE = { Oros: 'oros', Copas: 'copas', Espadas: 'espadas', Bastos: 'bastos' };
 const SG_RANK_OK = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 10: 1, 11: 1, 12: 1 };
-let stainedGlassWarmed = false;
+// Art decks share the same file names; only the folder changes.
+const ART_DECKS = { 'stained-glass': 1, birra: 1 };
+function artDeckOf(deck) { return ART_DECKS[deck] ? deck : 'classic'; }
+function artDeckDir() {
+  return typeof state !== 'undefined' && ART_DECKS[state.cardDeck] ? state.cardDeck : 'stained-glass';
+}
+const artDecksWarmed = {};
 
 function noteCardDeck(deck) {
-  state.cardDeck = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  state.cardDeck = deck === 'stained-glass' || deck === 'birra' ? deck : 'classic';
   const game = document.getElementById('game');
-  if (game) game.classList.toggle('deck-stained', state.cardDeck === 'stained-glass');
-  if (state.cardDeck === 'stained-glass') warmStainedGlass();
+  if (game) game.classList.toggle('deck-stained', state.cardDeck !== 'classic');
+  if (state.cardDeck !== 'classic') warmStainedGlass();
 }
 function usingStainedGlass() {
-  return state.cardDeck === 'stained-glass';
+  return state.cardDeck === 'stained-glass' || state.cardDeck === 'birra';
 }
 function stainedGlassSrc(card) {
   const suit = card && SG_SUIT_FILE[card.suit];
   const rank = card && card.rank;
   if (!suit || !SG_RANK_OK[rank]) return '';
   const nn = rank < 10 ? '0' + rank : String(rank);
-  return '/decks/stained-glass/' + nn + '-' + suit + '.webp';
+  return '/decks/' + artDeckDir() + '/' + nn + '-' + suit + '.webp';
 }
 function warmStainedGlass() {
-  if (stainedGlassWarmed || typeof Image === 'undefined') return;
-  stainedGlassWarmed = true;
+  const dir = artDeckDir();
+  if (artDecksWarmed[dir] || typeof Image === 'undefined') return;
+  artDecksWarmed[dir] = true;
   for (const suit of Object.keys(SG_SUIT_FILE)) {
     for (const rank of [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]) {
       const img = new Image();
@@ -1096,13 +1108,14 @@ function warmStainedGlass() {
 const DECK_PREF_KEY = 'chinchonDeck';
 function rememberedCardDeck() {
   try {
-    return localStorage.getItem(DECK_PREF_KEY) === 'stained-glass' ? 'stained-glass' : 'classic';
+    const saved = localStorage.getItem(DECK_PREF_KEY);
+    return saved === 'stained-glass' || saved === 'birra' ? saved : 'classic';
   } catch { return 'classic'; }
 }
 // save: write the choice so the next create or solo screen opens on it.
 // Both pickers stay on the same value. Classic is the first-time default.
 function applyDeckChoice(deck, save) {
-  const value = deck === 'stained-glass' ? 'stained-glass' : 'classic';
+  const value = artDeckOf(deck);
   if (save) {
     try { localStorage.setItem(DECK_PREF_KEY, value); } catch { /* private mode */ }
   }
@@ -1111,7 +1124,7 @@ function applyDeckChoice(deck, save) {
 }
 function chosenCardDeck(group) {
   const el = document.querySelector(`input[name="${group}"]:checked`);
-  return el && el.value === 'stained-glass' ? 'stained-glass' : 'classic';
+  return artDeckOf(el && el.value);
 }
 applyDeckChoice(rememberedCardDeck(), false);
 document.querySelectorAll('input[data-deck-choice]').forEach((el) => {
