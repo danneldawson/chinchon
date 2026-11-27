@@ -994,6 +994,19 @@ function closeAvailable(hand, total = null) {
   return false;
 }
 
+// Per-card gate for "Discard & close". Ids only, plus a short reason code when
+// throwing that card does not leave a legal close of the other seven. No meld
+// lists. null unless this is an 8-card discard turn.
+function closeCardsFor(hand, total = null) {
+  if (!Array.isArray(hand) || hand.length !== scoring.HAND_SIZE + 1) return null;
+  return hand.map((card) => {
+    const kept = hand.filter((c) => c.id !== card.id);
+    const check = scoring.canClose(kept, total);
+    if (check.ok) return { id: card.id, ok: true };
+    return { id: card.id, ok: false, reason: check.overHundred ? 'over' : 'no' };
+  });
+}
+
 // Nov 3, 2026 (Dannel: "place a distinctive marker when someone is in the
 // process of closing"). A player in close mode tells the server; everyone sees
 // a "Closing…" badge on that seat. It only counts while that player is still
@@ -1002,6 +1015,9 @@ function closingSeatOf(room) {
   const c = room && room.closing;
   const st = room && room.state;
   if (!c || !st || room.layoff) return null;
+  // After Discard & close the card is already gone and the close is committed.
+  // The seat stays "Closing…" while they arrange the seven.
+  if (st.phase === 'arrange' && st.closerIndex != null) return st.closerIndex;
   if (st.turn !== c.seat || st.phase !== 'discard') return null;
   // Same turn only: the hand changes with every draw and discard.
   if (handKeyOf(st.hands[c.seat]) !== c.handKey) return null;
@@ -1207,7 +1223,7 @@ function serialize(room, seatId, since) {
       : null,
     phase: state.phase,
     turnSeat: state.turn,
-    isYourTurn: !tutorialPaused && (state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard') || layoffYourTurn),
+    isYourTurn: !tutorialPaused && (state.turn === viewerSeat && (state.phase === 'draw' || state.phase === 'discard' || state.phase === 'arrange') || layoffYourTurn),
     layoff: layoffView,
     stockCount: state.stock.length,
     lastReshuffle: room.lastReshuffle || 0,
@@ -1219,6 +1235,10 @@ function serialize(room, seatId, since) {
     lastDrawnId: state.lastDrawn ? state.lastDrawn.id : null,
     yourDeadwood: split.deadwood,
     canClose: canCloseNow,
+    // Which of YOUR 8 cards may be the closing discard. Absent for everyone else.
+    closeCards: (state.turn === viewerSeat && state.phase === 'discard')
+      ? closeCardsFor(hand, match.players[viewerSeat] ? match.players[viewerSeat].total : null)
+      : null,
     // R24: a false close shows that player's hand to everyone until their next
     // discard (or the end of the round).
     falseClose: state.falseClose
@@ -1772,6 +1792,9 @@ function handleApi(req, res, url) {
         return sendJson(res, 200, { closingSeat: closingSeatOf(room) });
       }
       if (!viewer || room.state.turn !== viewer.seat) return sendJson(res, 400, { error: 'not your turn' });
+      // Arranging is already a committed close. Don't clear the marker, and
+      // don't reject the cosmetic "Closing…" ping the client sends.
+      if (room.state.phase === 'arrange') return sendJson(res, 200, { closingSeat: closingSeatOf(room) });
       if (room.state.phase !== 'discard' || room.layoff) return sendJson(res, 400, { error: 'not the discard phase' });
       room.closing = { seat: viewer.seat, handKey: handKeyOf(room.state.hands[viewer.seat]), at: Date.now() };
       return sendJson(res, 200, { closingSeat: viewer.seat });
@@ -1793,6 +1816,26 @@ function handleApi(req, res, url) {
       // declaration: valid -> the round closes and those melds go on the table;
       // invalid -> a false close (R24: the hand is shown, play continues).
       let verdict = null;
+      // Discard & close, with no meld list yet: the throw is legal only when the
+      // other seven can close. The card hits the discard now and the close is
+      // committed; arranging those seven is a later confirm.
+      if (body.close && !Array.isArray(body.melds)) {
+        if (hand.length !== scoring.HAND_SIZE + 1) return sendJson(res, 400, { error: 'draw a card before closing' });
+        const kept = hand.filter((x) => x.id !== card.id);
+        const check = scoring.canClose(kept, room.match.players[viewer.seat].total);
+        if (!check.ok) {
+          return sendJson(res, 400, { error: check.overHundred ? scoring.OVER_100_REASON : 'throwing this card does not close' });
+        }
+        room.state.hands[viewer.seat] = kept;
+        room.state.discard.push(card);
+        room.state.lastDrawn = null;
+        room.state.falseClose = room.state.falseClose && room.state.falseClose.seat === viewer.seat ? null : room.state.falseClose;
+        room.state.closerIndex = viewer.seat;
+        room.state.phase = 'arrange';
+        room.closing = { seat: viewer.seat, handKey: handKeyOf(kept), at: Date.now() };
+        steps.recordDiscard(room, viewer.seat, card, { ok: true });
+        return sendJson(res, 200, serialize(room, body.seat));
+      }
       if (body.close) {
         if (!Array.isArray(body.melds) || !body.melds.length || !body.melds.every(Array.isArray)) {
           return sendJson(res, 400, { error: 'lay out your combinations to close' });
@@ -1823,6 +1866,44 @@ function handleApi(req, res, url) {
       if (res2.closed && verdict) room.pendingCloseChoice = verdict;
       steps.recordDiscard(room, viewer.seat, card, res2);
       runBotTurns(room);
+      return sendJson(res, 200, serialize(room, body.seat));
+    });
+  }
+
+  // The seven are already the hand and the close is committed. Confirm lays
+  // those melds. A bad grouping does not reopen discard or Close.
+  if (method === 'POST' && p === '/api/close-confirm') {
+    return withRoomState((body, room) => {
+      const viewer = room.players.find((pl) => pl.id === body.seat);
+      if (!viewer || room.state.turn !== viewer.seat || room.state.closerIndex !== viewer.seat) {
+        return sendJson(res, 400, { error: 'not your turn' });
+      }
+      if (room.state.phase !== 'arrange') return sendJson(res, 400, { error: 'not arranging a close' });
+      if (room.tutorial && room.tutorialPaused) return sendJson(res, 409, { error: 'read the rule first', tutorialPause: true });
+      if (!Array.isArray(body.melds) || !body.melds.length || !body.melds.every(Array.isArray)) {
+        return sendJson(res, 400, { error: 'lay out your combinations to close' });
+      }
+      const hand = room.state.hands[viewer.seat];
+      const seen = new Set();
+      const groups = [];
+      for (const ids of body.melds) {
+        const g = [];
+        for (const id of ids) {
+          if (seen.has(id)) return sendJson(res, 400, { error: 'a card is in two combinations' });
+          const c = hand.find((x) => x.id === id);
+          if (!c) return sendJson(res, 400, { error: 'you do not hold that card' });
+          seen.add(id);
+          g.push(c);
+        }
+        groups.push(g);
+      }
+      const verdict = scoring.validateDeclaredClose(hand, groups, room.match.players[viewer.seat].total);
+      if (!verdict.ok) return sendJson(res, 400, { error: verdict.reason });
+      room.pendingCloseChoice = verdict;
+      room.closing = null;
+      room.state.phase = 'closed';
+      steps.pushStep(room, { type: 'close', seat: viewer.seat, melds: groups });
+      beginLayoffForRoom(room);
       return sendJson(res, 200, serialize(room, body.seat));
     });
   }
