@@ -1027,6 +1027,18 @@ function handKeyOf(hand) {
   return (hand || []).map((c) => c.id).sort().join(',');
 }
 
+// Build id from asset mtimes: busts ?v= on the page, and rides on every state
+// so a tab opened before a redeploy knows to reload (Dannel, Nov 26).
+function assetVersion() {
+  try {
+    const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
+    const s = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
+    let snd = 0;
+    try { snd = fs.statSync(path.join(PUBLIC_DIR, 'sound.js')).mtimeMs; } catch { /* optional */ }
+    return Math.round(a + s + snd).toString(36);
+  } catch { return '1'; }
+}
+
 function serialize(room, seatId, since) {
   // Auto-start a pending room once its window elapses (no hold). Handles both
   // rematch pending and a freshly created room's countdown.
@@ -1187,6 +1199,7 @@ function serialize(room, seatId, since) {
   const tutorialPaused = !!room.tutorialPaused && tutorialActive;
 
   return {
+    build: assetVersion(),
     code: room.code,
     mode: room.mode,
     cardDeck: cardDeckOf(room.cardDeck),
@@ -2030,15 +2043,7 @@ function createServer() {
       if (err) { res.writeHead(404); return res.end('not found'); }
       // Cache-bust: derive a version from asset mtimes so every edit to
       // app.js/style.css forces browsers to refetch (no manual hard-refresh).
-      const ver = (() => {
-        try {
-          const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
-          const s = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
-          let snd = 0;
-          try { snd = fs.statSync(path.join(PUBLIC_DIR, 'sound.js')).mtimeMs; } catch { /* optional */ }
-          return Math.round(a + s + snd).toString(36);
-        } catch { return '1'; }
-      })();
+      const ver = assetVersion();
       if (path.extname(filePath) === '.html') {
         let html = data.toString();
         html = html.replace('/app.js"', `/app.js?v=${ver}"`);
