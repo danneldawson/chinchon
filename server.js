@@ -174,6 +174,7 @@ function activitySummary(now = Date.now()) {
 
 function lobbyState() {
   return {
+    build: assetVersion(),
     members: [...lobby.members.values()].map((m) => ({ name: m.name })),
     total: lobby.members.size,
     chat: lobby.chat,
@@ -1375,6 +1376,10 @@ function handleApi(req, res, url) {
   // ---- global lobby ----------------------------------------------------
   if (method === 'POST' && p === '/api/lobby/enter') {
     return readBody(req).then((body) => {
+      // A tab running an old build re-enters itself with its saved token
+      // after every restart, so a name lingers for days (Nov 27, Dannel).
+      // Current pages send their build; one that doesn't is told to reload.
+      if (body.token && !lobby.idleRemoved.has(body.token) && !body.build) return sendJson(res, 409, { reload: true, error: 'reload' });
       const entered = lobbyEnter(body.name, body.token);
       if (entered.removed === 'idle') return sendJson(res, 403, { removed: 'idle', error: 'idle' });
       if (entered.error) return sendJson(res, 400, { error: entered.error });
