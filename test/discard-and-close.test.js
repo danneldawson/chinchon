@@ -156,3 +156,18 @@ test('the arrange step offers only Confirm, and a legal selection groups itself'
     assert.strictEqual(legalMeld(cards), isValidMeld(cards), cards.map((x) => x.id).join(','));
   }
 });
+
+// Dannel, Nov 26: four 7s, three 5s and a 6 de oros. Throwing the 6 must
+// leave a close, so Discard & close is open for it.
+test('four 7s, three 5s and a 6: throwing the 6 closes', async () => {
+  const seat = await discardTurn('multi');
+  const hand = ['7-Bastos-0', '7-Copas-0', '7-Espadas-0', '7-Bastos-1', '5-Espadas-0', '5-Bastos-0', '5-Copas-0', '6-Oros-0'];
+  const rig = await api('POST', '/api/test/rig', { code: seat.code, seat: seat.me, cardIds: hand });
+  assert.strictEqual(rig.status, 200);
+  const v = await state(seat.code, seat.me);
+  assert.strictEqual(v.canClose, true);
+  const six = v.closeCards.find((c) => c.id === '6-Oros-0');
+  assert.strictEqual(six.ok, true);
+  const r = await api('POST', '/api/discard', { code: seat.code, seat: seat.me, cardId: '6-Oros-0', close: true });
+  assert.strictEqual(r.status, 200, JSON.stringify(r.json));
+});
