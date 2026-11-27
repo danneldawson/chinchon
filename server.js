@@ -232,6 +232,13 @@ function roomChatEnabled(room) {
 function seatHandCount(room, i) {
   const lo = room.layoff;
   if (lo && lo.remaining && Array.isArray(lo.remaining[i])) return lo.remaining[i].length;
+  // After the lay-off (round end, game over) the hand is what was left over,
+  // not the pre-close 7 (Nov 27, Dannel: fans kept showing seven).
+  const ph = room.state && room.state.phase;
+  if ((ph === 'roundEnd' || ph === 'over') && Array.isArray(room.lastRound)) {
+    const r = room.lastRound.find((x) => x.seat === i);
+    if (r && r.playing) return r.cards.length;
+  }
   const h = room.state && room.state.hands && room.state.hands[i];
   return h ? h.length : 0;
 }
