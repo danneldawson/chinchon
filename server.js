@@ -341,7 +341,7 @@ function pickFamilyBots(n) {
 // value stays on the original emblem deck, so saved rooms and older clients
 // keep the look they already have.
 function cardDeckOf(value) {
-  return value === 'stained-glass' ? 'stained-glass' : 'classic';
+  return value === 'stained-glass' || value === 'birra' ? value : 'classic';
 }
 
 function createRoom({ mode, name, bots, lobbyToken, visibility, countdownMs, learning, tutorial, deck }) {
