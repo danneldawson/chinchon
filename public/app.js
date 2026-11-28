@@ -1718,6 +1718,14 @@ function legalMeld(cards) {
 }
 window.__legalMeld = legalMeld;
 
+// A refused Confirm leaves its reason in the status line, and laying or
+// lifting a group doesn't change the round/turn/phase key that normally clears
+// it. Clear it on every arrange edit so an old refusal never looks current.
+function clearArrangeError() {
+  const el = $('status');
+  if (el) el.textContent = '';
+}
+
 // Arrange step: taps build a selection. A legal set or run groups on its own.
 // Tapping a card that is already in a group takes that card back out.
 function arrangeTap(id) {
@@ -1731,8 +1739,24 @@ function arrangeTap(id) {
     if (legalMeld(rest)) cm.groups[gi] = rest.map((c) => c.id);
     else cm.groups.splice(gi, 1);
     cm.msg = '';
+    clearArrangeError();
     render();
     return;
+  }
+  // A loose card that extends a laid group joins it: three 11s group on their
+  // own, so the fourth 11 (or the next card of a run) must be able to join, or
+  // a 4+3 clean close (-10) can never be laid. Only with nothing selected, so
+  // a fresh selection is never hijacked.
+  if (!cm.sel.size) {
+    const card = byId.get(id);
+    const gj = cm.groups.findIndex((g) => legalMeld([...g.map((x) => byId.get(x)).filter(Boolean), card]));
+    if (card && gj >= 0) {
+      cm.groups[gj] = [...cm.groups[gj], id];
+      cm.msg = '';
+      clearArrangeError();
+      render();
+      return;
+    }
   }
   if (cm.sel.has(id)) cm.sel.delete(id);
   else cm.sel.add(id);
@@ -1742,6 +1766,7 @@ function arrangeTap(id) {
     cm.sel.clear();
   }
   cm.msg = '';
+  clearArrangeError();
   render();
 }
 
@@ -1754,6 +1779,7 @@ function makeMeld() {
   cm.groups.push([...cm.sel]);
   cm.sel.clear();
   cm.msg = '';
+  clearArrangeError();
   render();
 }
 
